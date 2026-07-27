@@ -1,0 +1,47 @@
+# Urban Eredan
+
+## Contexte
+Urban Eredan est un jeu de cartes qui se fait s'affronter deux équipes de combattants. Chaque équipe est composée de 4 combattants. Une partie est constituée d'au maximum 4 duels faisant s'opposer un membre de chaque équipe à chaque fois. La partie se termine soit lorsque l'un des deux joueurs est KO, soit à la fin des 4 duels, le gagnant étant le joueur avec le plus de vie restante.
+
+## Composants principaux
+- Cartes Glyphes : ce sont les cartes qui vont permettre de booster les combattants au cours de chaque duel. Chaque Glyphe a deux propriété : une Puissance et une Energie. En terme de notation, un Glyphe avec une Puissance de X et une Energie de Y est noté "X/Y" La Puissance s'ajoute à la puissance du combattant, et l'Energie détermine combien de Capacités du combattants sont activées pendant le duel. Elles sont réparties comme suit :
+  - 2 cartes 6 Puissances / 0 Energie
+  - 4 cartes 4 Puissances / 1 Energie
+  - 4 cartes 2 Puissance / 2 Energies
+  - 2 cartes 0 Puissance / 3 Energies
+- Cartes Combattant : ce sont les membres de chaque équipe. Chaque Combattant possède les caractéristiques suivantes :
+  - Nom
+  - Puissance
+  - Dégâts
+  - Pouvoir 1, 2 et 3
+- Suivi de Points de Vie (PV, matérialisé par une carte dans le jeu physique et par un compteur dans le jeu vidéo).
+
+## Mise en place
+- Chaque joueur récupère son équipe de 4 combattants.
+  - Pour une partie initiation, les combattants sont distribués aléatoirement
+  - Pour une partie avancée, les joueurs peuvent soit préconstruire leur équipe avec leur exemplaire du jeu, soit effectuer un draft avec l'ensemble des personnages présents dès le départ et un tour de bannissement où chaque joueur pourra retirer un personnage parmi ceux disponibles.
+- Chaque joueur initie ses PV à 12
+- Mélangez le deck de cartes Glyphes, distribuez-en 5 à chaque joueur, et remettez les deux dernières dans la boîte
+- Le premier joueur est désigné aléatoirement
+
+## Pouvoir
+Les pouvoirs des Combattants sont définis à partir d'un ou plusieurs mots clés auxquels peuvent être attribués des valeurs. Il existe trois sortent de mots clés :
+- Effet : détermine ce que fait le pouvoir
+- Condition : détermine sous quelle condition le pouvoir peut s'appliquer
+- Modificateur : détermine combien de fois le pouvoir est appliqué
+
+## Structure d'une partie
+La partie se déroule comme une succession de duels. Chaque duel suit la structure suivante :
+1. Le premier joueur (J1) choisit son combattant
+2. Le second joueur (J2) choisit son combattant
+3. Les deux joueurs choisissent simultanément un Glyphe de leurs mains qu'ils jouent face cachée à côté de leur combattant 
+4. Une fois les deux Glyphes choisis, ils sont révélés
+5. En commençant par J1, les joueurs résolvent autant de Pouvoirs de leurs combattant que la valeur d'Energie du Glyphe qui lui est attribué. Les pouvoirs sont activés dans l'ordre dans lequel ils sont donnés. Par exemple, J1 a joué un Glyphe 2/2, il va donc activer le Pouvoir 1 et 2 de son Combattant. Pour activer le Pouvoir 3, il aurait fallu qu'il joue un Glyphe 0/3.
+6. La Puissance totale de chaque Combattant est définie par sa Puissance de base à laquelle s'ajoute la puissance du Glyphe qui lui est associé le tout modifié par les Pouvoirs activés des deux combattants
+7. Le Combattant avec la meilleure Puissance totale remporte le duel. En cas d'égalité, les deux Combattants remportent le duel.
+8. Le ou les Combattants ayant remporté le duel réduisent les PV adverses d'un montant égal à leurs Dégâts (éventuellement modifiés par les Pouvoirs)
+9. S'il reste encore au moins 1 Combattant à chaque joueur et qu'aucun n'est KO (PV supérieur à 0), alors un nouveau duel commence. Le premier joueur du nouveau duel est le gagnant du duel précédent. En cas de double victoire, c'est J2 devient J1, et inversement.
+
+## Fin de partie
+Si après un duel, un joueur n'a plus de points de vie, il perd immédiatement la partie.
+Après les 4 duels, le joueur avec le plus de vie restante remporte la partie.

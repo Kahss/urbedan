@@ -1,0 +1,21 @@
+Capacités,Type,Effet
++/- Dégâts,Effet,Augmente / réduit les dégâts perso / ennemis de X
++/- Puissance,Effet,Augmente / réduit la puissance perso / ennemis de X
++/- Attaque,Effet,Augmente / réduit l'attaque perso / ennemis de X
++/- Vie,Effet,Augmente / réduit la vie perso / ennemis de X
+Stop pouvoir X,Effet,Annule le pouvoir X. Priorité au défenseur
+Protection,Effet,Annule modification de puissance / dégâts / attaque / pouvoir
+Échange puissance / dégâts,Effet,Echange les puissances / dégâts des deux combattants avant modification
+Copie pouvoir X,Effet,Copie le pouvoir X adverse
+Vampirisme X,Effet,Réduit de X les pv adverses et gagne X pv
+Victoire,Condition,En cas de victoire
+Défaite,Condition,En cas de défaite
+Surpuissance,Condition,En cas de victoire avec une puissance totale supérieure ou égale au double de la puissance totale adverse
+Courage,Condition,Si joué en premier
+Riposte,Condition,Si joué en second
+Vengeance,Condition,Si l'adversaire a plus de vie
+Domination,Condition,Si l'adversaire a moins de vie
+Patience,Modificateur,Applique l'effet autant de fois que le tour actuel
+Impatience,Modificateur,"Applique l'effet autant de fois que le nombre de tour qu'il reste à jouer, celui-ci compris"
+Par énergie,Modificateur,Multiplié par l'énergie jouée
+Contrecoup,Modificateur,Appliqué à soi-même en cas de victoire

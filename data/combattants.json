@@ -1,0 +1,301 @@
+{
+  "$schema_doc": "Voir README.md section 'Schema des Combattants' pour le detail des champs condition/modificateur/effets. Les champs 'archetype' et 'description' sont purement narratifs : ils ne sont lus ni par le moteur, ni par le frontend (CombattantTemplate.to_dict() ne les expose pas).",
+  "combattants": [
+    {
+      "id": "riff",
+      "nom": "Riff",
+      "archetype": "Le DJ des block-parties",
+      "description": "Platines calees sur le toit d'un parking desaffecte, Riff a grandi au son des basses qui remontent des caves du quartier. Il ne se bat jamais sans musique : chaque duel est un set improvise ou il monte crescendo, certain que le premier morceau pose donne toujours le ton. La legende dit qu'il n'a jamais perdu un affrontement commence sur son propre tempo.",
+      "puissance": 4,
+      "degats": 3,
+      "pouvoirs": [
+        {
+          "numero": 1,
+          "description": "Par energie : +1 Puissance",
+          "condition": null,
+          "modificateur": "par_energie",
+          "effets": [
+            { "type": "puissance", "cible": "soi", "valeur": 1 }
+          ]
+        },
+        {
+          "numero": 2,
+          "description": "Courage : +2 Puissance",
+          "condition": "courage",
+          "modificateur": null,
+          "effets": [
+            { "type": "puissance", "cible": "soi", "valeur": 2 }
+          ]
+        },
+        {
+          "numero": 3,
+          "description": "Victoire : +1 Vie",
+          "condition": "victoire",
+          "modificateur": null,
+          "effets": [
+            { "type": "vie", "cible": "soi", "valeur": 1 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nova",
+      "nom": "Nova",
+      "archetype": "La hackeuse activiste",
+      "description": "Nova a coupe le courant de tout un pate d'immeubles a quinze ans, juste pour voir ce que ca ferait. Aujourd'hui elle infiltre les automatismes adverses en plein duel, les desactive, puis retourne leurs propres protocoles contre eux. Elle ne frappe jamais fort la premiere fois : elle prefere demonter le systeme de l'interieur avant de porter le coup de grace.",
+      "puissance": 3,
+      "degats": 4,
+      "pouvoirs": [
+        {
+          "numero": 1,
+          "description": "Annule le Pouvoir 1 adverse",
+          "condition": null,
+          "modificateur": null,
+          "effets": [
+            { "type": "stop_pouvoir", "valeur": 1 }
+          ]
+        },
+        {
+          "numero": 2,
+          "description": "Copie le Pouvoir 2 adverse",
+          "condition": null,
+          "modificateur": null,
+          "effets": [
+            { "type": "copie_pouvoir", "valeur": 2 }
+          ]
+        },
+        {
+          "numero": 3,
+          "description": "Surpuissance : +2 Degats",
+          "condition": "surpuissance",
+          "modificateur": null,
+          "effets": [
+            { "type": "degats", "cible": "soi", "valeur": 2 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "grind",
+      "nom": "Grind",
+      "archetype": "Le rider de skatepark",
+      "description": "Grind n'a jamais mis les pieds dans une salle de sport : tout ce qu'il sait, il l'a appris en se plantant sur le bitume d'un bowl abandonne. Chaque chute est une lecon, chaque revers un tremplin pour la figure suivante. Plus le tournoi avance, plus ses gestes deviennent precis — l'experience du bitume, ca ne s'oublie pas.",
+      "puissance": 5,
+      "degats": 2,
+      "pouvoirs": [
+        {
+          "numero": 1,
+          "description": "+2 Puissance",
+          "condition": null,
+          "modificateur": null,
+          "effets": [
+            { "type": "puissance", "cible": "soi", "valeur": 2 }
+          ]
+        },
+        {
+          "numero": 2,
+          "description": "Riposte : +3 Puissance",
+          "condition": "riposte",
+          "modificateur": null,
+          "effets": [
+            { "type": "puissance", "cible": "soi", "valeur": 3 }
+          ]
+        },
+        {
+          "numero": 3,
+          "description": "Patience : +1 Puissance",
+          "condition": null,
+          "modificateur": "patience",
+          "effets": [
+            { "type": "puissance", "cible": "soi", "valeur": 1 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "blaze",
+      "nom": "Blaze",
+      "archetype": "Le writer pyromane",
+      "description": "Blaze tague a la bombe et au chalumeau, et personne ne l'arrete tant que la piece n'est pas terminee. Il frappe plus fort quand il sent l'adversaire deja affaibli, sans pitie pour les plus faibles — mais quand on lui tient tete, une rage froide prend le dessus et le rend plus dangereux encore. On raconte que ses fresques les plus connues ont fini par bruler la moitie du mur qui les portait.",
+      "puissance": 3,
+      "degats": 4,
+      "pouvoirs": [
+        {
+          "numero": 1,
+          "description": "+1 Degats",
+          "condition": null,
+          "modificateur": null,
+          "effets": [
+            { "type": "degats", "cible": "soi", "valeur": 1 }
+          ]
+        },
+        {
+          "numero": 2,
+          "description": "Domination : +2 Degats",
+          "condition": "domination",
+          "modificateur": null,
+          "effets": [
+            { "type": "degats", "cible": "soi", "valeur": 2 }
+          ]
+        },
+        {
+          "numero": 3,
+          "description": "Vengeance : +3 Puissance",
+          "condition": "vengeance",
+          "modificateur": null,
+          "effets": [
+            { "type": "puissance", "cible": "soi", "valeur": 3 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "iron",
+      "nom": "Iron",
+      "archetype": "Le videur increvable",
+      "description": "Videur du Zenith Club depuis dix ans, Iron a arrete de compter les coups qu'il a encaisses a la place des autres. Rien ne l'ebranle : il absorbe, encaisse, et laisse l'adversaire s'epuiser contre sa garde plutot que de forcer le passage. Dans les dernieres minutes d'un service difficile, c'est toujours lui qui referme la porte en premier.",
+      "puissance": 6,
+      "degats": 2,
+      "pouvoirs": [
+        {
+          "numero": 1,
+          "description": "Protection",
+          "condition": null,
+          "modificateur": null,
+          "effets": [
+            { "type": "protection" }
+          ]
+        },
+        {
+          "numero": 2,
+          "description": "-2 Puissance adverse",
+          "condition": null,
+          "modificateur": null,
+          "effets": [
+            { "type": "puissance", "cible": "adversaire", "valeur": -2 }
+          ]
+        },
+        {
+          "numero": 3,
+          "description": "Impatience : +1 Degats",
+          "condition": null,
+          "modificateur": "impatience",
+          "effets": [
+            { "type": "degats", "cible": "soi", "valeur": 1 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cobra",
+      "nom": "Cobra",
+      "archetype": "Le motard de nuit",
+      "description": "Personne ne sait qui se cache sous le casque de Cobra, seulement qu'on l'entend arriver avant de le voir. Il roule sans filet, mord avant de reflechir, et n'hesite pas a echanger les roles en pleine course si ca peut le sortir d'une mauvaise passe. Sa plus grande victoire l'a laisse a moitie inconscient au bord de la route — il dit que ca en valait le coup.",
+      "puissance": 4,
+      "degats": 3,
+      "pouvoirs": [
+        {
+          "numero": 1,
+          "description": "Vampirisme 1",
+          "condition": null,
+          "modificateur": null,
+          "effets": [
+            { "type": "vampirisme", "valeur": 1 }
+          ]
+        },
+        {
+          "numero": 2,
+          "description": "Echange Puissance / Degats",
+          "condition": null,
+          "modificateur": null,
+          "effets": [
+            { "type": "echange" }
+          ]
+        },
+        {
+          "numero": 3,
+          "description": "Contrecoup : -2 Vie adverse",
+          "condition": null,
+          "modificateur": "contrecoup",
+          "effets": [
+            { "type": "vie", "cible": "adversaire", "valeur": -2 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "echo",
+      "nom": "Echo",
+      "archetype": "La danseuse de battle",
+      "description": "Echo n'a pas de coup fourre, pas de plan tordu : juste des annees de battles de rue et une technique irreprochable. Chaque geste qu'elle pose s'ajoute au precedent, sans jamais faiblir ni se laisser distraire par l'adversaire. Face a elle, tout le monde sait exactement ce qui va arriver — et perd quand meme.",
+      "puissance": 5,
+      "degats": 3,
+      "pouvoirs": [
+        {
+          "numero": 1,
+          "description": "+1 Puissance",
+          "condition": null,
+          "modificateur": null,
+          "effets": [
+            { "type": "puissance", "cible": "soi", "valeur": 1 }
+          ]
+        },
+        {
+          "numero": 2,
+          "description": "+1 Puissance",
+          "condition": null,
+          "modificateur": null,
+          "effets": [
+            { "type": "puissance", "cible": "soi", "valeur": 1 }
+          ]
+        },
+        {
+          "numero": 3,
+          "description": "+1 Puissance",
+          "condition": null,
+          "modificateur": null,
+          "effets": [
+            { "type": "puissance", "cible": "soi", "valeur": 1 }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "vex",
+      "nom": "Vex",
+      "archetype": "La voyante des quais",
+      "description": "Vex lit l'avenir dans les graffitis et les tickets de loterie perdus, installee sur son carton pres du canal. Elle voit toujours venir le coup avant qu'il ne parte, et tire une etrange force de ses propres defaites. Plus elle a investi d'energie dans une prediction, plus la malediction qu'elle jette ensuite est cruelle.",
+      "puissance": 3,
+      "degats": 3,
+      "pouvoirs": [
+        {
+          "numero": 1,
+          "description": "Defaite : +2 Vie",
+          "condition": "defaite",
+          "modificateur": null,
+          "effets": [
+            { "type": "vie", "cible": "soi", "valeur": 2 }
+          ]
+        },
+        {
+          "numero": 2,
+          "description": "Annule le Pouvoir 2 adverse",
+          "condition": null,
+          "modificateur": null,
+          "effets": [
+            { "type": "stop_pouvoir", "valeur": 2 }
+          ]
+        },
+        {
+          "numero": 3,
+          "description": "Par energie : -1 Vie adverse",
+          "condition": null,
+          "modificateur": "par_energie",
+          "effets": [
+            { "type": "vie", "cible": "adversaire", "valeur": -1 }
+          ]
+        }
+      ]
+    }
+  ]
+}
