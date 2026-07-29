@@ -53,7 +53,7 @@ function creerCarteCombattant(data, { selectionnable = false, selectionnee = fal
   liste.className = "liste-pouvoirs";
   data.pouvoirs.forEach((p) => {
     const li = document.createElement("li");
-    li.innerHTML = `<span class="num">P${p.numero}</span>${p.description}`;
+    li.innerHTML = `<span class="num">Energie ${p.numero}</span>${p.description}`;
     liste.appendChild(li);
   });
   carte.appendChild(liste);
@@ -69,10 +69,20 @@ function creerCarteCombattant(data, { selectionnable = false, selectionnee = fal
   return carte;
 }
 
+function formaterDetailListe(detail) {
+  return detail
+    .map(([label, valeur], i) => {
+      const texte = i === 0 ? `${valeur}` : `${valeur >= 0 ? "+" : "-"} ${Math.abs(valeur)}`;
+      return `<li>${texte} <span class="detail-label">(${label})</span></li>`;
+    })
+    .join("");
+}
+
 function creerCarteGlyphe(glyphe, onClick) {
   const carte = document.createElement("div");
   carte.className = "carte-glyphe";
-  carte.innerHTML = `<div class="notation">${glyphe.notation}</div><div class="label">Puissance ${glyphe.puissance} / Energie ${glyphe.energie}</div>`;
+  const pouvoirActive = glyphe.energie > 0 ? `Active Energie ${glyphe.energie}` : "Aucun Pouvoir";
+  carte.innerHTML = `<div class="notation">${glyphe.notation}</div><div class="label">Puissance ${glyphe.puissance}</div><div class="label">${pouvoirActive}</div>`;
   if (onClick) carte.addEventListener("click", onClick);
   return carte;
 }
@@ -213,25 +223,43 @@ function renderZoneCentrale(etat) {
 
   const resultat = etat.dernier_resultat;
 
-  [{ id: humainId, role: "Toi" }, { id: iaId, role: "IA" }].forEach(({ id, role }) => {
+  [
+    { id: humainId, role: "Toi", slot: humainSlot },
+    { id: iaId, role: "IA", slot: iaSlot },
+  ].forEach(({ id, role, slot }) => {
+    const labelRole = `${role} (${slot.toUpperCase()})`;
     if (id === null) {
       const placeholder = document.createElement("div");
       placeholder.className = "carte-duel";
-      placeholder.innerHTML = `<div class="role">${role}</div><h3>En attente...</h3>`;
+      placeholder.innerHTML = `<div class="role">${labelRole}</div><h3>En attente...</h3>`;
       conteneurDuel.appendChild(placeholder);
       return;
     }
     const data = trouverCombattant(etat, id);
     const carte = document.createElement("div");
     carte.className = "carte-duel";
-    let contenu = `<div class="role">${role}</div><h3>${data.nom}</h3>`;
+    let contenu = `<div class="role">${labelRole}</div><h3>${data.nom}</h3>`;
     if (resultat) {
       const infoCote = resultat.combattant_j1.nom === data.nom ? resultat.combattant_j1 : resultat.combattant_j2;
       contenu += `<div class="glyphe-joue">Glyphe ${infoCote.glyphe}</div>`;
-      contenu += `<div class="puissance-totale">Puissance ${resultat.puissance_txt[data.nom]}</div>`;
+      const pouvoirActif = infoCote.energie > 0 ? data.pouvoirs.find((p) => p.numero === infoCote.energie) : null;
+      contenu += `<div class="pouvoir-actif">${
+        pouvoirActif
+          ? `Pouvoir selectionne : ${pouvoirActif.description}`
+          : "Aucun Pouvoir selectionne (Energie 0)"
+      }</div>`;
+      contenu += `<div class="bloc-stat">
+        <span class="valeur-grosse">${resultat.puissance_finale[data.nom]}</span>
+        <span class="libelle-stat">Puissance totale</span>
+      </div>`;
+      contenu += `<ul class="detail-liste">${formaterDetailListe(resultat.detail_puissance[data.nom])}</ul>`;
       if (resultat.gagnants.includes(data.nom)) {
         carte.classList.add("gagnant");
-        contenu += `<div class="degats-detail">Degats ${resultat.degats_txt[data.nom]}</div>`;
+        contenu += `<div class="bloc-stat degats">
+          <span class="valeur-grosse petite">${resultat.degats_finale[data.nom]}</span>
+          <span class="libelle-stat">Degats infliges</span>
+        </div>`;
+        contenu += `<ul class="detail-liste degats">${formaterDetailListe(resultat.detail_degats[data.nom])}</ul>`;
       }
     } else {
       contenu += `<div class="glyphe-joue">Puissance ${data.puissance} / Degats ${data.degats}</div>`;
@@ -240,6 +268,9 @@ function renderZoneCentrale(etat) {
     conteneurDuel.appendChild(carte);
   });
 
+  const libelleGlyphes = document.getElementById("libelle-glyphes");
+  const mainGlyphes = document.getElementById("main-glyphes");
+
   if (etat.phase === "choix_combattant") {
     if (humainId === null) {
       messageAttente.textContent = "Choisis ton Combattant dans ton equipe ci-contre.";
@@ -247,9 +278,20 @@ function renderZoneCentrale(etat) {
       messageAttente.textContent = "En attente du choix de l'IA...";
     }
     messageAttente.classList.remove("cache");
+
+    // Main visible (mais non jouable) des maintenant, pour choisir son Combattant en
+    // connaissance des Glyphes qu'il reste a jouer.
+    zoneGlyphes.classList.remove("cache");
+    libelleGlyphes.textContent = "Ta main de Glyphes (informatif, tu la joueras une fois ton Combattant choisi) :";
+    mainGlyphes.classList.add("inactif");
+    vider(mainGlyphes);
+    etat.joueur_humain.main.forEach((g) => {
+      mainGlyphes.appendChild(creerCarteGlyphe(g, null));
+    });
   } else if (etat.phase === "choix_glyphe") {
     zoneGlyphes.classList.remove("cache");
-    const mainGlyphes = document.getElementById("main-glyphes");
+    libelleGlyphes.textContent = "Choisis un Glyphe (joue face cachee) :";
+    mainGlyphes.classList.remove("inactif");
     vider(mainGlyphes);
     etat.joueur_humain.main.forEach((g) => {
       mainGlyphes.appendChild(creerCarteGlyphe(g, () => choisirGlyphe(g.id)));

@@ -1,5 +1,5 @@
 {
-  "$schema_doc": "Voir README.md section 'Schema des Combattants' pour le detail des champs condition/modificateur/effets. Les champs 'archetype' et 'description' sont purement narratifs : ils ne sont lus ni par le moteur, ni par le frontend (CombattantTemplate.to_dict() ne les expose pas).",
+  "$schema_doc": "Voir README.md section 'Schema des Combattants' pour le detail des champs condition/modificateur/effets. Les champs 'archetype' et 'description' sont purement narratifs : ils ne sont lus ni par le moteur, ni par le frontend (CombattantTemplate.to_dict() ne les expose pas). Depuis la refonte 'Energie = niveau de Pouvoir', chaque Pouvoir N est concu comme une version amelioree du Pouvoir N-1 (P1 faible/peu couteux, P3 fort mais sacrifie toute la Puissance du Glyphe).",
   "combattants": [
     {
       "id": "riff",
@@ -11,15 +11,6 @@
       "pouvoirs": [
         {
           "numero": 1,
-          "description": "Par energie : +1 Puissance",
-          "condition": null,
-          "modificateur": "par_energie",
-          "effets": [
-            { "type": "puissance", "cible": "soi", "valeur": 1 }
-          ]
-        },
-        {
-          "numero": 2,
           "description": "Courage : +2 Puissance",
           "condition": "courage",
           "modificateur": null,
@@ -28,12 +19,22 @@
           ]
         },
         {
-          "numero": 3,
-          "description": "Victoire : +1 Vie",
-          "condition": "victoire",
+          "numero": 2,
+          "description": "+4 Puissance",
+          "condition": null,
           "modificateur": null,
           "effets": [
-            { "type": "vie", "cible": "soi", "valeur": 1 }
+            { "type": "puissance", "cible": "soi", "valeur": 4 }
+          ]
+        },
+        {
+          "numero": 3,
+          "description": "+3 Puissance et +3 Vie",
+          "condition": null,
+          "modificateur": null,
+          "effets": [
+            { "type": "puissance", "cible": "soi", "valeur": 3 },
+            { "type": "vie", "cible": "soi", "valeur": 3 }
           ]
         }
       ]
@@ -48,29 +49,30 @@
       "pouvoirs": [
         {
           "numero": 1,
-          "description": "Annule le Pouvoir 1 adverse",
+          "description": "Annule le Pouvoir actif adverse",
           "condition": null,
           "modificateur": null,
           "effets": [
-            { "type": "stop_pouvoir", "valeur": 1 }
+            { "type": "stop_pouvoir" }
           ]
         },
         {
           "numero": 2,
-          "description": "Copie le Pouvoir 2 adverse",
+          "description": "Copie le Pouvoir actif adverse",
           "condition": null,
           "modificateur": null,
           "effets": [
-            { "type": "copie_pouvoir", "valeur": 2 }
+            { "type": "copie_pouvoir" }
           ]
         },
         {
           "numero": 3,
-          "description": "Surpuissance : +2 Degats",
-          "condition": "surpuissance",
+          "description": "Copie puis annule le Pouvoir actif adverse",
+          "condition": null,
           "modificateur": null,
           "effets": [
-            { "type": "degats", "cible": "soi", "valeur": 2 }
+            { "type": "copie_pouvoir" },
+            { "type": "stop_pouvoir" }
           ]
         }
       ]
@@ -94,20 +96,20 @@
         },
         {
           "numero": 2,
-          "description": "Riposte : +3 Puissance",
+          "description": "Riposte : +4 Puissance",
           "condition": "riposte",
           "modificateur": null,
           "effets": [
-            { "type": "puissance", "cible": "soi", "valeur": 3 }
+            { "type": "puissance", "cible": "soi", "valeur": 4 }
           ]
         },
         {
           "numero": 3,
-          "description": "Patience : +1 Puissance",
+          "description": "Patience : +2 Puissance",
           "condition": null,
           "modificateur": "patience",
           "effets": [
-            { "type": "puissance", "cible": "soi", "valeur": 1 }
+            { "type": "puissance", "cible": "soi", "valeur": 2 }
           ]
         }
       ]
@@ -122,29 +124,29 @@
       "pouvoirs": [
         {
           "numero": 1,
-          "description": "+1 Degats",
+          "description": "+2 Degats",
           "condition": null,
-          "modificateur": null,
-          "effets": [
-            { "type": "degats", "cible": "soi", "valeur": 1 }
-          ]
-        },
-        {
-          "numero": 2,
-          "description": "Domination : +2 Degats",
-          "condition": "domination",
           "modificateur": null,
           "effets": [
             { "type": "degats", "cible": "soi", "valeur": 2 }
           ]
         },
         {
+          "numero": 2,
+          "description": "Domination : +4 Degats",
+          "condition": "domination",
+          "modificateur": null,
+          "effets": [
+            { "type": "degats", "cible": "soi", "valeur": 4 }
+          ]
+        },
+        {
           "numero": 3,
-          "description": "Vengeance : +3 Puissance",
+          "description": "Vengeance : +6 Degats",
           "condition": "vengeance",
           "modificateur": null,
           "effets": [
-            { "type": "puissance", "cible": "soi", "valeur": 3 }
+            { "type": "degats", "cible": "soi", "valeur": 6 }
           ]
         }
       ]
@@ -153,7 +155,7 @@
       "id": "iron",
       "nom": "Iron",
       "archetype": "Le videur increvable",
-      "description": "Videur du Zenith Club depuis dix ans, Iron a arrete de compter les coups qu'il a encaisses a la place des autres. Rien ne l'ebranle : il absorbe, encaisse, et laisse l'adversaire s'epuiser contre sa garde plutot que de forcer le passage. Dans les dernieres minutes d'un service difficile, c'est toujours lui qui referme la porte en premier.",
+      "description": "Videur du Zenith Club depuis dix ans, Iron a arrete de compter les coups qu'il a encaisses a la place des autres. Rien ne l'ebranle : il absorbe, encaisse, et laisse l'adversaire s'epuiser contre sa garde plutot que de forcer le passage. Quand la situation degenere vraiment, c'est lui qui ferme la porte, dans tous les sens du terme.",
       "puissance": 6,
       "degats": 2,
       "pouvoirs": [
@@ -168,20 +170,21 @@
         },
         {
           "numero": 2,
-          "description": "-2 Puissance adverse",
+          "description": "-3 Puissance adverse",
           "condition": null,
           "modificateur": null,
           "effets": [
-            { "type": "puissance", "cible": "adversaire", "valeur": -2 }
+            { "type": "puissance", "cible": "adversaire", "valeur": -3 }
           ]
         },
         {
           "numero": 3,
-          "description": "Impatience : +1 Degats",
+          "description": "Protection et -5 Puissance adverse",
           "condition": null,
-          "modificateur": "impatience",
+          "modificateur": null,
           "effets": [
-            { "type": "degats", "cible": "soi", "valeur": 1 }
+            { "type": "protection" },
+            { "type": "puissance", "cible": "adversaire", "valeur": -5 }
           ]
         }
       ]
@@ -190,7 +193,7 @@
       "id": "cobra",
       "nom": "Cobra",
       "archetype": "Le motard de nuit",
-      "description": "Personne ne sait qui se cache sous le casque de Cobra, seulement qu'on l'entend arriver avant de le voir. Il roule sans filet, mord avant de reflechir, et n'hesite pas a echanger les roles en pleine course si ca peut le sortir d'une mauvaise passe. Sa plus grande victoire l'a laisse a moitie inconscient au bord de la route — il dit que ca en valait le coup.",
+      "description": "Personne ne sait qui se cache sous le casque de Cobra, seulement qu'on l'entend arriver avant de le voir. Il roule sans filet, mord avant de reflechir, et plus la course s'envenime, plus il plante les crocs profondement. Sa plus grande victoire l'a laisse a moitie inconscient au bord de la route — il dit que ca en valait le coup.",
       "puissance": 4,
       "degats": 3,
       "pouvoirs": [
@@ -205,20 +208,20 @@
         },
         {
           "numero": 2,
-          "description": "Echange Puissance / Degats",
+          "description": "Vampirisme 3",
           "condition": null,
           "modificateur": null,
           "effets": [
-            { "type": "echange" }
+            { "type": "vampirisme", "valeur": 3 }
           ]
         },
         {
           "numero": 3,
-          "description": "Contrecoup : -2 Vie adverse",
+          "description": "Contrecoup : -6 Vie adverse",
           "condition": null,
           "modificateur": "contrecoup",
           "effets": [
-            { "type": "vie", "cible": "adversaire", "valeur": -2 }
+            { "type": "vie", "cible": "adversaire", "valeur": -6 }
           ]
         }
       ]
@@ -233,29 +236,29 @@
       "pouvoirs": [
         {
           "numero": 1,
-          "description": "+1 Puissance",
+          "description": "+2 Puissance",
           "condition": null,
           "modificateur": null,
           "effets": [
-            { "type": "puissance", "cible": "soi", "valeur": 1 }
+            { "type": "puissance", "cible": "soi", "valeur": 2 }
           ]
         },
         {
           "numero": 2,
-          "description": "+1 Puissance",
+          "description": "+4 Puissance",
           "condition": null,
           "modificateur": null,
           "effets": [
-            { "type": "puissance", "cible": "soi", "valeur": 1 }
+            { "type": "puissance", "cible": "soi", "valeur": 4 }
           ]
         },
         {
           "numero": 3,
-          "description": "+1 Puissance",
+          "description": "+6 Puissance",
           "condition": null,
           "modificateur": null,
           "effets": [
-            { "type": "puissance", "cible": "soi", "valeur": 1 }
+            { "type": "puissance", "cible": "soi", "valeur": 6 }
           ]
         }
       ]
@@ -264,7 +267,7 @@
       "id": "vex",
       "nom": "Vex",
       "archetype": "La voyante des quais",
-      "description": "Vex lit l'avenir dans les graffitis et les tickets de loterie perdus, installee sur son carton pres du canal. Elle voit toujours venir le coup avant qu'il ne parte, et tire une etrange force de ses propres defaites. Plus elle a investi d'energie dans une prediction, plus la malediction qu'elle jette ensuite est cruelle.",
+      "description": "Vex lit l'avenir dans les graffitis et les tickets de loterie perdus, installee sur son carton pres du canal. Elle tire une etrange force de ses propres defaites, se relance encore plus fort a chaque victoire, et plus l'ecart de Puissance avec l'adversaire est grand en sa faveur, plus la malediction qu'elle jette ensuite est cruelle.",
       "puissance": 3,
       "degats": 3,
       "pouvoirs": [
@@ -279,20 +282,21 @@
         },
         {
           "numero": 2,
-          "description": "Annule le Pouvoir 2 adverse",
-          "condition": null,
+          "description": "Victoire : +3 Vie",
+          "condition": "victoire",
           "modificateur": null,
           "effets": [
-            { "type": "stop_pouvoir", "valeur": 2 }
+            { "type": "vie", "cible": "soi", "valeur": 3 }
           ]
         },
         {
           "numero": 3,
-          "description": "Par energie : -1 Vie adverse",
-          "condition": null,
-          "modificateur": "par_energie",
+          "description": "Surpuissance : +3 Vie et -5 Vie adverse",
+          "condition": "surpuissance",
+          "modificateur": null,
           "effets": [
-            { "type": "vie", "cible": "adversaire", "valeur": -1 }
+            { "type": "vie", "cible": "soi", "valeur": 3 },
+            { "type": "vie", "cible": "adversaire", "valeur": -5 }
           ]
         }
       ]

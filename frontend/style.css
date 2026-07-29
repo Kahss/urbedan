@@ -313,6 +313,16 @@ button:disabled {
   text-transform: uppercase;
 }
 
+.grille-glyphes.inactif .carte-glyphe {
+  cursor: default;
+  opacity: 0.8;
+}
+
+.grille-glyphes.inactif .carte-glyphe:hover {
+  transform: none;
+  border-color: var(--border);
+}
+
 .carte-glyphe.dos {
   background: repeating-linear-gradient(45deg, var(--bg-card), var(--bg-card) 6px, #2c2f3a 6px, #2c2f3a 12px);
   cursor: default;
@@ -346,22 +356,59 @@ button:disabled {
   color: var(--accent);
 }
 
-.carte-duel .puissance-totale {
-  margin-top: 8px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--text);
-  line-height: 1.4;
-  word-break: break-word;
+.carte-duel .pouvoir-actif {
+  margin-top: 4px;
+  font-size: 0.72rem;
+  font-style: italic;
+  color: var(--accent-2);
+  line-height: 1.3;
 }
 
-.carte-duel .degats-detail {
-  margin-top: 6px;
-  font-size: 0.75rem;
-  font-weight: 700;
+.carte-duel .bloc-stat {
+  margin-top: 12px;
+}
+
+.carte-duel .valeur-grosse {
+  display: block;
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: var(--text);
+  line-height: 1;
+}
+
+.carte-duel .valeur-grosse.petite {
+  font-size: 1.6rem;
   color: var(--ok);
-  line-height: 1.4;
-  word-break: break-word;
+}
+
+.carte-duel .libelle-stat {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.carte-duel .detail-liste {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  font-size: 0.74rem;
+  color: var(--text);
+  text-align: left;
+}
+
+.carte-duel .detail-liste li {
+  padding: 1px 0;
+}
+
+.carte-duel .detail-liste .detail-label {
+  color: var(--text-dim);
+}
+
+.carte-duel .detail-liste.degats {
+  color: var(--ok);
 }
 
 .carte-duel.gagnant {
