@@ -55,7 +55,7 @@ def api_choix_combattant():
         return jsonify({"erreur": "Aucune partie en cours"}), 404
     body = request.get_json(force=True) or {}
     try:
-        etat = partie.soumettre_combattant(body.get("combattant_id"))
+        etat = partie.soumettre_combattant(body.get("combattant_id"), body.get("glyphe_id"))
     except ErreurPartie as e:
         return jsonify({"erreur": str(e)}), 400
     return jsonify(etat)

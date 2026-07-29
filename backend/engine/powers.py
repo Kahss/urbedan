@@ -6,7 +6,9 @@ Hypotheses de resolution retenues pour ce POC (voir README.md) :
   Glyphe joue est superieure ou egale a ce seuil (`energie_min` absent ou 0 = Pouvoir
   toujours actif, quelle que soit l'Energie jouee, y compris 0). Le modificateur
   `par_energie` permet en plus de multiplier la valeur de l'effet par l'Energie
-  effectivement jouee (ex : "+1 Puissance / Energie").
+  effectivement jouee par le Combattant (ex : "+1 Puissance / Energie"). `par_energie_adverse`
+  multiplie par l'Energie jouee par l'adversaire, et `par_energie_en_jeu` par la somme des
+  deux Energies jouees (soi + adversaire) ce duel-ci.
 - Un duel se resout en 2 passes : Pass 1 (pouvoir "immediat"), puis determination du
   vainqueur, puis Pass 2 (pouvoir conditionne par Victoire / Defaite / Surpuissance, ou
   modificateur Contrecoup).
@@ -72,6 +74,10 @@ def _valeur_effective(valeur, pouvoir, source):
     mod = pouvoir.get("modificateur")
     if mod == "par_energie":
         return valeur * source.glyphe.energie
+    if mod == "par_energie_adverse":
+        return valeur * source.adversaire.glyphe.energie
+    if mod == "par_energie_en_jeu":
+        return valeur * (source.glyphe.energie + source.adversaire.glyphe.energie)
     if mod == "patience":
         return valeur * source.duel_numero
     if mod == "impatience":
@@ -102,6 +108,10 @@ def _verifier_condition(condition, source):
 
 def _est_differee(pouvoir):
     return pouvoir.get("condition") in ("victoire", "defaite", "surpuissance") or pouvoir.get("modificateur") == "contrecoup"
+
+
+def _contient_copie_pouvoir(pouvoir):
+    return any(effet["type"] == "copie_pouvoir" for effet in pouvoir.get("effets", []))
 
 
 class MoteurDuel:
@@ -251,6 +261,15 @@ class MoteurDuel:
                 self.log.append(
                     f"{source.template.nom} Pouvoir : copie du Pouvoir de {adv.template.nom} ignoree "
                     "(pouvoir conditionne par l'issue du duel, non supporte)"
+                )
+                return
+            if _contient_copie_pouvoir(pouvoir_copie):
+                # Copier un Pouvoir qui contient lui-meme une Copie de pouvoir provoquerait une
+                # recursion infinie (l'adversaire cible ne change jamais d'une copie a l'autre) :
+                # non supporte, comme les autres limitations POC de Copie pouvoir.
+                self.log.append(
+                    f"{source.template.nom} Pouvoir : copie du Pouvoir de {adv.template.nom} ignoree "
+                    "(pouvoir qui copie lui-meme un Pouvoir, non supporte)"
                 )
                 return
             self.log.append(

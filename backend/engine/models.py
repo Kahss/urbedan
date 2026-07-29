@@ -3,11 +3,12 @@ import itertools
 import random
 
 # Repartition des Glyphes definie dans game.md : (puissance, energie, quantite)
+# Autant d'exemplaires de chaque type (5), pour un deck de 20 cartes au total.
 GLYPH_DISTRIBUTION = [
-    (6, 0, 2),
-    (4, 1, 4),
-    (2, 2, 4),
-    (0, 3, 2),
+    (6, 0, 5),
+    (4, 1, 5),
+    (2, 2, 5),
+    (0, 3, 5),
 ]
 
 _glyphe_id_counter = itertools.count(1)
@@ -82,21 +83,18 @@ class Joueur:
     def __init__(self, nom, est_ia, equipe):
         self.nom = nom
         self.est_ia = est_ia
-        self.pv = 12
+        self.pv = 10
         self.equipe = equipe  # liste de CombattantEnEquipe (4)
-        self.glyphe_courant = None  # Glyphe pioche pour le duel en cours
+        self.main_glyphes = []  # Glyphes en main (jusqu'a 2), dont un sera joue pour la manche en cours
 
     def combattants_disponibles(self):
         return [c for c in self.equipe if not c.utilise]
 
-    def to_dict(self, cacher_glyphe=False):
+    def to_dict(self, cacher_main=False):
         return {
             "nom": self.nom,
             "est_ia": self.est_ia,
             "pv": self.pv,
             "equipe": [c.to_dict() for c in self.equipe],
-            "glyphe_courant": (
-                None if (cacher_glyphe or self.glyphe_courant is None) else self.glyphe_courant.to_dict()
-            ),
-            "a_glyphe_courant": self.glyphe_courant is not None,
+            "main_glyphes": None if cacher_main else [g.to_dict() for g in self.main_glyphes],
         }
