@@ -31,7 +31,7 @@
       <div class="joueur-info joueur-humain">
         <h3>Toi</h3>
         <div class="pv-barre"><div id="pv-humain-barre" class="pv-remplissage"></div></div>
-        <span id="pv-humain-texte" class="pv-texte">12 PV</span>
+        <span id="pv-humain-texte" class="pv-texte">10 PV</span>
       </div>
       <div class="duel-compteur">
         <span id="duel-numero-texte">Duel 1 / 4</span>
@@ -39,8 +39,13 @@
       <div class="joueur-info joueur-ia">
         <h3>IA</h3>
         <div class="pv-barre"><div id="pv-ia-barre" class="pv-remplissage"></div></div>
-        <span id="pv-ia-texte" class="pv-texte">12 PV</span>
+        <span id="pv-ia-texte" class="pv-texte">10 PV</span>
       </div>
+    </div>
+
+    <div class="glyphes-restants">
+      <span class="glyphes-restants-libelle">Glyphes restants :</span>
+      <div id="glyphes-restants-liste" class="glyphes-restants-liste"></div>
     </div>
 
     <div class="zone-duel">
@@ -52,7 +57,7 @@
       <div class="centre-duel">
         <div id="combattants-en-duel" class="combattants-en-duel"></div>
         <div id="zone-glyphes" class="zone-glyphes cache">
-          <p id="libelle-glyphes">Choisis un Glyphe (joue face cachee) :</p>
+          <p id="libelle-glyphes">Glyphe pioche pour ce duel :</p>
           <div id="main-glyphes" class="grille-glyphes"></div>
         </div>
         <div id="zone-resultat" class="zone-resultat cache">

@@ -9,6 +9,8 @@ const ecranFin = document.getElementById("ecran-fin");
 let combattantsDisponibles = [];
 const equipeSelectionnee = new Set();
 let etatCourant = null;
+let glypheSelectionneId = null;
+let combattantSelectionneId = null;
 
 // -------------------------------------------------------------- utilitaires
 
@@ -32,12 +34,29 @@ function trouverCombattant(etat, id) {
   );
 }
 
-function creerCarteCombattant(data, { selectionnable = false, selectionnee = false, active = false, onClick = null } = {}) {
+function conditionEstValidee(pouvoir, role, pvSoi, pvAdv) {
+  if (!pouvoir) return false;
+  switch (pouvoir.condition) {
+    case "courage":
+      return role === "j1";
+    case "riposte":
+      return role === "j2";
+    case "vengeance":
+      return pvAdv > pvSoi;
+    case "domination":
+      return pvAdv < pvSoi;
+    default:
+      return false;
+  }
+}
+
+function creerCarteCombattant(data, { selectionnable = false, selectionnee = false, active = false, conditionValidee = false, onClick = null } = {}) {
   const carte = document.createElement("div");
   carte.className = "carte-combattant";
   if (selectionnable) carte.classList.add("selectionnable");
   if (selectionnee) carte.classList.add("selectionnee");
   if (active) carte.classList.add("active-duel");
+  if (conditionValidee) carte.classList.add("condition-validee");
   if (data.utilise) carte.classList.add("utilisee");
 
   const titre = document.createElement("h4");
@@ -51,11 +70,12 @@ function creerCarteCombattant(data, { selectionnable = false, selectionnee = fal
 
   const liste = document.createElement("ul");
   liste.className = "liste-pouvoirs";
-  data.pouvoirs.forEach((p) => {
+  if (data.pouvoir) {
     const li = document.createElement("li");
-    li.innerHTML = `<span class="num">Energie ${p.numero}</span>${p.description}`;
+    const seuil = data.pouvoir.energie_min > 0 ? `Energie ${data.pouvoir.energie_min}+` : "Toujours actif";
+    li.innerHTML = `<span class="num">${seuil}</span>${data.pouvoir.description}`;
     liste.appendChild(li);
-  });
+  }
   carte.appendChild(liste);
 
   if (data.utilise) {
@@ -78,11 +98,15 @@ function formaterDetailListe(detail) {
     .join("");
 }
 
-function creerCarteGlyphe(glyphe, onClick) {
+function rondsEnergie(energie) {
+  return Array.from({ length: energie }, () => `<span class="rond-energie"></span>`).join("");
+}
+
+function creerCarteGlyphe(glyphe, onClick, { selectionnee = false } = {}) {
   const carte = document.createElement("div");
   carte.className = "carte-glyphe";
-  const pouvoirActive = glyphe.energie > 0 ? `Active Energie ${glyphe.energie}` : "Aucun Pouvoir";
-  carte.innerHTML = `<div class="notation">${glyphe.notation}</div><div class="label">Puissance ${glyphe.puissance}</div><div class="label">${pouvoirActive}</div>`;
+  if (selectionnee) carte.classList.add("selectionnee");
+  carte.innerHTML = `<div class="glyphe-puissance">${glyphe.puissance}</div><div class="glyphe-energie">${rondsEnergie(glyphe.energie)}</div>`;
   if (onClick) carte.addEventListener("click", onClick);
   return carte;
 }
@@ -142,13 +166,31 @@ document.getElementById("btn-nouvelle-partie").addEventListener("click", async (
 
 // ------------------------------------------------------------- ecran partie
 
+function peutChoisirMaintenant(etat) {
+  const humainSlot = humanRole(etat);
+  const humainChoisiId = etat["combattant_" + humainSlot];
+  return etat.phase === "choix_combattant" && humainChoisiId === null;
+}
+
 function render(etat) {
   etatCourant = etat;
   if (etat.terminee && etat.phase !== "duel_resolu") {
     renderFin(etat);
     return;
   }
+  // Si les selections en cours ne correspondent plus a l'etat actuel (nouvelle manche,
+  // ou plus qu'un seul choix possible), on les reinitialise / auto-selectionne.
+  const peutChoisir = peutChoisirMaintenant(etat);
+  const main = (peutChoisir && etat.joueur_humain.main_glyphes) || [];
+  if (!main.some((g) => g.id === glypheSelectionneId)) {
+    glypheSelectionneId = main.length === 1 ? main[0].id : null;
+  }
+  const dispo = (peutChoisir && etat.joueur_humain.equipe.filter((c) => !c.utilise)) || [];
+  if (!dispo.some((c) => c.id === combattantSelectionneId)) {
+    combattantSelectionneId = dispo.length === 1 ? dispo[0].id : null;
+  }
   renderTableauBord(etat);
+  renderGlyphesRestants(etat);
   renderEquipes(etat);
   renderZoneCentrale(etat);
 }
@@ -158,8 +200,8 @@ function renderTableauBord(etat) {
   const pvI = etat.joueur_ia.pv;
   document.getElementById("pv-humain-texte").textContent = `${pvH} PV`;
   document.getElementById("pv-ia-texte").textContent = `${pvI} PV`;
-  document.getElementById("pv-humain-barre").style.width = `${Math.max(0, (pvH / 12) * 100)}%`;
-  document.getElementById("pv-ia-barre").style.width = `${Math.max(0, (pvI / 12) * 100)}%`;
+  document.getElementById("pv-humain-barre").style.width = `${Math.max(0, (pvH / 10) * 100)}%`;
+  document.getElementById("pv-ia-barre").style.width = `${Math.max(0, (pvI / 10) * 100)}%`;
   document.getElementById("duel-numero-texte").textContent = `Duel ${Math.min(etat.duel_numero, etat.duels_max)} / ${etat.duels_max}`;
 }
 
@@ -167,10 +209,22 @@ function humanRole(etat) {
   return etat.j1 === "humain" ? "j1" : "j2";
 }
 
+function renderGlyphesRestants(etat) {
+  const conteneur = document.getElementById("glyphes-restants-liste");
+  vider(conteneur);
+  (etat.glyphes_restants || []).forEach((g) => {
+    const el = document.createElement("div");
+    el.className = "mini-glyphe";
+    if (g.restants === 0) el.classList.add("epuise");
+    el.innerHTML = `<span class="mini-glyphe-puissance">${g.puissance}</span><span class="mini-glyphe-energie">${rondsEnergie(g.energie)}</span><span class="mini-glyphe-compte">${g.restants}/${g.total}</span>`;
+    conteneur.appendChild(el);
+  });
+}
+
 function renderEquipes(etat) {
-  const humainSlot = humanRole(etat);
-  const humainChoisiId = etat["combattant_" + humainSlot];
-  const peutChoisir = etat.phase === "choix_combattant" && humainChoisiId === null;
+  const peutChoisir = peutChoisirMaintenant(etat);
+  const roleHumain = humanRole(etat);
+  const roleIa = roleHumain === "j1" ? "j2" : "j1";
 
   const grilleHumain = document.getElementById("equipe-humain");
   vider(grilleHumain);
@@ -179,10 +233,12 @@ function renderEquipes(etat) {
     grilleHumain.appendChild(
       creerCarteCombattant(c, {
         selectionnable: peutChoisir && !c.utilise,
+        selectionnee: c.id === combattantSelectionneId,
         active,
+        conditionValidee: conditionEstValidee(c.pouvoir, roleHumain, etat.joueur_humain.pv, etat.joueur_ia.pv),
         onClick:
           peutChoisir && !c.utilise
-            ? () => choisirCombattant(c.id)
+            ? () => armerCombattant(c.id)
             : null,
       })
     );
@@ -192,15 +248,44 @@ function renderEquipes(etat) {
   vider(grilleIa);
   etat.joueur_ia.equipe.forEach((c) => {
     const active = c.id === etat.combattant_j1 || c.id === etat.combattant_j2;
-    grilleIa.appendChild(creerCarteCombattant(c, { active }));
+    grilleIa.appendChild(
+      creerCarteCombattant(c, {
+        active,
+        conditionValidee: conditionEstValidee(c.pouvoir, roleIa, etat.joueur_ia.pv, etat.joueur_humain.pv),
+      })
+    );
   });
 }
 
-async function choisirCombattant(id) {
+function armerCombattant(id) {
+  combattantSelectionneId = id;
+  if (glypheSelectionneId !== null) {
+    soumettreChoix();
+  } else {
+    renderEquipes(etatCourant);
+    renderZoneCentrale(etatCourant);
+  }
+}
+
+function armerGlyphe(id) {
+  glypheSelectionneId = id;
+  if (combattantSelectionneId !== null) {
+    soumettreChoix();
+  } else {
+    renderEquipes(etatCourant);
+    renderZoneCentrale(etatCourant);
+  }
+}
+
+async function soumettreChoix() {
+  const combattantId = combattantSelectionneId;
+  const glypheId = glypheSelectionneId;
+  combattantSelectionneId = null;
+  glypheSelectionneId = null;
   const etat = await api("/partie/combattant", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ combattant_id: id }),
+    body: JSON.stringify({ combattant_id: combattantId, glyphe_id: glypheId }),
   });
   render(etat);
 }
@@ -241,12 +326,12 @@ function renderZoneCentrale(etat) {
     let contenu = `<div class="role">${labelRole}</div><h3>${data.nom}</h3>`;
     if (resultat) {
       const infoCote = resultat.combattant_j1.nom === data.nom ? resultat.combattant_j1 : resultat.combattant_j2;
-      contenu += `<div class="glyphe-joue">Glyphe ${infoCote.glyphe}</div>`;
-      const pouvoirActif = infoCote.energie > 0 ? data.pouvoirs.find((p) => p.numero === infoCote.energie) : null;
+      contenu += `<div class="glyphe-joue"><span class="glyphe-joue-puissance">${infoCote.puissance_glyphe}</span><span class="glyphe-joue-energie">${rondsEnergie(infoCote.energie)}</span></div>`;
+      const pouvoirActif = data.pouvoir && infoCote.energie >= data.pouvoir.energie_min ? data.pouvoir : null;
       contenu += `<div class="pouvoir-actif">${
         pouvoirActif
-          ? `Pouvoir selectionne : ${pouvoirActif.description}`
-          : "Aucun Pouvoir selectionne (Energie 0)"
+          ? `Pouvoir actif : ${pouvoirActif.description}`
+          : "Pouvoir non active (Energie insuffisante)"
       }</div>`;
       contenu += `<div class="bloc-stat">
         <span class="valeur-grosse">${resultat.puissance_finale[data.nom]}</span>
@@ -272,30 +357,31 @@ function renderZoneCentrale(etat) {
   const mainGlyphes = document.getElementById("main-glyphes");
 
   if (etat.phase === "choix_combattant") {
+    zoneGlyphes.classList.remove("cache");
+    vider(mainGlyphes);
+
     if (humainId === null) {
-      messageAttente.textContent = "Choisis ton Combattant dans ton equipe ci-contre.";
+      const main = etat.joueur_humain.main_glyphes || [];
+      messageAttente.textContent =
+        main.length > 1
+          ? "Choisis ton Combattant et le Glyphe a lui associer, dans l'ordre de ton choix."
+          : "Choisis ton Combattant : ton unique Glyphe en main lui sera associe.";
+      libelleGlyphes.textContent = "Ta main de Glyphes pour cette manche :";
+      mainGlyphes.classList.remove("inactif");
+      main.forEach((g) => {
+        mainGlyphes.appendChild(
+          creerCarteGlyphe(g, () => armerGlyphe(g.id), { selectionnee: g.id === glypheSelectionneId })
+        );
+      });
     } else {
       messageAttente.textContent = "En attente du choix de l'IA...";
+      libelleGlyphes.textContent = "Glyphe restant en main pour la prochaine manche :";
+      mainGlyphes.classList.add("inactif");
+      (etat.joueur_humain.main_glyphes || []).forEach((g) => {
+        mainGlyphes.appendChild(creerCarteGlyphe(g, null));
+      });
     }
     messageAttente.classList.remove("cache");
-
-    // Main visible (mais non jouable) des maintenant, pour choisir son Combattant en
-    // connaissance des Glyphes qu'il reste a jouer.
-    zoneGlyphes.classList.remove("cache");
-    libelleGlyphes.textContent = "Ta main de Glyphes (informatif, tu la joueras une fois ton Combattant choisi) :";
-    mainGlyphes.classList.add("inactif");
-    vider(mainGlyphes);
-    etat.joueur_humain.main.forEach((g) => {
-      mainGlyphes.appendChild(creerCarteGlyphe(g, null));
-    });
-  } else if (etat.phase === "choix_glyphe") {
-    zoneGlyphes.classList.remove("cache");
-    libelleGlyphes.textContent = "Choisis un Glyphe (joue face cachee) :";
-    mainGlyphes.classList.remove("inactif");
-    vider(mainGlyphes);
-    etat.joueur_humain.main.forEach((g) => {
-      mainGlyphes.appendChild(creerCarteGlyphe(g, () => choisirGlyphe(g.id)));
-    });
   } else if (etat.phase === "duel_resolu") {
     zoneResultat.classList.remove("cache");
     const journal = document.getElementById("journal-resolution");
@@ -311,15 +397,6 @@ function renderZoneCentrale(etat) {
     btn.textContent = etat.terminee ? "Voir le resultat final" : "Duel suivant";
     btn.onclick = etat.terminee ? () => renderFin(etat) : duelSuivant;
   }
-}
-
-async function choisirGlyphe(id) {
-  const etat = await api("/partie/glyphe", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ glyphe_id: id }),
-  });
-  render(etat);
 }
 
 async function duelSuivant() {
