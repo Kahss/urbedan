@@ -1,19 +1,27 @@
 """Moteur generique de resolution des Pouvoirs, pilote par les mots-cles de pouvoirs.csv.
 
 Hypotheses de resolution retenues pour ce POC (voir README.md) :
-- Un duel se resout en 2 passes : Pass 1 (pouvoirs "immediats"), puis determination du
-  vainqueur, puis Pass 2 (pouvoirs conditionnes par Victoire / Defaite / Surpuissance, et
+- L'Energie du Glyphe joue selectionne LEQUEL des 3 Pouvoirs du Combattant s'active (et
+  non plus combien) : Energie 1 -> seul le Pouvoir 1 s'active, Energie 2 -> seul le
+  Pouvoir 2, Energie 3 -> seul le Pouvoir 3. Energie 0 -> aucun Pouvoir ne s'active.
+  Un Combattant n'a donc jamais plus d'un Pouvoir actif par duel (hors Copie pouvoir).
+- Un duel se resout en 2 passes : Pass 1 (pouvoir "immediat"), puis determination du
+  vainqueur, puis Pass 2 (pouvoir conditionne par Victoire / Defaite / Surpuissance, ou
   modificateur Contrecoup).
-- Au sein de chaque passe, le Combattant J1 resout l'integralite de ses Pouvoirs actives
-  (dans l'ordre 1, 2, 3) avant que le Combattant J2 ne resolve les siens.
-- Stop pouvoir agit retroactivement si le pouvoir cible a deja ete resolu (cas ou le
-  defenseur J2 vise un pouvoir de J1), ou preventivement sinon (cas ou J1 vise un pouvoir
-  de J2 qui n'a pas encore joue).
+- Au sein de chaque passe, le Combattant J1 resout son Pouvoir actif avant que le
+  Combattant J2 ne resolve le sien.
+- Stop pouvoir et Copie pouvoir sont generiques : ils visent toujours l'unique Pouvoir
+  actuellement actif de l'adversaire (determine par l'Energie de son Glyphe), quel que
+  soit son numero. Stop pouvoir agit retroactivement si ce pouvoir a deja ete resolu
+  (cas ou le defenseur J2 vise un pouvoir de J1, deja joue), ou preventivement sinon (cas
+  ou J1 vise un pouvoir de J2 qui n'a pas encore joue).
 - Protection annule toutes les modifications deja subies de la part de l'adversaire et
   bloque toute nouvelle modification adverse (puissance/degats/vie/stop/copie) pour le
   reste de la resolution du duel.
-- Patience/Impatience se basent sur le numero du duel courant dans la partie (1 a 4),
-  et non sur le numero d'emplacement du Pouvoir.
+- Patience/Impatience se basent sur le numero du duel courant dans la partie (1 a 4).
+  Par energie reste techniquement fonctionnel mais devient un multiplicateur fixe (egal
+  au numero du Pouvoir qui le porte, puisqu'un Pouvoir N ne s'active plus que par une
+  Energie N) : les 8 Combattants fournis n'y ont plus recours.
 - Le detail du calcul de la Puissance/des Degats de chaque Combattant (base, Glyphe,
   contribution de chaque Pouvoir) est trace et restitue (`detail_puissance`,
   `detail_degats`, `puissance_txt`, `degats_txt`) pour affichage transparent.
@@ -187,7 +195,13 @@ class MoteurDuel:
                 )
 
         elif t == "stop_pouvoir":
-            cible_numero = effet["valeur"]
+            # Generique : vise toujours l'unique Pouvoir actuellement actif de l'adversaire.
+            cible_numero = adv.glyphe.energie
+            if cible_numero == 0:
+                self.log.append(
+                    f"{source.template.nom} Pouvoir {numero} : {adv.template.nom} n'a active aucun Pouvoir a annuler"
+                )
+                return
             if adv.protege:
                 self.log.append(
                     f"{source.template.nom} Pouvoir {numero} tente d'annuler le Pouvoir {cible_numero} de {adv.template.nom}, bloque par Protection"
@@ -204,10 +218,21 @@ class MoteurDuel:
                 )
 
         elif t == "copie_pouvoir":
-            cible_numero = effet["valeur"]
+            # Generique : copie toujours l'unique Pouvoir actuellement actif de l'adversaire.
+            cible_numero = adv.glyphe.energie
+            if cible_numero == 0:
+                self.log.append(
+                    f"{source.template.nom} Pouvoir {numero} : {adv.template.nom} n'a active aucun Pouvoir a copier"
+                )
+                return
             if adv.protege:
                 self.log.append(
                     f"{source.template.nom} Pouvoir {numero} tente de copier le Pouvoir {cible_numero} de {adv.template.nom}, bloque par Protection"
+                )
+                return
+            if cible_numero in adv.stoppes:
+                self.log.append(
+                    f"{source.template.nom} Pouvoir {numero} : le Pouvoir {cible_numero} de {adv.template.nom} est deja annule, rien a copier"
                 )
                 return
             pouvoir_copie = adv.template.pouvoir(cible_numero)
@@ -269,11 +294,13 @@ class MoteurDuel:
                 f"{source.template.nom} Pouvoir {numero} (Vampirisme {x}) : {adv.joueur.nom} {-x} PV, {source.joueur.nom} +{x} PV"
             )
 
-    def _resoudre_pouvoir(self, source, numero, differe):
+    def _resoudre_pouvoir(self, source, differe):
+        """Resout l'unique Pouvoir actif de `source` (celui dont le numero correspond a
+        l'Energie du Glyphe joue), si sa nature (immediat/differe) correspond a la passe
+        en cours."""
+        numero = source.glyphe.energie
         pouvoir = source.template.pouvoir(numero)
         if pouvoir is None:
-            return
-        if numero > source.glyphe.energie:
             return
         if _est_differee(pouvoir) != differe:
             return
@@ -293,10 +320,9 @@ class MoteurDuel:
             f"-- Glyphes reveles : {self.dc1.template.nom} joue {self.dc1.glyphe.notation_txt()} / "
             f"{self.dc2.template.nom} joue {self.dc2.glyphe.notation_txt()} --"
         )
-        # Pass 1 : pouvoirs immediats, J1 integralement puis J2 integralement
+        # Pass 1 : pouvoir immediat, J1 puis J2 (chacun n'a qu'un seul Pouvoir actif)
         for combattant in (self.dc1, self.dc2):
-            for numero in (1, 2, 3):
-                self._resoudre_pouvoir(combattant, numero, differe=False)
+            self._resoudre_pouvoir(combattant, differe=False)
 
         self.log.append(
             f"Puissance totale {self.dc1.template.nom} : "
@@ -315,10 +341,9 @@ class MoteurDuel:
             self.dc2.gagnant = True
             self.log.append("Egalite de Puissance : double victoire")
 
-        # Pass 2 : pouvoirs differes (Victoire / Defaite / Surpuissance / Contrecoup)
+        # Pass 2 : pouvoir differe (Victoire / Defaite / Surpuissance / Contrecoup)
         for combattant in (self.dc1, self.dc2):
-            for numero in (1, 2, 3):
-                self._resoudre_pouvoir(combattant, numero, differe=True)
+            self._resoudre_pouvoir(combattant, differe=True)
 
         # Application des degats du/des vainqueur(s)
         for combattant in (self.dc1, self.dc2):

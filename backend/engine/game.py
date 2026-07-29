@@ -112,8 +112,8 @@ class Partie:
         self.combattant_j1.utilise = True
         self.combattant_j2.utilise = True
         resultat["duel_numero"] = self.duel_numero
-        resultat["combattant_j1"] = {"nom": self.combattant_j1.template.nom, "glyphe": glyphe_j1.notation_txt(), "role": "humain" if joueur_humain_est_j1 else "ia"}
-        resultat["combattant_j2"] = {"nom": self.combattant_j2.template.nom, "glyphe": glyphe_j2.notation_txt(), "role": "ia" if joueur_humain_est_j1 else "humain"}
+        resultat["combattant_j1"] = {"nom": self.combattant_j1.template.nom, "glyphe": glyphe_j1.notation_txt(), "energie": glyphe_j1.energie, "role": "humain" if joueur_humain_est_j1 else "ia"}
+        resultat["combattant_j2"] = {"nom": self.combattant_j2.template.nom, "glyphe": glyphe_j2.notation_txt(), "energie": glyphe_j2.energie, "role": "ia" if joueur_humain_est_j1 else "humain"}
         self.dernier_resultat = resultat
         self.historique.append(resultat)
         self.phase = "duel_resolu"
