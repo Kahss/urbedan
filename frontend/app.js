@@ -51,11 +51,12 @@ function creerCarteCombattant(data, { selectionnable = false, selectionnee = fal
 
   const liste = document.createElement("ul");
   liste.className = "liste-pouvoirs";
-  data.pouvoirs.forEach((p) => {
+  if (data.pouvoir) {
     const li = document.createElement("li");
-    li.innerHTML = `<span class="num">Energie ${p.numero}</span>${p.description}`;
+    const seuil = data.pouvoir.energie_min > 0 ? `Energie ${data.pouvoir.energie_min}+` : "Toujours actif";
+    li.innerHTML = `<span class="num">${seuil}</span>${data.pouvoir.description}`;
     liste.appendChild(li);
-  });
+  }
   carte.appendChild(liste);
 
   if (data.utilise) {
@@ -242,11 +243,11 @@ function renderZoneCentrale(etat) {
     if (resultat) {
       const infoCote = resultat.combattant_j1.nom === data.nom ? resultat.combattant_j1 : resultat.combattant_j2;
       contenu += `<div class="glyphe-joue">Glyphe ${infoCote.glyphe}</div>`;
-      const pouvoirActif = infoCote.energie > 0 ? data.pouvoirs.find((p) => p.numero === infoCote.energie) : null;
+      const pouvoirActif = data.pouvoir && infoCote.energie >= data.pouvoir.energie_min ? data.pouvoir : null;
       contenu += `<div class="pouvoir-actif">${
         pouvoirActif
-          ? `Pouvoir selectionne : ${pouvoirActif.description}`
-          : "Aucun Pouvoir selectionne (Energie 0)"
+          ? `Pouvoir actif : ${pouvoirActif.description}`
+          : "Pouvoir non active (Energie insuffisante)"
       }</div>`;
       contenu += `<div class="bloc-stat">
         <span class="valeur-grosse">${resultat.puissance_finale[data.nom]}</span>

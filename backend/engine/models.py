@@ -48,13 +48,7 @@ class CombattantTemplate:
         self.nom = data["nom"]
         self.puissance = data["puissance"]
         self.degats = data["degats"]
-        self.pouvoirs = data["pouvoirs"]  # liste de dicts (numero, description, condition, modificateur, effets)
-
-    def pouvoir(self, numero):
-        for p in self.pouvoirs:
-            if p["numero"] == numero:
-                return p
-        return None
+        self.pouvoir = data["pouvoir"]  # dict unique (description, condition, modificateur, energie_min, effets)
 
     def to_dict(self):
         return {
@@ -62,7 +56,7 @@ class CombattantTemplate:
             "nom": self.nom,
             "puissance": self.puissance,
             "degats": self.degats,
-            "pouvoirs": self.pouvoirs,
+            "pouvoir": self.pouvoir,
         }
 
 
@@ -79,7 +73,7 @@ class CombattantEnEquipe:
             "nom": self.template.nom,
             "puissance": self.template.puissance,
             "degats": self.template.degats,
-            "pouvoirs": self.template.pouvoirs,
+            "pouvoir": self.template.pouvoir,
             "utilise": self.utilise,
         }
 

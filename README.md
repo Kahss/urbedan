@@ -36,7 +36,8 @@ frontend/
 ## Editer / ajouter des Combattants
 
 `data/combattants.json` peut etre modifie a la main puis rechargé automatiquement au
-lancement d'une nouvelle partie (pas besoin de redemarrer le serveur). Chaque Combattant :
+lancement d'une nouvelle partie (pas besoin de redemarrer le serveur). Chaque Combattant
+ne possede plus qu'un seul Pouvoir :
 
 ```json
 {
@@ -44,22 +45,27 @@ lancement d'une nouvelle partie (pas besoin de redemarrer le serveur). Chaque Co
   "nom": "Nom affiche",
   "puissance": 4,
   "degats": 3,
-  "pouvoirs": [
-    {
-      "numero": 1,
-      "description": "Texte affiche sur la carte",
-      "condition": null,
-      "modificateur": null,
-      "effets": [ { "type": "puissance", "cible": "soi", "valeur": 2 } ]
-    }
-  ]
+  "pouvoir": {
+    "description": "Texte affiche sur la carte",
+    "condition": null,
+    "modificateur": null,
+    "energie_min": 1,
+    "effets": [ { "type": "puissance", "cible": "soi", "valeur": 2 } ]
+  }
 }
 ```
 
+- `energie_min` (optionnel, defaut 0) : cout minimum en Energie pour activer le Pouvoir,
+  note "X+" — le Pouvoir s'active des lors que l'Energie du Glyphe joue est superieure ou
+  egale a `energie_min` (`0` ou absent = Pouvoir toujours actif, meme avec un Glyphe
+  d'Energie 0).
 - `condition` (optionnel) : un des mots-cles Condition de `pouvoirs.csv` —
   `courage`, `riposte`, `vengeance`, `domination`, `victoire`, `defaite`, `surpuissance`.
 - `modificateur` (optionnel) : un des mots-cles Modificateur —
-  `patience`, `impatience`, `par_energie`, `contrecoup`.
+  `patience`, `impatience`, `par_energie`, `contrecoup`. `par_energie` multiplie la
+  valeur de l'effet par l'Energie effectivement jouee (ex : "+1 Puissance / Energie") ;
+  combine a `energie_min`, cela permet un Pouvoir qui necessite un minimum d'Energie
+  pour s'activer tout en scalant avec l'Energie investie au-dela de ce seuil.
 - `effets` : liste d'effets, chacun avec un `type` :
   - `puissance` / `degats` / `vie` : necessitent `cible` (`soi` ou `adversaire`) et `valeur`
     (entier signe). `vie` modifie les PV du joueur (pas une statistique du Combattant).
@@ -73,14 +79,14 @@ lancement d'une nouvelle partie (pas besoin de redemarrer le serveur). Chaque Co
 Un Pouvoir peut activer plusieurs `effets` (liste), mais un seul `condition` /
 `modificateur`.
 
-**L'Energie du Glyphe joue selectionne LEQUEL des 3 Pouvoirs s'active** (et non plus
-combien) : Energie 1 -> seul le Pouvoir 1 s'active, Energie 2 -> seul le Pouvoir 2,
-Energie 3 -> seul le Pouvoir 3. Un Glyphe d'Energie 0 (6 Puissance / 0 Energie)
-n'active aucun Pouvoir. Un Combattant n'a donc jamais plus d'un Pouvoir actif par duel
-(hors effet de Copie pouvoir). Concevoir un personnage revient a definir une montee en
-puissance sur 3 paliers : Pouvoir 1 = effet faible pour un Glyphe a forte Puissance
-(peu de sacrifice), Pouvoir 3 = effet fort qui compense l'absence totale de Puissance
-du Glyphe 0/3.
+**L'Energie du Glyphe joue determine si l'unique Pouvoir du Combattant s'active**, en le
+comparant a son seuil `energie_min` : Energie jouee >= `energie_min` -> le Pouvoir
+s'active (avec, le cas echeant, une valeur multipliee par cette Energie via
+`par_energie`) ; sinon, il reste inactif. Un Combattant n'a donc jamais plus d'un Pouvoir
+actif par duel (hors effet de Copie pouvoir). Concevoir un personnage revient a choisir
+un seul Pouvoir, son cout minimum en Energie (0 = toujours disponible, 3 = ne
+s'active qu'en sacrifiant toute la Puissance du Glyphe 0/3) et, eventuellement, un
+scaling par Energie jouee au-dela de ce seuil.
 
 ## Detail du calcul de Puissance / Degats
 
@@ -100,14 +106,14 @@ choix suivants ont ete valides ou tranches avec l'utilisateur avant developpemen
 
 - **Selection d'equipe** : avant chaque partie, le joueur choisit manuellement ses 4
   Combattants parmi les 8 ; l'IA recoit automatiquement les 4 restants.
-- **Ordre de resolution des Pouvoirs** : au sein d'un duel, J1 resout son unique Pouvoir
-  actif avant que J2 ne resolve le sien (chaque Combattant n'ayant plus qu'un seul
-  Pouvoir actif par duel, cf. section precedente).
+- **Un seul Pouvoir par Combattant** : chaque Combattant ne possede plus qu'un unique
+  Pouvoir, actif des lors que l'Energie du Glyphe joue atteint son seuil `energie_min`
+  (note "X+"). **Ordre de resolution** : au sein d'un duel, J1 resout son Pouvoir (s'il
+  est actif) avant que J2 ne resolve le sien.
 - **Stop pouvoir et Copie pouvoir sont generiques** : ils visent toujours l'unique
-  Pouvoir actuellement actif de l'adversaire (determine par l'Energie de son Glyphe),
-  quel que soit son numero — et non plus un numero fixe choisi a la conception du
-  personnage. Si l'adversaire joue un Glyphe d'Energie 0 (aucun Pouvoir actif), il n'y a
-  rien a annuler ni a copier.
+  Pouvoir de l'adversaire, s'il est actif (Energie jouee >= son seuil `energie_min`). Si
+  l'adversaire n'a pas atteint ce seuil (Pouvoir inactif), il n'y a rien a annuler ni a
+  copier.
 - **Stop pouvoir** : agit retroactivement si le Pouvoir cible a deja ete resolu (le cas
   lorsque J2 vise le Pouvoir de J1, deja joue), ou par anticipation sinon (J1 vise le
   Pouvoir de J2 qui n'a pas encore joue). Cela fonctionne aussi pour annuler
@@ -128,10 +134,10 @@ choix suivants ont ete valides ou tranches avec l'utilisateur avant developpemen
   partie (1 a 4). **Impatience** : multiplie par le nombre de duels restants a jouer,
   celui-ci compris (`duels_max - duel_numero + 1`, soit 4 au duel 1, 1 au duel 4).
 - **Par energie** : multiplie la valeur de l'effet par l'Energie du Glyphe joue par le
-  Combattant qui possede ce Pouvoir. Reste techniquement fonctionnel, mais devient de
-  fait un multiplicateur fixe (egal au numero du Pouvoir qui le porte, puisqu'un
-  Pouvoir N ne s'active plus que par une Energie N) : les 8 Combattants fournis n'y ont
-  plus recours, au profit de valeurs fixes directement croissantes de Pouvoir 1 a 3.
+  Combattant qui possede ce Pouvoir (ex : Echo, Cobra, Iron, Riff parmi les 8 Combattants
+  fournis). Combine a `energie_min`, cela permet un Pouvoir qui necessite un minimum
+  d'Energie pour s'activer, et dont l'effet croit ensuite avec l'Energie investie
+  au-dela de ce seuil.
 - **Contrecoup** : l'effet, normalement dirige vers l'adversaire, s'applique a
   soi-meme uniquement si le Combattant remporte le duel (sinon il ne se produit pas).
 - **Copie pouvoir** : copie la definition du Pouvoir actuellement actif de l'adversaire

@@ -1,30 +1,30 @@
 """Moteur generique de resolution des Pouvoirs, pilote par les mots-cles de pouvoirs.csv.
 
 Hypotheses de resolution retenues pour ce POC (voir README.md) :
-- L'Energie du Glyphe joue selectionne LEQUEL des 3 Pouvoirs du Combattant s'active (et
-  non plus combien) : Energie 1 -> seul le Pouvoir 1 s'active, Energie 2 -> seul le
-  Pouvoir 2, Energie 3 -> seul le Pouvoir 3. Energie 0 -> aucun Pouvoir ne s'active.
-  Un Combattant n'a donc jamais plus d'un Pouvoir actif par duel (hors Copie pouvoir).
+- Chaque Combattant ne possede plus qu'un seul Pouvoir. Ce Pouvoir peut definir un cout
+  minimum en Energie (`energie_min`, note "X+") : il ne s'active que si l'Energie du
+  Glyphe joue est superieure ou egale a ce seuil (`energie_min` absent ou 0 = Pouvoir
+  toujours actif, quelle que soit l'Energie jouee, y compris 0). Le modificateur
+  `par_energie` permet en plus de multiplier la valeur de l'effet par l'Energie
+  effectivement jouee (ex : "+1 Puissance / Energie").
 - Un duel se resout en 2 passes : Pass 1 (pouvoir "immediat"), puis determination du
   vainqueur, puis Pass 2 (pouvoir conditionne par Victoire / Defaite / Surpuissance, ou
   modificateur Contrecoup).
 - Au sein de chaque passe, le Combattant J1 resout son Pouvoir actif avant que le
   Combattant J2 ne resolve le sien.
 - Stop pouvoir et Copie pouvoir sont generiques : ils visent toujours l'unique Pouvoir
-  actuellement actif de l'adversaire (determine par l'Energie de son Glyphe), quel que
-  soit son numero. Stop pouvoir agit retroactivement si ce pouvoir a deja ete resolu
-  (cas ou le defenseur J2 vise un pouvoir de J1, deja joue), ou preventivement sinon (cas
-  ou J1 vise un pouvoir de J2 qui n'a pas encore joue).
+  de l'adversaire, s'il est actif (Energie jouee >= son seuil). Stop pouvoir agit
+  retroactivement si ce pouvoir a deja ete resolu (cas ou le defenseur J2 vise le
+  pouvoir de J1, deja joue), ou preventivement sinon (cas ou J1 vise le pouvoir de J2
+  qui n'a pas encore joue).
 - Protection annule toutes les modifications deja subies de la part de l'adversaire et
   bloque toute nouvelle modification adverse (puissance/degats/vie/stop/copie) pour le
   reste de la resolution du duel.
-- Patience/Impatience se basent sur le numero du duel courant dans la partie (1 a 4).
-  Par energie reste techniquement fonctionnel mais devient un multiplicateur fixe (egal
-  au numero du Pouvoir qui le porte, puisqu'un Pouvoir N ne s'active plus que par une
-  Energie N) : les 8 Combattants fournis n'y ont plus recours.
+- Patience/Impatience se basent sur le numero du duel courant dans la partie (1 a 4),
+  independamment de l'Energie jouee.
 - Le detail du calcul de la Puissance/des Degats de chaque Combattant (base, Glyphe,
-  contribution de chaque Pouvoir) est trace et restitue (`detail_puissance`,
-  `detail_degats`, `puissance_txt`, `degats_txt`) pour affichage transparent.
+  contribution du Pouvoir) est trace et restitue (`detail_puissance`, `detail_degats`,
+  `puissance_txt`, `degats_txt`) pour affichage transparent.
 """
 
 
@@ -52,10 +52,20 @@ class DuelCombattant:
         self.degats = self.template.degats
         self.detail_puissance = [("base", self.template.puissance), ("glyphe", glyphe.puissance)]
         self.detail_degats = [("base", self.template.degats)]
-        self.stoppes = set()
+        self.stoppe = False
         self.protege = False
         self.gagnant = False
         self.adversaire = None
+
+    def pouvoir_actif(self):
+        """Retourne le Pouvoir du Combattant s'il est active par l'Energie du Glyphe
+        joue (>= energie_min du Pouvoir), sinon None."""
+        pouvoir = self.template.pouvoir
+        if pouvoir is None:
+            return None
+        if self.glyphe.energie < pouvoir.get("energie_min", 0):
+            return None
+        return pouvoir
 
 
 def _valeur_effective(valeur, pouvoir, source):
@@ -100,15 +110,15 @@ class MoteurDuel:
         self.dc2 = dc2
         dc1.adversaire = dc2
         dc2.adversaire = dc1
-        self.ledger = []  # {source, numero, cible, champ, valeur}
+        self.ledger = []  # {source, cible, champ, valeur}
         self.log = []
 
-    def _appliquer(self, source, numero, cible, champ, valeur, label):
+    def _appliquer(self, source, cible, champ, valeur, label):
         if valeur == 0:
             return True
         if cible is not source and cible.protege:
             self.log.append(
-                f"{source.template.nom} (Pouvoir {numero}) est bloque par la Protection de {cible.template.nom}"
+                f"{source.template.nom} (Pouvoir) est bloque par la Protection de {cible.template.nom}"
             )
             return False
         detail_liste = None
@@ -125,19 +135,19 @@ class MoteurDuel:
             detail_entree = (label, valeur)
             detail_liste.append(detail_entree)
         self.ledger.append({
-            "source": source, "numero": numero, "cible": cible, "champ": champ, "valeur": valeur,
+            "source": source, "cible": cible, "champ": champ, "valeur": valeur,
             "detail_liste": detail_liste, "detail_entree": detail_entree,
         })
         return True
 
-    def _annuler_pouvoir(self, cible, numero):
-        """Annule le Pouvoir `numero` du Combattant `cible` : revert de tous les effets
-        deja produits par ce pouvoir, ou qu'il ait porte sur lui-meme ou sur l'adversaire."""
-        cible.stoppes.add(numero)
+    def _annuler_pouvoir(self, cible):
+        """Annule le Pouvoir du Combattant `cible` : revert de tous les effets deja
+        produits par ce pouvoir, qu'il ait porte sur lui-meme ou sur l'adversaire."""
+        cible.stoppe = True
         restants = []
         annule = False
         for record in self.ledger:
-            if record["source"] is cible and record["numero"] == numero:
+            if record["source"] is cible:
                 self._revert(record)
                 annule = True
             else:
@@ -168,11 +178,11 @@ class MoteurDuel:
         self.ledger = restants
         return annules
 
-    def _resoudre_effet(self, source, numero, pouvoir, effet, label=None):
+    def _resoudre_effet(self, source, pouvoir, effet, label=None):
         adv = source.adversaire
         t = effet["type"]
         mod = pouvoir.get("modificateur")
-        label = label or f"Pouvoir {numero} {source.template.nom}"
+        label = label or f"Pouvoir {source.template.nom}"
 
         if t in ("puissance", "degats", "vie"):
             champ = "pv" if t == "vie" else t
@@ -180,147 +190,142 @@ class MoteurDuel:
             if mod == "contrecoup":
                 if not source.gagnant:
                     self.log.append(
-                        f"{source.template.nom} Pouvoir {numero} ({pouvoir['description']}) : Contrecoup non declenche (pas de victoire)"
+                        f"{source.template.nom} Pouvoir ({pouvoir['description']}) : Contrecoup non declenche (pas de victoire)"
                     )
                     return
                 cible = source
             valeur = _valeur_effective(effet.get("valeur", 0), pouvoir, source)
             avant = cible.puissance if champ == "puissance" else (cible.degats if champ == "degats" else cible.joueur.pv)
-            applique = self._appliquer(source, numero, cible, champ, valeur, label)
+            applique = self._appliquer(source, cible, champ, valeur, label)
             if applique:
                 cible_nom = cible.template.nom if champ != "pv" else cible.joueur.nom
                 self.log.append(
-                    f"{source.template.nom} Pouvoir {numero} ({pouvoir['description']}) -> "
+                    f"{source.template.nom} Pouvoir ({pouvoir['description']}) -> "
                     f"{champ} de {cible_nom} : {avant} -> {avant + valeur}"
                 )
 
         elif t == "stop_pouvoir":
-            # Generique : vise toujours l'unique Pouvoir actuellement actif de l'adversaire.
-            cible_numero = adv.glyphe.energie
-            if cible_numero == 0:
+            # Generique : vise toujours l'unique Pouvoir de l'adversaire, s'il est actif.
+            pouvoir_adv = adv.pouvoir_actif()
+            if pouvoir_adv is None:
                 self.log.append(
-                    f"{source.template.nom} Pouvoir {numero} : {adv.template.nom} n'a active aucun Pouvoir a annuler"
+                    f"{source.template.nom} Pouvoir : {adv.template.nom} n'a active aucun Pouvoir a annuler"
                 )
                 return
             if adv.protege:
                 self.log.append(
-                    f"{source.template.nom} Pouvoir {numero} tente d'annuler le Pouvoir {cible_numero} de {adv.template.nom}, bloque par Protection"
+                    f"{source.template.nom} Pouvoir tente d'annuler le Pouvoir de {adv.template.nom}, bloque par Protection"
                 )
                 return
-            annule = self._annuler_pouvoir(adv, cible_numero)
+            annule = self._annuler_pouvoir(adv)
             if annule:
                 self.log.append(
-                    f"{source.template.nom} Pouvoir {numero} annule (retroactivement) le Pouvoir {cible_numero} de {adv.template.nom}"
+                    f"{source.template.nom} Pouvoir annule (retroactivement) le Pouvoir de {adv.template.nom}"
                 )
             else:
                 self.log.append(
-                    f"{source.template.nom} Pouvoir {numero} annule par avance le Pouvoir {cible_numero} de {adv.template.nom}"
+                    f"{source.template.nom} Pouvoir annule par avance le Pouvoir de {adv.template.nom}"
                 )
 
         elif t == "copie_pouvoir":
-            # Generique : copie toujours l'unique Pouvoir actuellement actif de l'adversaire.
-            cible_numero = adv.glyphe.energie
-            if cible_numero == 0:
+            # Generique : copie toujours l'unique Pouvoir de l'adversaire, s'il est actif.
+            pouvoir_copie = adv.pouvoir_actif()
+            if pouvoir_copie is None:
                 self.log.append(
-                    f"{source.template.nom} Pouvoir {numero} : {adv.template.nom} n'a active aucun Pouvoir a copier"
+                    f"{source.template.nom} Pouvoir : {adv.template.nom} n'a active aucun Pouvoir a copier"
                 )
                 return
             if adv.protege:
                 self.log.append(
-                    f"{source.template.nom} Pouvoir {numero} tente de copier le Pouvoir {cible_numero} de {adv.template.nom}, bloque par Protection"
+                    f"{source.template.nom} Pouvoir tente de copier le Pouvoir de {adv.template.nom}, bloque par Protection"
                 )
                 return
-            if cible_numero in adv.stoppes:
+            if adv.stoppe:
                 self.log.append(
-                    f"{source.template.nom} Pouvoir {numero} : le Pouvoir {cible_numero} de {adv.template.nom} est deja annule, rien a copier"
+                    f"{source.template.nom} Pouvoir : le Pouvoir de {adv.template.nom} est deja annule, rien a copier"
                 )
-                return
-            pouvoir_copie = adv.template.pouvoir(cible_numero)
-            if pouvoir_copie is None:
                 return
             if _est_differee(pouvoir_copie):
                 # Simplification POC : copier un pouvoir conditionne par l'issue du duel
                 # (Victoire/Defaite/Surpuissance) ou par Contrecoup n'est pas supporte.
                 self.log.append(
-                    f"{source.template.nom} Pouvoir {numero} : copie du Pouvoir {cible_numero} de "
-                    f"{adv.template.nom} ignoree (pouvoir conditionne par l'issue du duel, non supporte)"
+                    f"{source.template.nom} Pouvoir : copie du Pouvoir de {adv.template.nom} ignoree "
+                    "(pouvoir conditionne par l'issue du duel, non supporte)"
                 )
                 return
             self.log.append(
-                f"{source.template.nom} Pouvoir {numero} copie le Pouvoir {cible_numero} de {adv.template.nom} ({pouvoir_copie['description']})"
+                f"{source.template.nom} Pouvoir copie le Pouvoir de {adv.template.nom} ({pouvoir_copie['description']})"
             )
             if _verifier_condition(pouvoir_copie.get("condition"), source):
-                label_copie = f"Pouvoir {numero} {source.template.nom} (copie de {adv.template.nom})"
+                label_copie = f"Pouvoir {source.template.nom} (copie de {adv.template.nom})"
                 for e2 in pouvoir_copie["effets"]:
-                    self._resoudre_effet(source, numero, pouvoir_copie, e2, label=label_copie)
+                    self._resoudre_effet(source, pouvoir_copie, e2, label=label_copie)
 
         elif t == "protection":
             source.protege = True
             annules = self._nettoyer_effets_adverses(source)
             suffixe = f", annule {annules} modification(s) subie(s)" if annules else ""
-            self.log.append(f"{source.template.nom} Pouvoir {numero} (Protection) active{suffixe}")
+            self.log.append(f"{source.template.nom} Pouvoir (Protection) active{suffixe}")
 
         elif t == "echange":
             if adv.protege:
                 self.log.append(
-                    f"{source.template.nom} Pouvoir {numero} (Echange) bloque par Protection de {adv.template.nom}"
+                    f"{source.template.nom} Pouvoir (Echange) bloque par Protection de {adv.template.nom}"
                 )
                 return
             # Calcule les deltas AVANT toute mutation, pour que l'echange reste tracable
             # (et reversible par un Stop pouvoir retroactif) via le meme ledger que les
             # autres effets, plutot qu'une permutation directe non tracee.
-            label_echange = f"Echange (Pouvoir {numero} {source.template.nom})"
+            label_echange = f"Echange (Pouvoir {source.template.nom})"
             delta_puissance = adv.puissance - source.puissance
             delta_degats = adv.degats - source.degats
-            self._appliquer(source, numero, source, "puissance", delta_puissance, label_echange)
-            self._appliquer(source, numero, adv, "puissance", -delta_puissance, label_echange)
-            self._appliquer(source, numero, source, "degats", delta_degats, label_echange)
-            self._appliquer(source, numero, adv, "degats", -delta_degats, label_echange)
+            self._appliquer(source, source, "puissance", delta_puissance, label_echange)
+            self._appliquer(source, adv, "puissance", -delta_puissance, label_echange)
+            self._appliquer(source, source, "degats", delta_degats, label_echange)
+            self._appliquer(source, adv, "degats", -delta_degats, label_echange)
             self.log.append(
-                f"{source.template.nom} Pouvoir {numero} echange Puissance/Degats avec {adv.template.nom}"
+                f"{source.template.nom} Pouvoir echange Puissance/Degats avec {adv.template.nom}"
             )
 
         elif t == "vampirisme":
             x = _valeur_effective(effet.get("valeur", 0), pouvoir, source)
             if adv.protege:
                 self.log.append(
-                    f"{source.template.nom} Pouvoir {numero} (Vampirisme {x}) bloque par Protection de {adv.template.nom}"
+                    f"{source.template.nom} Pouvoir (Vampirisme {x}) bloque par Protection de {adv.template.nom}"
                 )
                 return
-            label_vampirisme = f"Pouvoir {numero} {source.template.nom} (Vampirisme)"
-            self._appliquer(source, numero, adv, "pv", -x, label_vampirisme)
-            self._appliquer(source, numero, source, "pv", x, label_vampirisme)
+            label_vampirisme = f"Pouvoir {source.template.nom} (Vampirisme)"
+            self._appliquer(source, adv, "pv", -x, label_vampirisme)
+            self._appliquer(source, source, "pv", x, label_vampirisme)
             self.log.append(
-                f"{source.template.nom} Pouvoir {numero} (Vampirisme {x}) : {adv.joueur.nom} {-x} PV, {source.joueur.nom} +{x} PV"
+                f"{source.template.nom} Pouvoir (Vampirisme {x}) : {adv.joueur.nom} {-x} PV, {source.joueur.nom} +{x} PV"
             )
 
     def _resoudre_pouvoir(self, source, differe):
-        """Resout l'unique Pouvoir actif de `source` (celui dont le numero correspond a
-        l'Energie du Glyphe joue), si sa nature (immediat/differe) correspond a la passe
-        en cours."""
-        numero = source.glyphe.energie
-        pouvoir = source.template.pouvoir(numero)
+        """Resout l'unique Pouvoir de `source`, s'il est actif (Energie jouee >= son
+        seuil) et si sa nature (immediat/differe) correspond a la passe en cours."""
+        pouvoir = source.pouvoir_actif()
         if pouvoir is None:
             return
         if _est_differee(pouvoir) != differe:
             return
-        if numero in source.stoppes:
-            self.log.append(f"{source.template.nom} Pouvoir {numero} est annule, ignore")
+        if source.stoppe:
+            self.log.append(f"{source.template.nom} Pouvoir est annule, ignore")
             return
         if not _verifier_condition(pouvoir.get("condition"), source):
             self.log.append(
-                f"{source.template.nom} Pouvoir {numero} ({pouvoir['description']}) : condition non remplie"
+                f"{source.template.nom} Pouvoir ({pouvoir['description']}) : condition non remplie"
             )
             return
         for effet in pouvoir["effets"]:
-            self._resoudre_effet(source, numero, pouvoir, effet)
+            self._resoudre_effet(source, pouvoir, effet)
 
     def resoudre(self):
         self.log.append(
             f"-- Glyphes reveles : {self.dc1.template.nom} joue {self.dc1.glyphe.notation_txt()} / "
             f"{self.dc2.template.nom} joue {self.dc2.glyphe.notation_txt()} --"
         )
-        # Pass 1 : pouvoir immediat, J1 puis J2 (chacun n'a qu'un seul Pouvoir actif)
+        # Pass 1 : pouvoir immediat, J1 puis J2 (chacun n'a qu'un seul Pouvoir)
         for combattant in (self.dc1, self.dc2):
             self._resoudre_pouvoir(combattant, differe=False)
 
