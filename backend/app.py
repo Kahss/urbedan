@@ -61,18 +61,6 @@ def api_choix_combattant():
     return jsonify(etat)
 
 
-@app.post("/api/partie/glyphe")
-def api_choix_glyphe():
-    if partie is None:
-        return jsonify({"erreur": "Aucune partie en cours"}), 404
-    body = request.get_json(force=True) or {}
-    try:
-        etat = partie.soumettre_glyphe(body.get("glyphe_id"))
-    except ErreurPartie as e:
-        return jsonify({"erreur": str(e)}), 400
-    return jsonify(etat)
-
-
 @app.post("/api/partie/suivant")
 def api_duel_suivant():
     if partie is None:

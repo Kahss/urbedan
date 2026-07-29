@@ -279,23 +279,15 @@ function renderZoneCentrale(etat) {
     }
     messageAttente.classList.remove("cache");
 
-    // Main visible (mais non jouable) des maintenant, pour choisir son Combattant en
-    // connaissance des Glyphes qu'il reste a jouer.
+    // Le Glyphe pioche pour ce duel est deja connu : il sera joue automatiquement
+    // sur le Combattant choisi, une fois les deux Combattants selectionnes.
     zoneGlyphes.classList.remove("cache");
-    libelleGlyphes.textContent = "Ta main de Glyphes (informatif, tu la joueras une fois ton Combattant choisi) :";
+    libelleGlyphes.textContent = "Ton Glyphe pioche pour ce duel (joue automatiquement une fois ton Combattant choisi) :";
     mainGlyphes.classList.add("inactif");
     vider(mainGlyphes);
-    etat.joueur_humain.main.forEach((g) => {
-      mainGlyphes.appendChild(creerCarteGlyphe(g, null));
-    });
-  } else if (etat.phase === "choix_glyphe") {
-    zoneGlyphes.classList.remove("cache");
-    libelleGlyphes.textContent = "Choisis un Glyphe (joue face cachee) :";
-    mainGlyphes.classList.remove("inactif");
-    vider(mainGlyphes);
-    etat.joueur_humain.main.forEach((g) => {
-      mainGlyphes.appendChild(creerCarteGlyphe(g, () => choisirGlyphe(g.id)));
-    });
+    if (etat.joueur_humain.glyphe_courant) {
+      mainGlyphes.appendChild(creerCarteGlyphe(etat.joueur_humain.glyphe_courant, null));
+    }
   } else if (etat.phase === "duel_resolu") {
     zoneResultat.classList.remove("cache");
     const journal = document.getElementById("journal-resolution");
@@ -311,15 +303,6 @@ function renderZoneCentrale(etat) {
     btn.textContent = etat.terminee ? "Voir le resultat final" : "Duel suivant";
     btn.onclick = etat.terminee ? () => renderFin(etat) : duelSuivant;
   }
-}
-
-async function choisirGlyphe(id) {
-  const etat = await api("/partie/glyphe", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ glyphe_id: id }),
-  });
-  render(etat);
 }
 
 async function duelSuivant() {

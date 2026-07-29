@@ -147,22 +147,28 @@ choix suivants ont ete valides ou tranches avec l'utilisateur avant developpemen
   infligent chacun leurs Degats ; le joueur J2 du duel devient J1 du duel suivant (et
   inversement), conformement a `game.md`.
 - **Equipe visible** : le roster complet (les 4 Combattants, utilises ou non) de chaque
-  joueur est visible par l'autre pendant toute la partie ; seule la main de Glyphes de
-  l'IA reste cachee (le nombre de cartes restantes est visible, pas leur contenu) jusqu'a
-  ce qu'elle en joue une.
+  joueur est visible par l'autre pendant toute la partie ; seul le Glyphe pioche par
+  l'IA pour le duel en cours reste cache jusqu'a la resolution du duel.
+- **Pioche de Glyphe unique par duel** : il n'y a plus de main de Glyphes ni de choix de
+  Glyphe a faire. Au debut de chaque duel, chaque joueur pioche automatiquement un
+  unique Glyphe dans le deck commun (12 cartes, partage par les deux joueurs, jamais
+  reconstitue en cours de partie) : ce sera le seul Glyphe qu'il pourra jouer sur le
+  Combattant qu'il choisira pour ce duel. Le joueur humain voit son propre Glyphe avant
+  de choisir son Combattant ; celui de l'IA reste cache jusqu'a la resolution.
 
 ## IA
 
-L'IA choisit aleatoirement un Combattant disponible dans son equipe, puis un Glyphe
-aleatoire dans sa main, a chaque duel.
+L'IA choisit aleatoirement un Combattant disponible dans son equipe a chaque duel ; le
+Glyphe qu'elle joue n'est plus un choix, c'est celui qu'elle a pioche pour ce duel.
 
 ## Tests effectues
 
 - Simulation de 30 parties completes en choix aleatoires via le moteur Python (sans
   crash).
 - Simulation d'une partie complete via l'API HTTP reelle (serveur Flask demarre),
-  verifiant le cycle choix Combattant -> choix Glyphe -> resolution -> duel suivant ->
-  fin de partie, ainsi que le rejet propre (HTTP 400) d'une action invalide.
+  verifiant le cycle pioche Glyphe -> choix Combattant (resolution automatique une fois
+  les deux choisis) -> duel suivant -> fin de partie, ainsi que le rejet propre
+  (HTTP 400) d'une action invalide.
 - Scenarios cibles verifiant individuellement : Protection (retroactive + blocage),
   Stop pouvoir (retroactif), Contrecoup (redirection sur victoire), Surpuissance,
   Patience/Impatience (base duel courant), regle "Energie = quel Pouvoir s'active" (et

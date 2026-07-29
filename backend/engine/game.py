@@ -38,10 +38,7 @@ class Partie:
         self.joueur_humain.pv = PV_DEPART
         self.joueur_ia.pv = PV_DEPART
 
-        deck = construire_deck_glyphes()
-        self.joueur_humain.main = deck[0:5]
-        self.joueur_ia.main = deck[5:10]
-        # les 2 dernieres cartes du deck restent hors jeu (remises "dans la boite")
+        self.deck_glyphes = construire_deck_glyphes()
 
         self.duel_numero = 1
         self.j1 = None
@@ -56,6 +53,7 @@ class Partie:
 
         self.j1 = random.choice([self.joueur_humain, self.joueur_ia])
         self.j2 = self.joueur_ia if self.j1 is self.joueur_humain else self.joueur_humain
+        self._piocher_glyphes_manche()
         self._auto_choix_combattant_ia_si_necessaire()
 
     # ------------------------------------------------------------------ IA
@@ -64,6 +62,13 @@ class Partie:
             self.combattant_j1 = random.choice(self.j1.combattants_disponibles())
         if self.j2.est_ia and self.combattant_j2 is None and self.combattant_j1 is not None:
             self.combattant_j2 = random.choice(self.j2.combattants_disponibles())
+
+    # ---------------------------------------------------------------- pioche
+    def _piocher_glyphes_manche(self):
+        """Chaque joueur pioche un unique Glyphe dans le deck commun : ce sera le seul
+        Glyphe qu'il pourra jouer sur son Combattant pour ce duel."""
+        self.joueur_humain.glyphe_courant = self.deck_glyphes.pop()
+        self.joueur_ia.glyphe_courant = self.deck_glyphes.pop()
 
     # ------------------------------------------------------------ actions
     def soumettre_combattant(self, combattant_id):
@@ -87,22 +92,13 @@ class Partie:
 
         self._auto_choix_combattant_ia_si_necessaire()
         if self.combattant_j1 is not None and self.combattant_j2 is not None:
-            self.phase = "choix_glyphe"
+            self._resoudre_duel_courant()
         return self.etat_dict()
 
-    def soumettre_glyphe(self, glyphe_id):
-        if self.phase != "choix_glyphe":
-            raise ErreurPartie("Ce n'est pas la phase de choix du Glyphe")
-
+    def _resoudre_duel_courant(self):
         joueur_humain_est_j1 = self.j1 is self.joueur_humain
-        glyphe_humain = self.joueur_humain.retirer_glyphe(glyphe_id)
-        if glyphe_humain is None:
-            raise ErreurPartie("Glyphe indisponible dans la main")
-        glyphe_ia = random.choice(self.joueur_ia.main)
-        self.joueur_ia.main.remove(glyphe_ia)
-
-        glyphe_j1 = glyphe_humain if joueur_humain_est_j1 else glyphe_ia
-        glyphe_j2 = glyphe_ia if joueur_humain_est_j1 else glyphe_humain
+        glyphe_j1 = self.j1.glyphe_courant
+        glyphe_j2 = self.j2.glyphe_courant
 
         resultat = resoudre_duel(
             self.j1, self.combattant_j1, glyphe_j1,
@@ -119,7 +115,6 @@ class Partie:
         self.phase = "duel_resolu"
 
         self._verifier_fin_partie(fin_de_manche=(self.duel_numero >= NB_DUELS_MAX))
-        return self.etat_dict()
 
     def duel_suivant(self):
         if self.phase != "duel_resolu":
@@ -141,6 +136,7 @@ class Partie:
         self.combattant_j2 = None
         self.dernier_resultat = None
         self.phase = "choix_combattant"
+        self._piocher_glyphes_manche()
         self._auto_choix_combattant_ia_si_necessaire()
         return self.etat_dict()
 
@@ -172,7 +168,7 @@ class Partie:
             "duels_max": NB_DUELS_MAX,
             "j1": "humain" if self.j1 is self.joueur_humain else "ia",
             "joueur_humain": self.joueur_humain.to_dict(),
-            "joueur_ia": self.joueur_ia.to_dict(cacher_main=True),
+            "joueur_ia": self.joueur_ia.to_dict(cacher_glyphe=True),
             "combattant_j1": self.combattant_j1.template.id if self.combattant_j1 else None,
             "combattant_j2": self.combattant_j2.template.id if self.combattant_j2 else None,
             "dernier_resultat": self.dernier_resultat,

@@ -90,26 +90,19 @@ class Joueur:
         self.est_ia = est_ia
         self.pv = 12
         self.equipe = equipe  # liste de CombattantEnEquipe (4)
-        self.main = []  # liste de Glyphe
+        self.glyphe_courant = None  # Glyphe pioche pour le duel en cours
 
     def combattants_disponibles(self):
         return [c for c in self.equipe if not c.utilise]
 
-    def retirer_glyphe(self, glyphe_id):
-        for g in self.main:
-            if g.id == glyphe_id:
-                self.main.remove(g)
-                return g
-        return None
-
-    def to_dict(self, cacher_main=False):
+    def to_dict(self, cacher_glyphe=False):
         return {
             "nom": self.nom,
             "est_ia": self.est_ia,
             "pv": self.pv,
             "equipe": [c.to_dict() for c in self.equipe],
-            "main": (
-                [{"count": len(self.main)}] if cacher_main else [g.to_dict() for g in self.main]
+            "glyphe_courant": (
+                None if (cacher_glyphe or self.glyphe_courant is None) else self.glyphe_courant.to_dict()
             ),
-            "main_taille": len(self.main),
+            "a_glyphe_courant": self.glyphe_courant is not None,
         }
