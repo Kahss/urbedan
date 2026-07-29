@@ -13,7 +13,7 @@ Urban Eredan est un jeu de cartes qui se fait s'affronter deux équipes de comba
   - Nom
   - Puissance
   - Dégâts
-  - Pouvoir 1, 2 et 3
+  - Pouvoir
 - Suivi de Points de Vie (PV, matérialisé par une carte dans le jeu physique et par un compteur dans le jeu vidéo).
 
 ## Mise en place
@@ -34,11 +34,11 @@ Les pouvoirs des Combattants sont définis à partir d'un ou plusieurs mots clé
 ## Structure d'une partie
 La partie se déroule comme une succession de duels. Chaque duel suit la structure suivante :
 1. Chaque joueur pioche un Glyphe dans la pioche commune, qui s'ajoute à celui déjà en main (non joué lors de la manche précédente) : il a donc 2 Glyphes disponibles pour cette manche
-2. Le premier joueur (J1) choisit son combattant et lui associe l'un de ses 2 Glyphes disponibles (l'autre reste en main pour la manche suivante), en connaissant sa propre main (mais pas celle de l'adversaire)
-3. Le second joueur (J2) choisit son combattant et lui associe l'un de ses 2 Glyphes disponibles, dans les mêmes conditions
+2. Le premier joueur (J1) choisit son combattant et lui associe l'un de ses 2 Glyphes disponibles face cachée (l'autre reste en main pour la manche suivante), en connaissant sa propre main (mais pas celle de l'adversaire)
+3. Le second joueur (J2) choisit son combattant et lui associe l'un de ses 2 Glyphes disponibles face cachée, dans les mêmes conditions
 4. Une fois les deux couples Combattant/Glyphe choisis, les Glyphes associés sont révélés et automatiquement joués face à face
-5. En commençant par J1, les joueurs résolvent autant de Pouvoirs de leurs combattant que la valeur d'Energie du Glyphe qui lui est attribué. Les pouvoirs sont activés dans l'ordre dans lequel ils sont donnés. Par exemple, J1 a joué un Glyphe 2/2, il va donc activer le Pouvoir 1 et 2 de son Combattant. Pour activer le Pouvoir 3, il aurait fallu qu'il joue un Glyphe 0/3.
-6. La Puissance totale de chaque Combattant est définie par sa Puissance de base à laquelle s'ajoute la puissance du Glyphe qui lui est associé le tout modifié par les Pouvoirs activés des deux combattants
+5. En commençant par J1, les joueurs appliquent leurs pouvoirs si les conditions sont satisfaites (nombre d'énergie et condition de jeu)
+6. La Puissance totale de chaque Combattant est définie par sa Puissance de base à laquelle s'ajoute la puissance du Glyphe qui lui est associé, le tout modifié par les Pouvoirs activés des deux combattants
 7. Le Combattant avec la meilleure Puissance totale remporte le duel. En cas d'égalité, les deux Combattants remportent le duel.
 8. Le ou les Combattants ayant remporté le duel réduisent les PV adverses d'un montant égal à leurs Dégâts (éventuellement modifiés par les Pouvoirs)
 9. S'il reste encore au moins 1 Combattant à chaque joueur et qu'aucun n'est KO (PV supérieur à 0), alors un nouveau duel commence. Le premier joueur du nouveau duel est le gagnant du duel précédent. En cas de double victoire, c'est J2 devient J1, et inversement.
