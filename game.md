@@ -5,10 +5,10 @@ Urban Eredan est un jeu de cartes qui se fait s'affronter deux équipes de comba
 
 ## Composants principaux
 - Cartes Glyphes : ce sont les cartes qui vont permettre de booster les combattants au cours de chaque duel. Chaque Glyphe a deux propriété : une Puissance et une Energie. En terme de notation, un Glyphe avec une Puissance de X et une Energie de Y est noté "X/Y" La Puissance s'ajoute à la puissance du combattant, et l'Energie détermine combien de Capacités du combattants sont activées pendant le duel. Elles sont réparties comme suit :
-  - 5 cartes 6 Puissances / 0 Energie
-  - 5 cartes 4 Puissances / 1 Energie
-  - 5 cartes 2 Puissance / 2 Energies
-  - 5 cartes 0 Puissance / 3 Energies
+  - 4 cartes 6 Puissances / 0 Energie
+  - 4 cartes 4 Puissances / 1 Energie
+  - 4 cartes 2 Puissance / 2 Energies
+  - 4 cartes 0 Puissance / 3 Energies
 - Cartes Combattant : ce sont les membres de chaque équipe. Chaque Combattant possède les caractéristiques suivantes :
   - Nom
   - Puissance

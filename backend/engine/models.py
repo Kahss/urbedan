@@ -3,12 +3,12 @@ import itertools
 import random
 
 # Repartition des Glyphes definie dans game.md : (puissance, energie, quantite)
-# Autant d'exemplaires de chaque type (5), pour un deck de 20 cartes au total.
+# Autant d'exemplaires de chaque type (4), pour un deck de 16 cartes au total.
 GLYPH_DISTRIBUTION = [
-    (6, 0, 5),
-    (4, 1, 5),
-    (2, 2, 5),
-    (0, 3, 5),
+    (6, 0, 4),
+    (4, 1, 4),
+    (2, 2, 4),
+    (0, 3, 4),
 ]
 
 _glyphe_id_counter = itertools.count(1)

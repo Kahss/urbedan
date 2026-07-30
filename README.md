@@ -171,7 +171,7 @@ choix suivants ont ete valides ou tranches avec l'utilisateur avant developpemen
   (valeurs et nombre de cartes) reste totalement masquee jusqu'a la resolution du duel.
 - **Main de 2 Glyphes par manche** : chaque joueur pioche un premier Glyphe a la mise en
   place de la partie (main de depart), puis un Glyphe supplementaire au debut de chaque
-  manche (duel), dans le deck commun (20 cartes, 5 exemplaires de chacun des 4 types de
+  manche (duel), dans le deck commun (16 cartes, 4 exemplaires de chacun des 4 types de
   Glyphe, partage par les deux joueurs, jamais reconstitue en cours de partie). Il a
   donc 2 Glyphes disponibles pour choisir lequel associer au Combattant qu'il joue ce
   duel-ci ; l'autre reste en main pour la manche suivante. Le joueur humain voit sa
