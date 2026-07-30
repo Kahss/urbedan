@@ -150,6 +150,16 @@ h2 { text-align: center; }
   margin-right: 4px;
 }
 
+.liste-pouvoirs .num .rond-energie {
+  vertical-align: middle;
+  margin-right: 2px;
+}
+
+.rond-energie.rond-energie-vide {
+  background: #eceef2;
+  box-shadow: none;
+}
+
 .badge-utilise {
   position: absolute;
   top: 8px;

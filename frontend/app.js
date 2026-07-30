@@ -72,8 +72,8 @@ function creerCarteCombattant(data, { selectionnable = false, selectionnee = fal
   liste.className = "liste-pouvoirs";
   if (data.pouvoir) {
     const li = document.createElement("li");
-    const seuil = data.pouvoir.energie_min > 0 ? `Energie ${data.pouvoir.energie_min}+` : "Toujours actif";
-    li.innerHTML = `<span class="num">${seuil}</span>${data.pouvoir.description}`;
+    const seuil = seuilEnergieInfo(data.pouvoir.energie_min);
+    li.innerHTML = `<span class="num" title="${seuil.titre}">${seuil.html}</span>${data.pouvoir.description}`;
     liste.appendChild(li);
   }
   carte.appendChild(liste);
@@ -100,6 +100,13 @@ function formaterDetailListe(detail) {
 
 function rondsEnergie(energie) {
   return Array.from({ length: energie }, () => `<span class="rond-energie"></span>`).join("");
+}
+
+function seuilEnergieInfo(energieMin) {
+  if (energieMin > 0) {
+    return { html: rondsEnergie(energieMin), titre: `Energie ${energieMin} ou plus` };
+  }
+  return { html: `<span class="rond-energie rond-energie-vide"></span>`, titre: "Toujours actif" };
 }
 
 function creerCarteGlyphe(glyphe, onClick, { selectionnee = false } = {}) {
