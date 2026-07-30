@@ -197,13 +197,11 @@ class MoteurDuel:
         if t in ("puissance", "degats", "vie"):
             champ = "pv" if t == "vie" else t
             cible = source if effet.get("cible", "soi") == "soi" else adv
-            if mod == "contrecoup":
-                if not source.gagnant:
-                    self.log.append(
-                        f"{source.template.nom} Pouvoir ({pouvoir['description']}) : Contrecoup non declenche (pas de victoire)"
-                    )
-                    return
-                cible = source
+            if mod == "contrecoup" and not source.gagnant:
+                self.log.append(
+                    f"{source.template.nom} Pouvoir ({pouvoir['description']}) : Contrecoup non declenche (pas de victoire)"
+                )
+                return
             valeur = _valeur_effective(effet.get("valeur", 0), pouvoir, source)
             avant = cible.puissance if champ == "puissance" else (cible.degats if champ == "degats" else cible.joueur.pv)
             applique = self._appliquer(source, cible, champ, valeur, label)
