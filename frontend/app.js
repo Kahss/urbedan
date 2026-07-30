@@ -202,13 +202,26 @@ function render(etat) {
   renderZoneCentrale(etat);
 }
 
+function pvRonds(pv) {
+  const total = 10;
+  const pvSecur = Math.max(0, pv);
+  const orangeCount = pvSecur > total ? Math.min(pvSecur - total, total) : 0;
+  const pleinCount = pvSecur > total ? total - orangeCount : pvSecur;
+  let html = "";
+  for (let i = 0; i < total; i++) {
+    const classe = i < orangeCount ? "orange" : i < orangeCount + pleinCount ? "plein" : "";
+    html += `<span class="pv-rond ${classe}"></span>`;
+  }
+  return html;
+}
+
 function renderTableauBord(etat) {
   const pvH = etat.joueur_humain.pv;
   const pvI = etat.joueur_ia.pv;
   document.getElementById("pv-humain-texte").textContent = `${pvH} PV`;
   document.getElementById("pv-ia-texte").textContent = `${pvI} PV`;
-  document.getElementById("pv-humain-barre").style.width = `${Math.max(0, (pvH / 10) * 100)}%`;
-  document.getElementById("pv-ia-barre").style.width = `${Math.max(0, (pvI / 10) * 100)}%`;
+  document.getElementById("pv-humain-ronds").innerHTML = pvRonds(pvH);
+  document.getElementById("pv-ia-ronds").innerHTML = pvRonds(pvI);
   document.getElementById("duel-numero-texte").textContent = `Duel ${Math.min(etat.duel_numero, etat.duels_max)} / ${etat.duels_max}`;
 }
 
