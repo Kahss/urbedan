@@ -548,7 +548,6 @@ button:disabled {
 }
 
 .journal p { margin: 4px 0; }
-.journal p.titre-etape { color: var(--accent-2); font-weight: 700; margin-top: 10px; }
 .journal p.gain { color: var(--ok); }
 .journal p.perte { color: var(--danger); }
 

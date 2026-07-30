@@ -338,22 +338,10 @@ class MoteurDuel:
             self._resoudre_effet(source, pouvoir, effet)
 
     def resoudre(self):
-        self.log.append(
-            f"-- Glyphes reveles : {self.dc1.template.nom} joue {self.dc1.glyphe.notation_txt()} / "
-            f"{self.dc2.template.nom} joue {self.dc2.glyphe.notation_txt()} --"
-        )
         # Pass 1 : pouvoir immediat, J1 puis J2 (chacun n'a qu'un seul Pouvoir)
         for combattant in (self.dc1, self.dc2):
             self._resoudre_pouvoir(combattant, differe=False)
 
-        self.log.append(
-            f"Puissance totale {self.dc1.template.nom} : "
-            f"{_formater_detail(self.dc1.puissance, self.dc1.detail_puissance)}"
-        )
-        self.log.append(
-            f"Puissance totale {self.dc2.template.nom} : "
-            f"{_formater_detail(self.dc2.puissance, self.dc2.detail_puissance)}"
-        )
         if self.dc1.puissance > self.dc2.puissance:
             self.dc1.gagnant = True
         elif self.dc2.puissance > self.dc1.puissance:

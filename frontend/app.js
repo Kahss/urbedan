@@ -408,7 +408,6 @@ function renderZoneCentrale(etat) {
     vider(journal);
     resultat.log.forEach((ligne) => {
       const p = document.createElement("p");
-      if (ligne.startsWith("--") || ligne.startsWith("Puissance totale")) p.className = "titre-etape";
       if (ligne.includes("remporte le duel")) p.className = "gain";
       p.textContent = ligne;
       journal.appendChild(p);
