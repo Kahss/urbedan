@@ -165,7 +165,7 @@
       "puissance": 3,
       "degats": 3,
       "pouvoir": {
-        "description": "+2 Puissance par Energie en jeu",
+        "description": "+1 Puissance par Energie en jeu",
         "condition": null,
         "modificateur": "par_energie_en_jeu",
         "energie_min": 1,
@@ -230,13 +230,12 @@
       "nom": "Gambit",
       "archetype": "Le joueur d'echecs du parc",
       "description": "Gambit joue aux echecs contre n'importe qui pour un billet, sur la table en beton du square Voltaire, et il ne propose jamais une partie qu'il n'a pas deja gagnee dans sa tete. Quand l'ecart devient ecrasant en sa faveur, il ne se contente pas de gagner la partie : il porte le coup de grace qui laisse l'adversaire incapable de revenir.",
-      "puissance": 3,
+      "puissance": 5,
       "degats": 3,
       "pouvoir": {
         "description": "Surpuissance : +4 Vie et -4 Vie adverse",
         "condition": "surpuissance",
         "modificateur": null,
-        "energie_min": 3,
         "effets": [
           { "type": "vie", "cible": "soi", "valeur": 4 },
           { "type": "vie", "cible": "adversaire", "valeur": -4 }
