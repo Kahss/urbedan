@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(./venv/Scripts/python.exe --version)",
-      "Bash(./venv/Scripts/pip.exe --version)"
+      "Bash(./venv/Scripts/pip.exe --version)",
+      "Bash(./venv/Scripts/python.exe generate_metagame.py -n 10000)"
     ]
   }
 }
