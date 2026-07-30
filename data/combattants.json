@@ -7,15 +7,23 @@
       "archetype": "Le DJ des block-parties",
       "description": "Platines calees sur le toit d'un parking desaffecte, Riff a grandi au son des basses qui remontent des caves du quartier. Il ne se bat jamais sans musique : chaque duel est un set improvise ou il monte crescendo, certain que le premier morceau pose donne toujours le ton. La legende dit qu'il n'a jamais perdu un affrontement commence sur son propre tempo.",
       "puissance": 4,
-      "degats": 3,
+      "degats": 0,
       "pouvoir": {
         "description": "Courage : +2 Puissance / +2 Dégâts par Energie",
         "condition": "courage",
         "modificateur": "par_energie",
-        "energie_min": 1,
+        "energie_min": 2,
         "effets": [
-          { "type": "puissance", "cible": "soi", "valeur": 2 },
-          { "type": "degats", "cible": "soi", "valeur": 2 }
+          {
+            "type": "puissance",
+            "cible": "soi",
+            "valeur": 2
+          },
+          {
+            "type": "degats",
+            "cible": "soi",
+            "valeur": 2
+          }
         ]
       }
     },
@@ -32,8 +40,12 @@
         "modificateur": null,
         "energie_min": 2,
         "effets": [
-          { "type": "copie_pouvoir" },
-          { "type": "stop_pouvoir" }
+          {
+            "type": "copie_pouvoir"
+          },
+          {
+            "type": "stop_pouvoir"
+          }
         ]
       }
     },
@@ -49,7 +61,11 @@
         "modificateur": "patience",
         "energie_min": 0,
         "effets": [
-          { "type": "puissance", "cible": "soi", "valeur": 2 }
+          {
+            "type": "puissance",
+            "cible": "soi",
+            "valeur": 2
+          }
         ]
       }
     },
@@ -59,15 +75,23 @@
       "archetype": "Le writer pyromane",
       "description": "Blaze tague a la bombe et au chalumeau, et personne ne l'arrete tant que la piece n'est pas terminee. Il frappe plus fort quand il sent l'adversaire deja affaibli, sans pitie pour les plus faibles — mais quand on lui tient tete, une rage froide prend le dessus et le rend plus dangereux encore. On raconte que ses fresques les plus connues ont fini par bruler la moitie du mur qui les portait.",
       "puissance": 4,
-      "degats": 3,
+      "degats": 2,
       "pouvoir": {
         "description": "Vengeance : +4 Puissance, +4 Degats",
         "condition": "vengeance",
         "modificateur": null,
         "energie_min": 1,
         "effets": [
-          { "type": "degats", "cible": "soi", "valeur": 4 },
-          { "type": "puissance", "cible": "soi", "valeur": 4 }
+          {
+            "type": "degats",
+            "cible": "soi",
+            "valeur": 4
+          },
+          {
+            "type": "puissance",
+            "cible": "soi",
+            "valeur": 4
+          }
         ]
       }
     },
@@ -84,8 +108,14 @@
         "modificateur": "par_energie",
         "energie_min": 1,
         "effets": [
-          { "type": "protection" },
-          { "type": "puissance", "cible": "adversaire", "valeur": -1 }
+          {
+            "type": "protection"
+          },
+          {
+            "type": "puissance",
+            "cible": "adversaire",
+            "valeur": -1
+          }
         ]
       }
     },
@@ -102,7 +132,10 @@
         "modificateur": "par_energie",
         "energie_min": 0,
         "effets": [
-          { "type": "vampirisme", "valeur": 1 }
+          {
+            "type": "vampirisme",
+            "valeur": 1
+          }
         ]
       }
     },
@@ -111,15 +144,23 @@
       "nom": "Echo",
       "archetype": "La danseuse de battle",
       "description": "Echo n'a pas de coup fourre, pas de plan tordu : juste des annees de battles de rue et une technique irreprochable. Chaque geste qu'elle pose s'ajoute au precedent, sans jamais faiblir ni se laisser distraire par l'adversaire. Face a elle, tout le monde sait exactement ce qui va arriver — et perd quand meme.",
-      "puissance": 5,
+      "puissance": 4,
       "degats": 3,
       "pouvoir": {
         "description": "+2 Puissance / + 1 Dégât par Energie",
         "modificateur": "par_energie",
-        "energie_min": 1,
+        "energie_min": 2,
         "effets": [
-          { "type": "puissance", "cible": "soi", "valeur": 2 },
-          { "type": "degats", "cible": "soi", "valeur": 1 }
+          {
+            "type": "puissance",
+            "cible": "soi",
+            "valeur": 2
+          },
+          {
+            "type": "degats",
+            "cible": "soi",
+            "valeur": 1
+          }
         ]
       }
     },
@@ -136,7 +177,11 @@
         "modificateur": null,
         "energie_min": 2,
         "effets": [
-          { "type": "vie", "cible": "adversaire", "valeur": -6 }
+          {
+            "type": "vie",
+            "cible": "adversaire",
+            "valeur": -6
+          }
         ]
       }
     },
@@ -153,7 +198,11 @@
         "modificateur": "par_energie_adverse",
         "energie_min": 1,
         "effets": [
-          { "type": "puissance", "cible": "soi", "valeur": 2 }
+          {
+            "type": "puissance",
+            "cible": "soi",
+            "valeur": 2
+          }
         ]
       }
     },
@@ -165,12 +214,16 @@
       "puissance": 3,
       "degats": 3,
       "pouvoir": {
-        "description": "+1 Puissance par Energie en jeu",
+        "description": "+2 Puissance par Energie en jeu",
         "condition": null,
         "modificateur": "par_energie_en_jeu",
         "energie_min": 1,
         "effets": [
-          { "type": "puissance", "cible": "soi", "valeur": 1 }
+          {
+            "type": "puissance",
+            "cible": "soi",
+            "valeur": 2
+          }
         ]
       }
     },
@@ -187,7 +240,11 @@
         "modificateur": null,
         "energie_min": 1,
         "effets": [
-          { "type": "puissance", "cible": "soi", "valeur": 3 }
+          {
+            "type": "puissance",
+            "cible": "soi",
+            "valeur": 3
+          }
         ]
       }
     },
@@ -204,7 +261,11 @@
         "modificateur": null,
         "energie_min": 1,
         "effets": [
-          { "type": "puissance", "cible": "soi", "valeur": 4 }
+          {
+            "type": "puissance",
+            "cible": "soi",
+            "valeur": 4
+          }
         ]
       }
     },
@@ -213,7 +274,7 @@
       "nom": "Verve",
       "archetype": "Le MC de battle rap",
       "description": "Verve n'improvise jamais vraiment : chaque round gagne nourrit le suivant, chaque rime qui touche lui donne un souffle de plus pour la suite. Sur la scene du sous-sol du Kaine Club, on ne l'a jamais vu perdre pied une fois lance — au contraire, plus il enchaine les victoires, plus sa voix porte.",
-      "puissance": 4,
+      "puissance": 5,
       "degats": 3,
       "pouvoir": {
         "description": "Victoire : +4 Vie",
@@ -221,7 +282,11 @@
         "modificateur": null,
         "energie_min": 1,
         "effets": [
-          { "type": "vie", "cible": "soi", "valeur": 4 }
+          {
+            "type": "vie",
+            "cible": "soi",
+            "valeur": 4
+          }
         ]
       }
     },
@@ -230,15 +295,22 @@
       "nom": "Gambit",
       "archetype": "Le joueur d'echecs du parc",
       "description": "Gambit joue aux echecs contre n'importe qui pour un billet, sur la table en beton du square Voltaire, et il ne propose jamais une partie qu'il n'a pas deja gagnee dans sa tete. Quand l'ecart devient ecrasant en sa faveur, il ne se contente pas de gagner la partie : il porte le coup de grace qui laisse l'adversaire incapable de revenir.",
-      "puissance": 5,
-      "degats": 3,
+      "puissance": 7,
+      "degats": 1,
       "pouvoir": {
         "description": "Surpuissance : +4 Vie et -4 Vie adverse",
         "condition": "surpuissance",
-        "modificateur": null,
         "effets": [
-          { "type": "vie", "cible": "soi", "valeur": 4 },
-          { "type": "vie", "cible": "adversaire", "valeur": -4 }
+          {
+            "type": "vie",
+            "cible": "soi",
+            "valeur": 4
+          },
+          {
+            "type": "vie",
+            "cible": "adversaire",
+            "valeur": -4
+          }
         ]
       }
     },
@@ -247,7 +319,7 @@
       "nom": "Nitro",
       "archetype": "Le rider de BMX gonfle a l'energie",
       "description": "Nitro carbure aux canettes energisantes et aux figures impossibles enchainees des les premieres secondes. Il demarre a fond, quitte a s'essouffler plus tard dans le tournoi : mieux vaut l'affronter en fin de journee qu'au tout premier duel, quand l'adrenaline coule encore a flots.",
-      "puissance": 4,
+      "puissance": 1,
       "degats": 3,
       "pouvoir": {
         "description": "Impatience : +2 Puissance",
@@ -255,7 +327,11 @@
         "modificateur": "impatience",
         "energie_min": 1,
         "effets": [
-          { "type": "puissance", "cible": "soi", "valeur": 2 }
+          {
+            "type": "puissance",
+            "cible": "soi",
+            "valeur": 2
+          }
         ]
       }
     },
@@ -264,15 +340,18 @@
       "nom": "Cascade",
       "archetype": "Le cascadeur du parking desaffecte",
       "description": "Cascade s'entraine sur le toit du parking abandonne de la zone industrielle, enchainant des sauts que personne d'autre n'oserait tenter. Il ne ressent la montee d'adrenaline qu'une fois la figure reussie : c'est seulement apres avoir gagne le duel qu'il retrouve un second souffle, comme si la victoire elle-meme le soignait.",
-      "puissance": 4,
-      "degats": 3,
+      "puissance": 7,
+      "degats": 5,
       "pouvoir": {
-        "description": "Contrecoup : +5 Vie",
+        "description": "Contrecoup : +3 Vie",
         "condition": null,
         "modificateur": "contrecoup",
-        "energie_min": 2,
         "effets": [
-          { "type": "vie", "cible": "soi", "valeur": 5 }
+          {
+            "type": "vie",
+            "cible": "adversaire",
+            "valeur": 3
+          }
         ]
       }
     },
@@ -281,15 +360,17 @@
       "nom": "Mime",
       "archetype": "Le mime du parvis",
       "description": "Mime ne parle jamais, mais il observe chaque adversaire avec une attention presque derangeante avant de reproduire, trait pour trait, le geste qu'il vient de voir. Sur le parvis de la gare, les passants s'arretent pour le regarder imiter n'importe qui a la perfection — et en duel, il fait exactement pareil.",
-      "puissance": 4,
-      "degats": 3,
+      "puissance": 5,
+      "degats": 4,
       "pouvoir": {
         "description": "Copie le Pouvoir adverse",
         "condition": null,
         "modificateur": null,
-        "energie_min": 2,
+        "energie_min": 1,
         "effets": [
-          { "type": "copie_pouvoir" }
+          {
+            "type": "copie_pouvoir"
+          }
         ]
       }
     },
@@ -306,7 +387,9 @@
         "modificateur": null,
         "energie_min": 1,
         "effets": [
-          { "type": "stop_pouvoir" }
+          {
+            "type": "stop_pouvoir"
+          }
         ]
       }
     },
@@ -323,7 +406,9 @@
         "modificateur": null,
         "energie_min": 2,
         "effets": [
-          { "type": "echange" }
+          {
+            "type": "echange"
+          }
         ]
       }
     },
@@ -340,7 +425,55 @@
         "modificateur": "patience",
         "energie_min": 0,
         "effets": [
-          { "type": "vie", "cible": "soi", "valeur": 1 }
+          {
+            "type": "vie",
+            "cible": "soi",
+            "valeur": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "toph",
+      "nom": "Toph",
+      "archetype": "La Bandite Aveugle",
+      "description": "On l'a sous-estimee toute sa vie : une gamine, aveugle, forcement vulnerable. Chaque adversaire qui la croit en position de faiblesse decouvre la meme chose : pieds nus sur le bitume, elle sent chaque vibration, chaque feinte, chaque ruse avant meme qu'elle ne se declenche. Alors le mepris se retourne aussitot contre lui, sous la forme d'un deluge de pierre et de metal.",
+      "puissance": 6,
+      "degats": 3,
+      "pouvoir": {
+        "description": "Vengeance : Stop Pouvoir et +4 Puissance",
+        "condition": "vengeance",
+        "modificateur": null,
+        "energie_min": 1,
+        "effets": [
+          {
+            "type": "stop_pouvoir"
+          },
+          {
+            "type": "puissance",
+            "cible": "soi",
+            "valeur": 4
+          }
+        ]
+      }
+    },
+    {
+      "id": "loup",
+      "nom": "Loup",
+      "archetype": "Le collecteur de dettes qu'on ne rembourse jamais deux fois",
+      "description": "Deux lames courbes glissent hors de son manteau, silencieuses, precises. Loup ne se presse jamais : il attend que la balance penche en sa faveur, calme, presque indifferent, avant de prelever sa part. Un sifflotement lent annonce toujours sa venue dans les couloirs vides, bien avant qu'on ne le voie -- et une fois qu'il a l'avantage, il ne repart jamais les mains vides.",
+      "puissance": 5,
+      "degats": 4,
+      "pouvoir": {
+        "description": "Domination : Vampirisme 2 par Energie",
+        "condition": "domination",
+        "modificateur": "par_energie",
+        "energie_min": 1,
+        "effets": [
+          {
+            "type": "vampirisme",
+            "valeur": 2
+          }
         ]
       }
     }
