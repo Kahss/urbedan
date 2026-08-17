@@ -2,6 +2,7 @@
   --bg: #14151a;
   --bg-panel: #1d1f27;
   --bg-card: #24262f;
+  --bg-pouvoir: #171922;
   --border: #383b47;
   --accent: #ff5a1f;
   --accent-2: #17d4d4;
@@ -67,20 +68,20 @@ h2 { text-align: center; }
 /* ---------- Cartes Combattant ---------- */
 .grille-combattants {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
   gap: 14px;
 }
 
 .grille-combattants.petite {
   grid-template-columns: 1fr;
-  gap: 8px;
+  gap: 10px;
 }
 
 .carte-combattant {
   background: var(--bg-card);
   border: 2px solid var(--border);
   border-radius: 10px;
-  padding: 12px 14px;
+  padding: 11px 13px 13px;
   box-shadow: var(--shadow);
   transition: transform 0.12s ease, border-color 0.12s ease;
   position: relative;
@@ -108,58 +109,67 @@ h2 { text-align: center; }
   box-shadow: 0 0 20px rgba(255, 90, 31, 0.35);
 }
 
-.carte-combattant.condition-validee {
-  outline: 2px solid var(--or);
-  outline-offset: 2px;
+.carte-entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
 
 .carte-combattant h4 {
-  margin: 0 0 6px;
+  margin: 0;
   font-size: 1.05rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+  font-weight: 800;
+  letter-spacing: 0.3px;
 }
 
 .stats-combattant {
   display: flex;
-  gap: 12px;
-  font-size: 0.85rem;
+  gap: 14px;
+  font-size: 0.76rem;
   color: var(--text-dim);
-  margin-bottom: 8px;
+  margin: 6px 0 10px;
 }
 
-.stats-combattant b { color: var(--text); }
+.stats-combattant b { color: var(--text); font-size: 0.86rem; }
 
-.liste-pouvoirs {
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 0;
+/* ---------- Pouvoir : le bloc principal de la carte ---------- */
+.bloc-pouvoir {
+  background: var(--bg-pouvoir);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-2);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.bloc-pouvoir.vide {
+  border-left-color: var(--border);
+  color: var(--text-dim);
   font-size: 0.78rem;
-  color: var(--text-dim);
+  font-style: italic;
 }
 
-.liste-pouvoirs li {
-  padding: 3px 0;
-  border-top: 1px dashed var(--border);
+/* Condition remplie dans le contexte du duel en cours : le bloc s'allume. */
+.bloc-pouvoir.condition-validee {
+  border-left-color: var(--or);
+  box-shadow: inset 0 0 12px rgba(224, 182, 76, 0.12);
 }
 
-.liste-pouvoirs li:first-child { border-top: none; }
-
-.liste-pouvoirs .num {
+.pouvoir-entete {
+  font-size: 0.66rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.4px;
   color: var(--accent-2);
-  font-weight: 700;
-  margin-right: 4px;
+  margin-bottom: 3px;
 }
 
-.liste-pouvoirs .num .rond-energie {
-  vertical-align: middle;
-  margin-right: 2px;
-}
+.bloc-pouvoir.condition-validee .pouvoir-entete { color: var(--or); }
 
-.rond-energie.rond-energie-vide {
-  background: #eceef2;
-  box-shadow: none;
+.pouvoir-corps {
+  font-size: 0.9rem;
+  line-height: 1.35;
+  color: var(--text);
 }
 
 .badge-utilise {
@@ -174,55 +184,62 @@ h2 { text-align: center; }
   text-transform: uppercase;
 }
 
-/* ---------- Avantage (les 3 Zones du Combattant) ---------- */
+/* ---------- Avantage : bande fine, discrete ---------- */
 .avantage {
   display: flex;
-  gap: 4px;
+  gap: 3px;
+  flex-shrink: 0;
 }
 
 .avantage-case {
-  flex: 1;
+  width: 19px;
   text-align: center;
-  font-size: 0.68rem;
+  font-size: 0.58rem;
   font-weight: 800;
-  letter-spacing: 1px;
-  padding: 3px 0;
-  border-radius: 4px;
+  letter-spacing: 0.5px;
+  padding: 2px 0;
+  border-radius: 3px;
   border: 1px solid var(--border);
   background: #191b22;
   color: #4a4d5c;
 }
 
-/* Zone couverte par l'Avantage : opaque, coloree par le dos de la carte du duel. */
+/* Zone couverte par l'Avantage, coloree par le dos de la carte du duel. */
 .avantage-case.couvert {
-  color: var(--text);
+  color: var(--text-dim);
   border-color: var(--text-dim);
   background: #2f323d;
 }
 
 .avantage-case.couvert.dos-vert {
-  background: rgba(62, 207, 106, 0.28);
+  background: rgba(62, 207, 106, 0.3);
   border-color: var(--vert);
   color: var(--vert);
 }
 
-.avantage-case.couvert.dos-gris {
-  background: rgba(125, 130, 150, 0.25);
-  border-color: var(--gris);
-  color: #c3c7d4;
-}
-
 .avantage-case.couvert.dos-rouge {
-  background: rgba(255, 71, 87, 0.25);
+  background: rgba(255, 71, 87, 0.28);
   border-color: var(--rouge);
   color: var(--rouge);
 }
 
-/* Zone hors Avantage : le Combattant ne la lit pas, on l'efface presque. */
-.avantage-case.hors { opacity: 0.35; }
+/* Zone de valeur nulle, une fois le recto revele : ni gain ni perte. */
+.avantage-case.couvert.dos-gris {
+  border-color: var(--gris);
+  background: rgba(125, 130, 150, 0.22);
+  color: #c3c7d4;
+}
 
-.avantage.compact { margin-top: 10px; }
-.avantage.compact .avantage-case { font-size: 0.62rem; padding: 2px 0; }
+/* Zone inconnue : le dos n'en dit rien. */
+.avantage-case.couvert.dos-inconnu {
+  border-style: dashed;
+  border-color: var(--gris);
+  background: #23262f;
+  color: #8b90a2;
+}
+
+/* Zone hors Avantage : le Combattant ne la lit pas, on l'efface presque. */
+.avantage-case.hors { opacity: 0.28; }
 
 /* ---------- Barre d'action / selection equipe ---------- */
 .barre-action {
@@ -375,6 +392,17 @@ button:disabled {
 .champ-case.dos-gris { border-color: var(--gris); background: rgba(125, 130, 150, 0.14); }
 .champ-case.dos-rouge { border-color: var(--rouge); background: rgba(255, 71, 87, 0.14); }
 
+/* Case inconnue : le dos n'en dit rien, on le montre comme tel. */
+.champ-case.dos-inconnu {
+  border-style: dashed;
+  border-color: var(--gris);
+  background: rgba(125, 130, 150, 0.06);
+}
+
+/* La case devoilee au dos est la seule information donnee : on l'appuie. */
+.champ-case.devoilee { box-shadow: 0 0 12px rgba(0, 0, 0, 0.5); }
+.champ-carte-interne.cache-recto .champ-case.devoilee { border-width: 3px; }
+
 .champ-zone {
   font-size: 0.62rem;
   text-transform: uppercase;
@@ -391,19 +419,12 @@ button:disabled {
 .champ-case.dos-vert .champ-valeur { color: var(--vert); }
 .champ-case.dos-gris .champ-valeur { color: #c3c7d4; }
 .champ-case.dos-rouge .champ-valeur { color: var(--rouge); }
-
-.champ-valeur.inconnu { color: var(--text-dim); opacity: 0.6; }
-
-.champ-energie {
-  display: flex;
-  gap: 3px;
-  min-height: 10px;
-  align-items: center;
-}
+.champ-valeur.inconnu { opacity: 0.75; }
+.champ-case.dos-inconnu .champ-valeur { color: var(--gris); opacity: 0.6; }
 
 .champ-consigne {
   margin: 0;
-  max-width: 620px;
+  max-width: 640px;
   text-align: center;
   font-size: 0.78rem;
   color: var(--text-dim);
@@ -431,7 +452,7 @@ button:disabled {
 
 .legende-liste {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 8px;
 }
 
@@ -447,27 +468,31 @@ button:disabled {
 .legende-cases { display: flex; gap: 4px; }
 
 .legende-case {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  min-width: 40px;
-  justify-content: center;
+  min-width: 34px;
+  text-align: center;
   padding: 2px 5px;
   border-radius: 4px;
   border: 1px solid var(--border);
   font-weight: 800;
+  opacity: 0.5;
 }
 
 .legende-case.dos-vert { border-color: var(--vert); color: var(--vert); }
 .legende-case.dos-gris { border-color: var(--gris); color: #c3c7d4; }
 .legende-case.dos-rouge { border-color: var(--rouge); color: var(--rouge); }
 
+/* La case devoilee au dos ressort : c'est elle qu'on lira avant de choisir. */
+.legende-case.devoilee {
+  opacity: 1;
+  border-width: 2px;
+}
+
 .legende-exemplaires { color: var(--text-dim); min-width: 22px; text-align: right; }
 
 /* ---------- Zone de duel ---------- */
 .zone-duel {
   display: grid;
-  grid-template-columns: 220px 1fr 220px;
+  grid-template-columns: 230px 1fr 230px;
   gap: 18px;
 }
 
@@ -496,23 +521,14 @@ button:disabled {
 .message-attente { color: var(--text-dim); font-style: italic; text-align: center; }
 .message-attente.cache { display: none; }
 
-.rond-energie {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--or);
-  box-shadow: 0 0 4px rgba(224, 182, 76, 0.8);
-}
-
 /* ---------- Duel : cartes en presence ---------- */
 .carte-duel {
   background: var(--bg-card);
   border: 2px solid var(--border);
   border-radius: 12px;
   padding: 14px 18px;
-  min-width: 220px;
-  max-width: 280px;
+  min-width: 230px;
+  max-width: 290px;
   text-align: center;
 }
 
@@ -523,41 +539,35 @@ button:disabled {
   letter-spacing: 1px;
 }
 
-.carte-duel h3 { margin: 6px 0; }
+.carte-duel h3 { margin: 6px 0 10px; }
+
+.carte-duel .bloc-pouvoir { text-align: left; margin: 10px 0; }
 
 .carte-duel .recolte {
-  margin-top: 8px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
 }
 
 .carte-duel .recolte-bonus {
-  font-size: 1.4rem;
+  font-size: 1.5rem;
   font-weight: 900;
   color: var(--accent);
+  line-height: 1;
 }
 
-.carte-duel .recolte-energie {
-  display: flex;
-  gap: 4px;
-  min-height: 10px;
+.carte-duel .recolte-libelle {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
   color: var(--text-dim);
 }
 
 .carte-duel .recolte-attente {
-  margin-top: 8px;
   font-weight: 800;
   color: var(--accent);
-}
-
-.carte-duel .pouvoir-actif {
-  margin-top: 4px;
-  font-size: 0.72rem;
-  font-style: italic;
-  color: var(--accent-2);
-  line-height: 1.3;
+  font-size: 0.9rem;
 }
 
 .carte-duel .bloc-stat { margin-top: 12px; }
@@ -596,6 +606,8 @@ button:disabled {
 .carte-duel .detail-liste li { padding: 1px 0; }
 .carte-duel .detail-liste .detail-label { color: var(--text-dim); }
 .carte-duel .detail-liste.degats { color: var(--ok); }
+
+.carte-duel .avantage { justify-content: center; margin-top: 12px; }
 
 .carte-duel.gagnant {
   border-color: var(--ok);

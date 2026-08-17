@@ -20,7 +20,8 @@
     <p class="aide">
       Chaque duel se resout sur un champ de bataille commun, decoupe en 3 Zones :
       <b class="zone-nom">Bitume</b>, <b class="zone-nom">Hauteur</b>, <b class="zone-nom">Souterrain</b>.
-      Un Combattant ne tire parti que des Zones de son Avantage. Pense a couvrir les trois.
+      Un Combattant ne tire parti que des Zones de son Avantage. Une seule Zone est devoilee
+      avant les choix : pense a couvrir les trois.
     </p>
     <div id="grille-selection" class="grille-combattants"></div>
     <div class="barre-action">
@@ -77,8 +78,9 @@
       <summary>Composition du deck de champs de bataille</summary>
       <p class="aide legende-aide">
         30 cartes : 10 modeles, chacun en 3 exemplaires dont les valeurs sont decalees d'une
-        Zone. Aucune Zone n'est donc structurellement meilleure qu'une autre. Le dos ne
-        revele que les couleurs : ni les valeurs, ni l'Energie.
+        Zone. Aucune Zone n'est donc structurellement meilleure qu'une autre, ni devoilee plus
+        souvent. La case encadree est celle que le modele devoile au dos : c'est la seule
+        information disponible avant d'engager un Combattant.
       </p>
       <div id="legende-champs-liste" class="legende-liste"></div>
     </details>

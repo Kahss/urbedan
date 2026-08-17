@@ -1,19 +1,20 @@
 """Cartes Champ de bataille : le terrain commun sur lequel se resout chaque duel.
 
 Une carte comporte 3 cases, une par Zone (Bitume / Hauteur / Souterrain). Chaque case
-porte une valeur (de -2 a 6) et eventuellement un point d'Energie. Un Combattant ne
-beneficie que des cases listees dans sa caracteristique `avantage` : il ajoute leurs
-valeurs a sa Puissance et cumule leur Energie.
+porte une valeur de -2 a 6. Un Combattant ne beneficie que des cases listees dans sa
+caracteristique `avantage` : il ajoute leurs valeurs a sa Puissance.
 
-Le dos de la carte ne montre que la couleur de chaque case : vert si la valeur est
-positive, gris si elle est nulle, rouge si elle est negative. C'est la seule information
-disponible au moment ou les joueurs engagent leur Combattant : ni les valeurs exactes,
-ni la presence d'Energie ne sont connues avant la revelation.
+Le dos de la carte ne devoile **qu'une seule case**, designee par le modele : sa couleur y
+apparait, verte si sa valeur est positive, rouge si elle est negative. Les deux autres
+cases restent grises, ce qui signifie "inconnu". La case devoilee n'est jamais nulle,
+faute de quoi elle s'afficherait grise elle aussi et serait indistinguable d'une case
+inconnue.
 
-Chaque modele de carte est decline en 3 rotations (les memes cases, decalees d'une Zone).
-Sur l'ensemble du deck, les 3 Zones voient donc exactement le meme multi-ensemble de
-cases : aucune Zone n'est structurellement meilleure qu'une autre, et deux Combattants
-dont l'`avantage` a la meme taille partent strictement a egalite.
+Chaque modele est decline en 3 rotations (les memes cases, decalees d'une Zone, la case
+devoilee suivant le meme decalage). Sur l'ensemble du deck, les 3 Zones voient donc
+exactement le meme multi-ensemble de cases et sont devoilees exactement aussi souvent :
+aucune Zone n'est structurellement meilleure qu'une autre, et deux Combattants dont
+l'`avantage` a la meme taille partent strictement a egalite.
 """
 import itertools
 import random
@@ -22,31 +23,32 @@ import random
 # caracteristique `avantage` d'un Combattant).
 ZONES = ["Bitume", "Hauteur", "Souterrain"]
 
-# Modeles de champ de bataille : (valeur, energie) pour chacune des 3 cases.
-# La majorite des modeles (7 sur 10) presentent 2 cases vertes et 1 case grise ou rouge,
-# conformement au profil moyen attendu ; "Nuit blanche" (tout vert) et "Terrain condamne"
-# (tout gris/rouge) sont les deux variantes extremes.
-# L'Energie est volontairement plus frequente sur les cases grises et rouges que sur les
-# vertes : subir une mauvaise case reste un lot de consolation qui allume un Pouvoir.
+# Modeles de champ de bataille : la valeur de chacune des 3 cases, et l'index (0 a 2) de
+# la case devoilee au dos. La majorite des modeles presentent 2 cases vertes et 1 case
+# grise ou rouge ; "Nuit blanche" (tout vert) et "Terrain condamne" (tout gris/rouge) sont
+# les deux variantes extremes. 6 modeles devoilent une case verte, 4 une case rouge : le
+# dos est donc autant une promesse qu'un avertissement.
 MODELES = [
-    {"nom": "Nuit calme", "cases": [(3, 0), (2, 1), (0, 1)]},
-    {"nom": "Quartier ouvert", "cases": [(4, 0), (1, 1), (0, 1)]},
-    {"nom": "Halo urbain", "cases": [(2, 1), (1, 1), (0, 1)]},
-    {"nom": "Terrain conteste", "cases": [(4, 0), (2, 0), (-1, 1)]},
-    {"nom": "Zone de chantier", "cases": [(5, 0), (1, 1), (-2, 1)]},
-    {"nom": "Couvre-feu", "cases": [(2, 1), (1, 1), (-2, 0)]},
-    {"nom": "Ligne de faille", "cases": [(6, 0), (1, 0), (-2, 1)]},
-    {"nom": "Nuit blanche", "cases": [(3, 0), (2, 0), (1, 1)]},
-    {"nom": "Rue barree", "cases": [(4, 0), (0, 1), (-1, 1)]},
-    {"nom": "Terrain condamne", "cases": [(0, 1), (-1, 1), (-2, 1)]},
+    {"nom": "Nuit calme", "cases": [3, 2, 0], "revele": 0},
+    {"nom": "Quartier ouvert", "cases": [4, 1, 0], "revele": 1},
+    {"nom": "Halo urbain", "cases": [2, 1, 0], "revele": 0},
+    {"nom": "Terrain conteste", "cases": [4, 2, -1], "revele": 2},
+    {"nom": "Zone de chantier", "cases": [5, 1, -2], "revele": 0},
+    {"nom": "Couvre-feu", "cases": [2, 1, -2], "revele": 2},
+    {"nom": "Ligne de faille", "cases": [6, 1, -2], "revele": 2},
+    {"nom": "Nuit blanche", "cases": [3, 2, 1], "revele": 2},
+    {"nom": "Rue barree", "cases": [4, 0, -1], "revele": 0},
+    {"nom": "Terrain condamne", "cases": [0, -1, -2], "revele": 1},
 ]
 
 NB_ROTATIONS = 3
+INCONNU = "inconnu"
 
 _compteur_champ = itertools.count(1)
 
 
 def couleur(valeur):
+    """Couleur d'une case dont la valeur est connue (recto)."""
     if valeur > 0:
         return "vert"
     if valeur == 0:
@@ -54,44 +56,60 @@ def couleur(valeur):
     return "rouge"
 
 
-def _rotations(cases):
-    """Les 3 declinaisons d'un modele : les memes cases, decalees d'une Zone a chaque
-    fois. Garantit que chaque Zone recoit exactement le meme multi-ensemble de cases sur
-    l'ensemble du deck."""
-    return [tuple(cases[-r:] + cases[:-r]) if r else tuple(cases) for r in range(NB_ROTATIONS)]
+def _rotations(cases, revele):
+    """Les 3 declinaisons d'un modele : cases et case devoilee decalees ensemble."""
+    return [
+        (tuple(cases[-r:] + cases[:-r]) if r else tuple(cases), (revele + r) % NB_ROTATIONS)
+        for r in range(NB_ROTATIONS)
+    ]
+
+
+def _valider_modeles():
+    """La case devoilee doit toujours etre franchement positive ou franchement negative :
+    une case devoilee nulle serait grise, donc confondue avec une case inconnue."""
+    for modele in MODELES:
+        if len(modele["cases"]) != NB_ROTATIONS:
+            raise ValueError(f"{modele['nom']} : 3 cases attendues")
+        if modele["cases"][modele["revele"]] == 0:
+            raise ValueError(f"{modele['nom']} : la case devoilee ne peut pas etre nulle")
+
+
+_valider_modeles()
 
 
 class ChampDeBataille:
-    def __init__(self, nom, cases):
+    def __init__(self, nom, cases, revele):
         self.id = next(_compteur_champ)
         self.nom = nom
-        self.cases = tuple(cases)  # ((valeur, energie), x3)
+        self.cases = tuple(cases)
+        self.revele = revele  # index de la case devoilee au dos
 
     def dos(self):
-        """Les 3 couleurs visibles au dos, seule information connue avant la revelation."""
-        return [couleur(valeur) for valeur, _ in self.cases]
+        """Les 3 couleurs visibles au dos : celle de la case devoilee, et "inconnu" pour
+        les deux autres. Seule information disponible avant la revelation."""
+        return [
+            couleur(valeur) if i == self.revele else INCONNU
+            for i, valeur in enumerate(self.cases)
+        ]
 
     def bonus(self, avantage):
         """Somme des valeurs des cases couvertes par l'`avantage` du Combattant."""
-        return sum(self.cases[index - 1][0] for index in avantage)
-
-    def energie(self, avantage):
-        """Somme des points d'Energie des cases couvertes par l'`avantage`."""
-        return sum(self.cases[index - 1][1] for index in avantage)
+        return sum(self.cases[index - 1] for index in avantage)
 
     def detail(self, avantage):
         """(zone, valeur) pour chaque case couverte, pour tracer le calcul de Puissance."""
-        return [(ZONES[index - 1], self.cases[index - 1][0]) for index in avantage]
+        return [(ZONES[index - 1], self.cases[index - 1]) for index in avantage]
 
     def to_dict(self, revele):
-        """Le dos est toujours transmis ; le recto (nom du modele, valeurs, Energie) n'est
-        transmis qu'une fois la carte revelee, jamais pendant la phase de choix."""
+        """Le dos est toujours transmis ; le recto (nom du modele, valeurs) n'est transmis
+        qu'une fois la carte revelee, jamais pendant la phase de choix."""
         data = {"id": self.id, "dos": self.dos(), "revele": revele}
         if revele:
             data["nom"] = self.nom
+            data["case_devoilee"] = self.revele
             data["cases"] = [
-                {"zone": ZONES[i], "valeur": valeur, "energie": energie, "couleur": couleur(valeur)}
-                for i, (valeur, energie) in enumerate(self.cases)
+                {"zone": ZONES[i], "valeur": valeur, "couleur": couleur(valeur)}
+                for i, valeur in enumerate(self.cases)
             ]
         return data
 
@@ -99,9 +117,9 @@ class ChampDeBataille:
 def construire_deck():
     """Le deck complet, melange : 10 modeles x 3 rotations = 30 cartes."""
     deck = [
-        ChampDeBataille(modele["nom"], cases)
+        ChampDeBataille(modele["nom"], cases, revele)
         for modele in MODELES
-        for cases in _rotations(modele["cases"])
+        for cases, revele in _rotations(modele["cases"], modele["revele"])
     ]
     random.shuffle(deck)
     return deck
@@ -110,9 +128,9 @@ def construire_deck():
 def faces_du_deck():
     """Les 30 faces possibles (sans identite de carte), pour l'estimation de l'IA."""
     return [
-        (modele["nom"], cases)
+        (modele["nom"], cases, revele)
         for modele in MODELES
-        for cases in _rotations(modele["cases"])
+        for cases, revele in _rotations(modele["cases"], modele["revele"])
     ]
 
 
@@ -123,9 +141,10 @@ def catalogue():
     return [
         {
             "nom": modele["nom"],
+            "revele": modele["revele"],
             "cases": [
-                {"valeur": valeur, "energie": energie, "couleur": couleur(valeur)}
-                for valeur, energie in modele["cases"]
+                {"valeur": valeur, "couleur": couleur(valeur), "devoilee": i == modele["revele"]}
+                for i, valeur in enumerate(modele["cases"])
             ],
             "exemplaires": NB_ROTATIONS,
         }

@@ -29,7 +29,7 @@ class CombattantTemplate:
         self.puissance = data["puissance"]
         self.degats = data["degats"]
         self.avantage = valider_avantage(data["avantage"], data["nom"])
-        self.pouvoir = data["pouvoir"]  # dict unique (description, condition, modificateur, energie_min, effets)
+        self.pouvoir = data["pouvoir"]  # dict unique (description, condition, modificateur, effets)
 
     def to_dict(self):
         return {

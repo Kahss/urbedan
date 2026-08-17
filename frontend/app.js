@@ -55,25 +55,24 @@ function conditionEstValidee(pouvoir, role, pvSoi, pvAdv) {
   }
 }
 
-function rondsEnergie(energie) {
-  return Array.from({ length: energie }, () => `<span class="rond-energie"></span>`).join("");
+function signe(valeur) {
+  return `${valeur > 0 ? "+" : ""}${valeur}`;
 }
 
-function seuilEnergieInfo(energieMin) {
-  if (energieMin > 0) {
-    return { html: rondsEnergie(energieMin), titre: `Energie ${energieMin} ou plus` };
-  }
-  return { html: `<span class="rond-energie rond-energie-vide"></span>`, titre: "Toujours actif" };
+// Couleur a donner a chaque Zone : le dos tant que la carte est cachee (une seule case
+// connue), les couleurs reelles du recto une fois le duel resolu.
+function couleursZones(champ) {
+  return champ.revele ? champ.cases.map((c) => c.couleur) : champ.dos;
 }
 
 // ------------------------------------------------------------ Avantage
 
-// Les 3 Zones du champ de bataille, celles de l'Avantage du Combattant mises en avant.
-// Quand le dos de la carte du duel est connu, chaque Zone prend sa couleur : le joueur lit
-// d'un coup d'oeil si le Combattant couvre les bonnes cases.
-function creerAvantage(avantage, dos, { compact = false } = {}) {
+// Bande fine sous le nom : les 3 Zones du champ de bataille, celles de l'Avantage du
+// Combattant mises en avant. Quand le dos de la carte du duel est connu, la Zone devoilee
+// prend sa couleur ; les deux autres restent "inconnu".
+function creerAvantage(avantage, dos) {
   const el = document.createElement("div");
-  el.className = compact ? "avantage compact" : "avantage";
+  el.className = "avantage";
   const zones = avantage || [];
   el.title = "Avantage : " + zones.map((z) => ZONES[z - 1]).join(", ");
   for (let zone = 1; zone <= 3; zone++) {
@@ -87,6 +86,42 @@ function creerAvantage(avantage, dos, { compact = false } = {}) {
   return el;
 }
 
+// ------------------------------------------------------------- Pouvoir
+
+// La description porte parfois sa condition en tete ("Courage : +4 Puissance") : on la
+// detache pour en faire l'entete du bloc, le corps restant l'effet proprement dit.
+function decouperPouvoir(description) {
+  const separateur = description.indexOf(" : ");
+  if (separateur === -1) return { entete: null, corps: description };
+  return {
+    entete: description.slice(0, separateur),
+    corps: description.slice(separateur + 3),
+  };
+}
+
+function creerBlocPouvoir(pouvoir, { conditionValidee = false } = {}) {
+  const bloc = document.createElement("div");
+  bloc.className = "bloc-pouvoir";
+  if (!pouvoir) {
+    bloc.classList.add("vide");
+    bloc.textContent = "Aucun Pouvoir";
+    return bloc;
+  }
+  if (conditionValidee) bloc.classList.add("condition-validee");
+  const { entete, corps } = decouperPouvoir(pouvoir.description);
+  if (entete) {
+    const titre = document.createElement("div");
+    titre.className = "pouvoir-entete";
+    titre.textContent = entete;
+    bloc.appendChild(titre);
+  }
+  const texte = document.createElement("div");
+  texte.className = "pouvoir-corps";
+  texte.textContent = corps;
+  bloc.appendChild(texte);
+  return bloc;
+}
+
 function creerCarteCombattant(data, options = {}) {
   const {
     selectionnable = false, selectionnee = false, active = false,
@@ -97,29 +132,23 @@ function creerCarteCombattant(data, options = {}) {
   if (selectionnable) carte.classList.add("selectionnable");
   if (selectionnee) carte.classList.add("selectionnee");
   if (active) carte.classList.add("active-duel");
-  if (conditionValidee) carte.classList.add("condition-validee");
   if (data.utilise) carte.classList.add("utilisee");
 
+  const entete = document.createElement("div");
+  entete.className = "carte-entete";
   const titre = document.createElement("h4");
   titre.textContent = data.nom;
-  carte.appendChild(titre);
+  entete.appendChild(titre);
+  entete.appendChild(creerAvantage(data.avantage, dos));
+  carte.appendChild(entete);
 
   const stats = document.createElement("div");
   stats.className = "stats-combattant";
-  stats.innerHTML = `<span>Puissance <b>${data.puissance}</b></span><span>Degats <b>${data.degats}</b></span>`;
+  stats.innerHTML =
+    `<span>Puissance <b>${data.puissance}</b></span><span>Degats <b>${data.degats}</b></span>`;
   carte.appendChild(stats);
 
-  carte.appendChild(creerAvantage(data.avantage, dos));
-
-  const liste = document.createElement("ul");
-  liste.className = "liste-pouvoirs";
-  if (data.pouvoir) {
-    const li = document.createElement("li");
-    const seuil = seuilEnergieInfo(data.pouvoir.energie_min);
-    li.innerHTML = `<span class="num" title="${seuil.titre}">${seuil.html}</span>${data.pouvoir.description}`;
-    liste.appendChild(li);
-  }
-  carte.appendChild(liste);
+  carte.appendChild(creerBlocPouvoir(data.pouvoir, { conditionValidee }));
 
   if (data.utilise) {
     const badge = document.createElement("span");
@@ -143,8 +172,9 @@ function formaterDetailListe(detail) {
 
 // ------------------------------------------------------ champ de bataille
 
-// Tant que le duel n'est pas resolu, le serveur ne transmet que `dos` : les valeurs et
-// l'Energie n'existent pas cote client, il n'y a donc rien a devoiler par inadvertance.
+// Tant que le duel n'est pas resolu, le serveur ne transmet que `dos` : les valeurs
+// n'existent pas cote client, il n'y a donc rien a devoiler par inadvertance. Le dos ne
+// colore qu'une seule case ; les deux autres sont grises, c'est-a-dire inconnues.
 function creerChampCarte(champ) {
   const carte = document.createElement("div");
   carte.className = "champ-carte-interne" + (champ.revele ? " revele" : " cache-recto");
@@ -160,14 +190,13 @@ function creerChampCarte(champ) {
     const couleur = champ.revele ? champ.cases[i].couleur : champ.dos[i];
     const bloc = document.createElement("div");
     bloc.className = `champ-case dos-${couleur}`;
+    const devoilee = champ.revele ? champ.case_devoilee === i : champ.dos[i] !== "inconnu";
+    if (devoilee) bloc.classList.add("devoilee");
     const zone = `<span class="champ-zone">${ZONES[i]}</span>`;
     if (champ.revele) {
-      const valeur = champ.cases[i].valeur;
-      bloc.innerHTML = `${zone}
-        <span class="champ-valeur">${valeur > 0 ? "+" : ""}${valeur}</span>
-        <span class="champ-energie">${rondsEnergie(champ.cases[i].energie)}</span>`;
+      bloc.innerHTML = `${zone}<span class="champ-valeur">${signe(champ.cases[i].valeur)}</span>`;
     } else {
-      bloc.innerHTML = `${zone}<span class="champ-valeur inconnu">?</span><span class="champ-energie"></span>`;
+      bloc.innerHTML = `${zone}<span class="champ-valeur inconnu">?</span>`;
     }
     cases.appendChild(bloc);
   }
@@ -186,11 +215,12 @@ async function remplirLegendeChamps() {
     const cases = modele.cases
       .map(
         (c) =>
-          `<span class="legende-case dos-${c.couleur}">${c.valeur > 0 ? "+" : ""}${c.valeur}` +
-          `<span class="champ-energie">${rondsEnergie(c.energie)}</span></span>`
+          `<span class="legende-case dos-${c.couleur}${c.devoilee ? " devoilee" : ""}"` +
+          `${c.devoilee ? ' title="case devoilee au dos"' : ""}>${signe(c.valeur)}</span>`
       )
       .join("");
-    el.innerHTML = `<span class="legende-nom">${modele.nom}</span><span class="legende-cases">${cases}</span>` +
+    el.innerHTML =
+      `<span class="legende-nom">${modele.nom}</span><span class="legende-cases">${cases}</span>` +
       `<span class="legende-exemplaires">x${modele.exemplaires}</span>`;
     conteneur.appendChild(el);
   });
@@ -304,8 +334,8 @@ function renderChamp(etat) {
     consigne.textContent = "Champ de bataille revele : chaque Combattant encaisse ses Zones.";
   } else if (peutChoisirMaintenant(etat)) {
     consigne.textContent =
-      "Seules les couleurs sont connues : vert = valeur positive, gris = nulle, rouge = negative. " +
-      "Ni les valeurs exactes, ni l'Energie ne sont visibles avant la revelation.";
+      "Une seule Zone est devoilee : verte si sa valeur est positive, rouge si elle est negative. " +
+      "Les deux autres sont inconnues, et aucune valeur exacte n'est visible avant la revelation.";
   } else {
     consigne.textContent = "En attente de l'adversaire...";
   }
@@ -315,7 +345,7 @@ function renderEquipes(etat) {
   const peutChoisir = peutChoisirMaintenant(etat);
   const roleHumain = humanRole(etat);
   const roleIa = roleHumain === "j1" ? "j2" : "j1";
-  const dos = etat.champ.dos;
+  const dos = couleursZones(etat.champ);
 
   const grilleHumain = document.getElementById("equipe-humain");
   vider(grilleHumain);
@@ -383,38 +413,52 @@ function renderZoneCentrale(etat) {
     const data = trouverCombattant(etat, id);
     const carte = document.createElement("div");
     carte.className = "carte-duel";
-    let contenu = `<div class="role">${labelRole}</div><h3>${data.nom}</h3>`;
+    carte.innerHTML = `<div class="role">${labelRole}</div><h3>${data.nom}</h3>`;
 
     if (resultat) {
-      const infoCote = resultat.combattant_j1.nom === data.nom ? resultat.combattant_j1 : resultat.combattant_j2;
-      contenu += `<div class="recolte">
-        <span class="recolte-bonus">${infoCote.bonus_champ >= 0 ? "+" : ""}${infoCote.bonus_champ}</span>
-        <span class="recolte-energie">${rondsEnergie(infoCote.energie) || "&mdash;"}</span>
-      </div>`;
-      const pouvoirActif = data.pouvoir && infoCote.energie >= data.pouvoir.energie_min ? data.pouvoir : null;
-      contenu += `<div class="pouvoir-actif">${
-        pouvoirActif
-          ? `Pouvoir actif : ${pouvoirActif.description}`
-          : "Pouvoir non active (Energie insuffisante)"
-      }</div>`;
-      contenu += `<div class="bloc-stat">
-        <span class="valeur-grosse">${resultat.puissance_finale[data.nom]}</span>
-        <span class="libelle-stat">Puissance totale</span>
-      </div>`;
-      contenu += `<ul class="detail-liste">${formaterDetailListe(resultat.detail_puissance[data.nom])}</ul>`;
+      const infoCote =
+        resultat.combattant_j1.nom === data.nom ? resultat.combattant_j1 : resultat.combattant_j2;
+      const recolte = document.createElement("div");
+      recolte.className = "recolte";
+      recolte.innerHTML =
+        `<span class="recolte-bonus">${signe(infoCote.bonus_champ)}</span>` +
+        `<span class="recolte-libelle">recolte sur ses Zones</span>`;
+      carte.appendChild(recolte);
+      carte.appendChild(creerBlocPouvoir(data.pouvoir));
+
+      const bloc = document.createElement("div");
+      bloc.className = "bloc-stat";
+      bloc.innerHTML =
+        `<span class="valeur-grosse">${resultat.puissance_finale[data.nom]}</span>` +
+        `<span class="libelle-stat">Puissance totale</span>`;
+      carte.appendChild(bloc);
+
+      const detail = document.createElement("ul");
+      detail.className = "detail-liste";
+      detail.innerHTML = formaterDetailListe(resultat.detail_puissance[data.nom]);
+      carte.appendChild(detail);
+
       if (resultat.gagnants.includes(data.nom)) {
         carte.classList.add("gagnant");
-        contenu += `<div class="bloc-stat degats">
-          <span class="valeur-grosse petite">${resultat.degats_finale[data.nom]}</span>
-          <span class="libelle-stat">Degats infliges</span>
-        </div>`;
-        contenu += `<ul class="detail-liste degats">${formaterDetailListe(resultat.detail_degats[data.nom])}</ul>`;
+        const degats = document.createElement("div");
+        degats.className = "bloc-stat degats";
+        degats.innerHTML =
+          `<span class="valeur-grosse petite">${resultat.degats_finale[data.nom]}</span>` +
+          `<span class="libelle-stat">Degats infliges</span>`;
+        carte.appendChild(degats);
+        const detailDegats = document.createElement("ul");
+        detailDegats.className = "detail-liste degats";
+        detailDegats.innerHTML = formaterDetailListe(resultat.detail_degats[data.nom]);
+        carte.appendChild(detailDegats);
       }
     } else {
-      contenu += `<div class="recolte-attente">Puissance ${data.puissance} / Degats ${data.degats}</div>`;
+      const attente = document.createElement("div");
+      attente.className = "recolte-attente";
+      attente.textContent = `Puissance ${data.puissance} / Degats ${data.degats}`;
+      carte.appendChild(attente);
+      carte.appendChild(creerBlocPouvoir(data.pouvoir));
     }
-    carte.innerHTML = contenu;
-    carte.appendChild(creerAvantage(data.avantage, etat.champ.dos, { compact: true }));
+    carte.appendChild(creerAvantage(data.avantage, couleursZones(etat.champ)));
     conteneurDuel.appendChild(carte);
   });
 

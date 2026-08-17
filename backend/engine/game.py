@@ -125,7 +125,6 @@ class Partie:
             "role": role_joueur,
             "avantage": template.avantage,
             "bonus_champ": self.champ.bonus(template.avantage),
-            "energie": self.champ.energie(template.avantage),
         }
 
     def _resoudre_duel_courant(self):

@@ -1,13 +1,14 @@
 """Heuristique de choix de l'IA : quel Combattant engager sur le champ de bataille du duel.
 
 Au moment d'engager son Combattant, l'IA ne connait que le dos de la carte : la couleur
-des 3 cases. Elle n'a acces ni aux valeurs du recto, ni a la presence d'Energie — pas
-plus que le joueur humain. Elle procede donc par esperance :
+de la seule case devoilee, les deux autres restant inconnues. Elle n'a pas acces aux
+valeurs du recto, pas plus que le joueur humain. Elle procede donc par esperance :
 
 1. elle enumere les faces du deck dont le dos correspond a celui revele. La composition
    du deck est publique (elle est affichee en legende dans l'interface), mais l'IA ne
    tient volontairement pas compte des cartes deja jouees dans la partie : elle ne compte
-   pas les cartes, exactement comme un joueur qui ne les memoriserait pas.
+   pas les cartes, exactement comme un joueur qui ne les memoriserait pas. Une seule case
+   etant devoilee, ces faces compatibles restent nombreuses : l'incertitude est reelle.
 2. pour chaque face possible et chaque Combattant candidat, elle resout reellement le
    duel avec le moteur de `powers.py`, sur des Joueurs fictifs, et mesure l'ecart de PV
    qui en resulte. Elle n'a donc pas besoin d'approximer les Pouvoirs : Victoire,
@@ -46,8 +47,8 @@ class _JoueurFictif:
 
 def _indexer_par_dos():
     index = defaultdict(list)
-    for nom, cases in faces_du_deck():
-        champ = ChampDeBataille(nom, cases)
+    for nom, cases, revele in faces_du_deck():
+        champ = ChampDeBataille(nom, cases, revele)
         index[tuple(champ.dos())].append(champ)
     return dict(index)
 

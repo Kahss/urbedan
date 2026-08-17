@@ -1,32 +1,26 @@
 """Moteur generique de resolution des Pouvoirs, pilote par les mots-cles de pouvoirs.csv.
 
 Hypotheses de resolution retenues pour ce POC (voir README.md) :
-- La Puissance et l'Energie d'un Combattant proviennent du champ de bataille commun du
-  duel : il encaisse la valeur et l'Energie des seules cases couvertes par son `avantage`.
-  Les deux Combattants lisent donc la meme carte, mais pas les memes cases.
-- Chaque Combattant ne possede plus qu'un seul Pouvoir. Ce Pouvoir peut definir un cout
-  minimum en Energie (`energie_min`, note "X+") : il ne s'active que si l'Energie recoltee
-  sur ses cases est superieure ou egale a ce seuil (`energie_min` absent ou 0 = Pouvoir
-  toujours actif, quelle que soit l'Energie, y compris 0). Le modificateur
-  `par_energie` permet en plus de multiplier la valeur de l'effet par l'Energie
-  effectivement recoltee par le Combattant (ex : "+1 Puissance / Energie"). `par_energie_adverse`
-  multiplie par l'Energie recoltee par l'adversaire, et `par_energie_en_jeu` par la somme des
-  deux Energies recoltees (soi + adversaire) ce duel-ci.
+- La Puissance d'un Combattant provient du champ de bataille commun du duel : il encaisse
+  la valeur des seules cases couvertes par son `avantage`. Les deux Combattants lisent
+  donc la meme carte, mais pas les memes cases.
+- Il n'y a pas d'Energie dans cette version : chaque Combattant ne possede qu'un seul
+  Pouvoir, et ce Pouvoir est **toujours actif**. Seule sa `condition` (Courage, Riposte,
+  Vengeance, Domination, Victoire, Defaite, Surpuissance) peut l'empecher de se declencher.
 - Un duel se resout en 2 passes : Pass 1 (pouvoir "immediat"), puis determination du
   vainqueur, puis Pass 2 (pouvoir conditionne par Victoire / Defaite / Surpuissance, ou
   modificateur Contrecoup).
 - Au sein de chaque passe, le Combattant J1 resout son Pouvoir actif avant que le
   Combattant J2 ne resolve le sien.
 - Stop pouvoir et Copie pouvoir sont generiques : ils visent toujours l'unique Pouvoir
-  de l'adversaire, s'il est actif (Energie jouee >= son seuil). Stop pouvoir agit
+  de l'adversaire. Stop pouvoir agit
   retroactivement si ce pouvoir a deja ete resolu (cas ou le defenseur J2 vise le
   pouvoir de J1, deja joue), ou preventivement sinon (cas ou J1 vise le pouvoir de J2
   qui n'a pas encore joue).
 - Protection annule toutes les modifications deja subies de la part de l'adversaire et
   bloque toute nouvelle modification adverse (puissance/degats/vie/stop/copie) pour le
   reste de la resolution du duel.
-- Patience/Impatience se basent sur le numero du duel courant dans la partie (1 a 4),
-  independamment de l'Energie recoltee.
+- Patience/Impatience se basent sur le numero du duel courant dans la partie (1 a 4).
 - Le detail du calcul de la Puissance/des Degats de chaque Combattant (base, case par case
   du champ de bataille, contribution du Pouvoir) est trace et restitue (`detail_puissance`,
   `detail_degats`, `puissance_txt`, `degats_txt`) pour affichage transparent.
@@ -54,9 +48,8 @@ class DuelCombattant:
         self.duel_numero = duel_numero
         self.duels_max = duels_max
         avantage = self.template.avantage
-        # Le Combattant n'encaisse que les cases du champ de bataille couvertes par son
-        # avantage : leur valeur va a sa Puissance, leur Energie alimente son Pouvoir.
-        self.energie = champ.energie(avantage)
+        # Le Combattant n'encaisse que la valeur des cases du champ de bataille couvertes
+        # par son avantage ; il ignore totalement les autres.
         self.puissance = self.template.puissance + champ.bonus(avantage)
         self.degats = self.template.degats
         self.detail_puissance = [("base", self.template.puissance)] + champ.detail(avantage)
@@ -67,24 +60,13 @@ class DuelCombattant:
         self.adversaire = None
 
     def pouvoir_actif(self):
-        """Retourne le Pouvoir du Combattant s'il est active par l'Energie recoltee sur
-        ses cases (>= energie_min du Pouvoir), sinon None."""
-        pouvoir = self.template.pouvoir
-        if pouvoir is None:
-            return None
-        if self.energie < pouvoir.get("energie_min", 0):
-            return None
-        return pouvoir
+        """Retourne l'unique Pouvoir du Combattant. Sans Energie, il est toujours actif :
+        seule sa `condition` peut l'empecher de se declencher, au moment de la resolution."""
+        return self.template.pouvoir
 
 
 def _valeur_effective(valeur, pouvoir, source):
     mod = pouvoir.get("modificateur")
-    if mod == "par_energie":
-        return valeur * source.energie
-    if mod == "par_energie_adverse":
-        return valeur * source.adversaire.energie
-    if mod == "par_energie_en_jeu":
-        return valeur * (source.energie + source.adversaire.energie)
     if mod == "patience":
         return valeur * source.duel_numero
     if mod == "impatience":
@@ -326,8 +308,8 @@ class MoteurDuel:
             )
 
     def _resoudre_pouvoir(self, source, differe):
-        """Resout l'unique Pouvoir de `source`, s'il est actif (Energie jouee >= son
-        seuil) et si sa nature (immediat/differe) correspond a la passe en cours."""
+        """Resout l'unique Pouvoir de `source`, si sa nature (immediat/differe)
+        correspond a la passe en cours."""
         pouvoir = source.pouvoir_actif()
         if pouvoir is None:
             return
