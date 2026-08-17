@@ -9,7 +9,7 @@
 <body>
 <header class="entete">
   <h1>URBAN ERE<span>DAN</span></h1>
-  <p class="sous-titre">Prototype solo vs IA</p>
+  <p class="sous-titre">Prototype solo vs IA — version Draft de des</p>
 </header>
 
 <main id="app">
@@ -17,7 +17,15 @@
   <!-- Ecran : selection d'equipe -->
   <section id="ecran-selection" class="ecran">
     <h2>Choisis ton equipe (4 Combattants)</h2>
-    <p class="aide">Clique sur 4 Combattants pour constituer ton equipe. L'IA recevera automatiquement les 4 restants.</p>
+    <p class="aide">
+      Clique sur 4 Combattants pour constituer ton equipe. L'IA recevera 4 des Combattants restants.
+      A chaque duel, un pool de 6 des est lance ; le Combattant avec la meilleure
+      <b>initiative</b> drafte en premier, puis chacun prend un de a tour de role jusqu'a en avoir 3.
+    </p>
+    <details class="legende-des" open>
+      <summary>Les 3 des du jeu</summary>
+      <div id="legende-selection" class="legende-liste"></div>
+    </details>
     <div id="grille-selection" class="grille-combattants"></div>
     <div class="barre-action">
       <span id="compteur-selection">0 / 4 selectionnes</span>
@@ -43,10 +51,29 @@
       </div>
     </div>
 
-    <div class="glyphes-restants">
-      <span class="glyphes-restants-libelle">Glyphes restants :</span>
-      <div id="glyphes-restants-liste" class="glyphes-restants-liste"></div>
-    </div>
+    <details class="legende-des">
+      <summary>Les 3 des du jeu</summary>
+      <div id="legende-partie" class="legende-liste"></div>
+    </details>
+
+    <!-- Pool central et draft -->
+    <section id="zone-pool" class="zone-pool">
+      <div class="pool-entete">
+        <h4>Pool central du duel</h4>
+        <span id="pool-consigne" class="pool-consigne"></span>
+      </div>
+      <div id="pool-des" class="pool-des"></div>
+      <div class="drafts">
+        <div class="draft-cote">
+          <h5>Tes des <span id="draft-compte-humain" class="draft-compte"></span></h5>
+          <div id="draft-humain" class="draft-liste"></div>
+        </div>
+        <div class="draft-cote draft-cote-ia">
+          <h5>Des de l'IA <span id="draft-compte-ia" class="draft-compte"></span></h5>
+          <div id="draft-ia" class="draft-liste"></div>
+        </div>
+      </div>
+    </section>
 
     <div class="zone-duel">
       <div class="cote-duel">
@@ -56,10 +83,7 @@
 
       <div class="centre-duel">
         <div id="combattants-en-duel" class="combattants-en-duel"></div>
-        <div id="zone-glyphes" class="zone-glyphes cache">
-          <p id="libelle-glyphes">Glyphe pioche pour ce duel :</p>
-          <div id="main-glyphes" class="grille-glyphes"></div>
-        </div>
+        <div id="zone-apercu" class="zone-apercu cache"></div>
         <div id="zone-resultat" class="zone-resultat cache">
           <div id="journal-resolution" class="journal"></div>
           <button id="btn-duel-suivant">Duel suivant</button>

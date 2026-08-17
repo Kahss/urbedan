@@ -19,24 +19,40 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(BASE_DIR, "backend"))
 
 from engine.game import NB_DUELS_MAX, Partie, charger_combattants  # noqa: E402
-from engine.ia import choisir_combattant_et_glyphe  # noqa: E402
+from engine.ia import choisir_combattant, choisir_de  # noqa: E402
 
 DATA_PATH = os.path.join(BASE_DIR, "data", "combattants.json")
 
 
 def jouer_choix_humain(partie):
-    """Fait choisir au joueur 'humain' de la partie son Combattant et son Glyphe pour
-    le duel en cours, via la meme heuristique que l'IA (cf. engine/ia.py), de maniere a
-    simuler un affrontement IA contre IA."""
+    """Fait choisir au joueur 'humain' de la partie son Combattant pour le duel en
+    cours, via la meme heuristique que l'IA (cf. engine/ia.py), de maniere a simuler un
+    affrontement IA contre IA."""
     role = "j1" if partie.j1 is partie.joueur_humain else "j2"
     if getattr(partie, "combattant_" + role) is not None:
         return
     adversaire = partie.joueur_ia
-    instance, glyphe = choisir_combattant_et_glyphe(
-        partie.joueur_humain, role, partie.duel_numero, NB_DUELS_MAX,
-        partie.joueur_humain.pv, adversaire.pv,
+    combattant_adverse = partie.combattant_j1 if role == "j2" else None
+    instance = choisir_combattant(
+        partie.joueur_humain, adversaire, combattant_adverse, role, partie.pool_des,
+        partie.duel_numero, NB_DUELS_MAX, partie.joueur_humain.pv, adversaire.pv,
     )
-    partie.soumettre_combattant(instance.template.id, glyphe.id)
+    partie.soumettre_combattant(instance.template.id)
+
+
+def jouer_draft_humain(partie):
+    """Fait drafter au joueur 'humain' son de courant, via la meme heuristique que l'IA."""
+    role = "j1" if partie.j1 is partie.joueur_humain else "j2"
+    if partie.drafteur_courant != role:
+        return
+    adverse = "j2" if role == "j1" else "j1"
+    de = choisir_de(
+        partie._combattant_du_role(role).template, partie._draft_du_role(role),
+        partie._combattant_du_role(adverse).template, partie._draft_du_role(adverse),
+        partie.pool_des, role, partie.duel_numero, NB_DUELS_MAX,
+        partie.joueur_humain.pv, partie.joueur_ia.pv,
+    )
+    partie.drafter_de(de["id"])
 
 
 def jouer_partie(templates, tous_les_ids):
@@ -49,6 +65,8 @@ def jouer_partie(templates, tous_les_ids):
     while not partie.terminee:
         if partie.phase == "choix_combattant":
             jouer_choix_humain(partie)
+        elif partie.phase == "draft":
+            jouer_draft_humain(partie)
         elif partie.phase == "duel_resolu":
             partie.duel_suivant()
 

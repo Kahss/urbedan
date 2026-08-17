@@ -1,21 +1,23 @@
 """Moteur generique de resolution des Pouvoirs, pilote par les mots-cles de pouvoirs.csv.
 
 Hypotheses de resolution retenues pour ce POC (voir README.md) :
+- La Puissance et l'Energie d'un Combattant proviennent entierement des 3 des qu'il a
+  draftes dans le pool central du duel : il n'y a plus ni puissance de base, ni Glyphe.
 - Chaque Combattant ne possede plus qu'un seul Pouvoir. Ce Pouvoir peut definir un cout
-  minimum en Energie (`energie_min`, note "X+") : il ne s'active que si l'Energie du
-  Glyphe joue est superieure ou egale a ce seuil (`energie_min` absent ou 0 = Pouvoir
-  toujours actif, quelle que soit l'Energie jouee, y compris 0). Le modificateur
+  minimum en Energie (`energie_min`, note "X+") : il ne s'active que si l'Energie totale
+  de ses des draftes est superieure ou egale a ce seuil (`energie_min` absent ou 0 = Pouvoir
+  toujours actif, quelle que soit l'Energie obtenue, y compris 0). Le modificateur
   `par_energie` permet en plus de multiplier la valeur de l'effet par l'Energie
-  effectivement jouee par le Combattant (ex : "+1 Puissance / Energie"). `par_energie_adverse`
-  multiplie par l'Energie jouee par l'adversaire, et `par_energie_en_jeu` par la somme des
-  deux Energies jouees (soi + adversaire) ce duel-ci.
+  effectivement obtenue par le Combattant (ex : "+1 Puissance / Energie"). `par_energie_adverse`
+  multiplie par l'Energie de l'adversaire, et `par_energie_en_jeu` par la somme des deux
+  Energies obtenues (soi + adversaire) ce duel-ci.
 - Un duel se resout en 2 passes : Pass 1 (pouvoir "immediat"), puis determination du
   vainqueur, puis Pass 2 (pouvoir conditionne par Victoire / Defaite / Surpuissance, ou
   modificateur Contrecoup).
 - Au sein de chaque passe, le Combattant J1 resout son Pouvoir actif avant que le
   Combattant J2 ne resolve le sien.
 - Stop pouvoir et Copie pouvoir sont generiques : ils visent toujours l'unique Pouvoir
-  de l'adversaire, s'il est actif (Energie jouee >= son seuil). Stop pouvoir agit
+  de l'adversaire, s'il est actif (Energie obtenue >= son seuil). Stop pouvoir agit
   retroactivement si ce pouvoir a deja ete resolu (cas ou le defenseur J2 vise le
   pouvoir de J1, deja joue), ou preventivement sinon (cas ou J1 vise le pouvoir de J2
   qui n'a pas encore joue).
@@ -23,14 +25,16 @@ Hypotheses de resolution retenues pour ce POC (voir README.md) :
   bloque toute nouvelle modification adverse (puissance/degats/vie/stop/copie) pour le
   reste de la resolution du duel.
 - Patience/Impatience se basent sur le numero du duel courant dans la partie (1 a 4),
-  independamment de l'Energie jouee.
-- Le detail du calcul de la Puissance/des Degats de chaque Combattant (base, Glyphe,
+  independamment de l'Energie obtenue.
+- Le detail du calcul de la Puissance/des Degats de chaque Combattant (chaque de du jet,
   contribution du Pouvoir) est trace et restitue (`detail_puissance`, `detail_degats`,
   `puissance_txt`, `degats_txt`) pour affichage transparent.
 """
 
 
 def _formater_detail(total, detail):
+    if not detail:
+        return str(total)
     morceaux = []
     for i, (label, valeur) in enumerate(detail):
         if i == 0:
@@ -42,17 +46,20 @@ def _formater_detail(total, detail):
 
 
 class DuelCombattant:
-    def __init__(self, joueur, instance, glyphe, role, duel_numero, duels_max):
+    def __init__(self, joueur, instance, jet, role, duel_numero, duels_max):
         self.joueur = joueur
         self.instance = instance
         self.template = instance.template
-        self.glyphe = glyphe
+        self.jet = jet  # les 3 des draftes, resultat du lancer (cf. engine/des.lancer)
         self.role = role  # "J1" ou "J2"
         self.duel_numero = duel_numero
         self.duels_max = duels_max
-        self.puissance = self.template.puissance + glyphe.puissance
+        self.puissance = sum(de["puissance"] for de in jet)
+        self.energie = sum(de["energie"] for de in jet)
         self.degats = self.template.degats
-        self.detail_puissance = [("base", self.template.puissance), ("glyphe", glyphe.puissance)]
+        # Chaque de draft figure dans le detail, y compris ceux qui sortent 0 Puissance :
+        # le detail doit se relire face aux des affiches, de en de.
+        self.detail_puissance = [(de["libelle"], de["puissance"]) for de in jet]
         self.detail_degats = [("base", self.template.degats)]
         self.stoppe = False
         self.protege = False
@@ -60,12 +67,12 @@ class DuelCombattant:
         self.adversaire = None
 
     def pouvoir_actif(self):
-        """Retourne le Pouvoir du Combattant s'il est active par l'Energie du Glyphe
-        joue (>= energie_min du Pouvoir), sinon None."""
+        """Retourne le Pouvoir du Combattant s'il est active par l'Energie de ses des
+        (>= energie_min du Pouvoir), sinon None."""
         pouvoir = self.template.pouvoir
         if pouvoir is None:
             return None
-        if self.glyphe.energie < pouvoir.get("energie_min", 0):
+        if self.energie < pouvoir.get("energie_min", 0):
             return None
         return pouvoir
 
@@ -73,11 +80,11 @@ class DuelCombattant:
 def _valeur_effective(valeur, pouvoir, source):
     mod = pouvoir.get("modificateur")
     if mod == "par_energie":
-        return valeur * source.glyphe.energie
+        return valeur * source.energie
     if mod == "par_energie_adverse":
-        return valeur * source.adversaire.glyphe.energie
+        return valeur * source.adversaire.energie
     if mod == "par_energie_en_jeu":
-        return valeur * (source.glyphe.energie + source.adversaire.glyphe.energie)
+        return valeur * (source.energie + source.adversaire.energie)
     if mod == "patience":
         return valeur * source.duel_numero
     if mod == "impatience":
@@ -197,11 +204,16 @@ class MoteurDuel:
         if t in ("puissance", "degats", "vie"):
             champ = "pv" if t == "vie" else t
             cible = source if effet.get("cible", "soi") == "soi" else adv
-            if mod == "contrecoup" and not source.gagnant:
-                self.log.append(
-                    f"{source.template.nom} Pouvoir ({pouvoir['description']}) : Contrecoup non declenche (pas de victoire)"
-                )
-                return
+            if mod == "contrecoup":
+                # Contrecoup (pouvoirs.csv) : "Applique a soi-meme en cas de victoire".
+                # L'effet est ecrit comme visant l'adversaire ; il est redirige vers le
+                # Combattant lui-meme s'il remporte le duel, et ne se produit pas sinon.
+                if not source.gagnant:
+                    self.log.append(
+                        f"{source.template.nom} Pouvoir ({pouvoir['description']}) : Contrecoup non declenche (pas de victoire)"
+                    )
+                    return
+                cible = source
             valeur = _valeur_effective(effet.get("valeur", 0), pouvoir, source)
             avant = cible.puissance if champ == "puissance" else (cible.degats if champ == "degats" else cible.joueur.pv)
             applique = self._appliquer(source, cible, champ, valeur, label)
@@ -373,6 +385,7 @@ class MoteurDuel:
             "gagnants_ids": [c.template.id for c in (self.dc1, self.dc2) if c.gagnant],
             "puissance_finale": {self.dc1.template.nom: self.dc1.puissance, self.dc2.template.nom: self.dc2.puissance},
             "degats_finale": {self.dc1.template.nom: self.dc1.degats, self.dc2.template.nom: self.dc2.degats},
+            "energie_finale": {self.dc1.template.nom: self.dc1.energie, self.dc2.template.nom: self.dc2.energie},
             "detail_puissance": {
                 self.dc1.template.nom: self.dc1.detail_puissance,
                 self.dc2.template.nom: self.dc2.detail_puissance,
@@ -392,8 +405,8 @@ class MoteurDuel:
         }
 
 
-def resoudre_duel(joueur_j1, combattant_j1, glyphe_j1, joueur_j2, combattant_j2, glyphe_j2, duel_numero, duels_max=4):
-    dc1 = DuelCombattant(joueur_j1, combattant_j1, glyphe_j1, "J1", duel_numero, duels_max)
-    dc2 = DuelCombattant(joueur_j2, combattant_j2, glyphe_j2, "J2", duel_numero, duels_max)
+def resoudre_duel(joueur_j1, combattant_j1, jet_j1, joueur_j2, combattant_j2, jet_j2, duel_numero, duels_max=4):
+    dc1 = DuelCombattant(joueur_j1, combattant_j1, jet_j1, "J1", duel_numero, duels_max)
+    dc2 = DuelCombattant(joueur_j2, combattant_j2, jet_j2, "J2", duel_numero, duels_max)
     moteur = MoteurDuel(dc1, dc2)
     return moteur.resoudre()

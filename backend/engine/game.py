@@ -1,10 +1,24 @@
-"""Orchestration d'une Partie d'Urban Eredan : mise en place, tour de jeu, IA."""
+"""Orchestration d'une Partie d'Urban Eredan : mise en place, tour de jeu, IA.
+
+Version "draft de des". Chaque duel se deroule en trois temps :
+
+1. **Tirage** : un pool central de 6 des est lance (deux rouges, deux bleus, deux
+   violets). Le resultat est immediatement visible des deux joueurs.
+2. **Choix des Combattants** : J1 engage son Combattant en voyant le pool, puis J2 engage
+   le sien en voyant le pool et le Combattant de J1.
+3. **Draft** : le Combattant de meilleure initiative choisit le premier (J1 en cas
+   d'egalite), puis les joueurs prennent un de a tour de role jusqu'a en avoir 3 chacun.
+   Le pool est donc integralement reparti.
+
+La Puissance et l'Energie de chaque Combattant pour le duel sont la somme de celles de
+ses 3 des draftes.
+"""
 import json
 import random
-from collections import Counter
 
-from .ia import choisir_combattant_et_glyphe
-from .models import GLYPH_DISTRIBUTION, CombattantEnEquipe, CombattantTemplate, Joueur, construire_deck_glyphes
+from .des import DES_PAR_JOUEUR, lancer_pool
+from .ia import choisir_combattant, choisir_de
+from .models import CombattantEnEquipe, CombattantTemplate, Joueur
 from .powers import resoudre_duel
 
 NB_DUELS_MAX = 4
@@ -40,70 +54,92 @@ class Partie:
         self.joueur_humain.pv = PV_DEPART
         self.joueur_ia.pv = PV_DEPART
 
-        self.deck_glyphes = construire_deck_glyphes()
-
         self.duel_numero = 1
-        self.j1 = None
-        self.j2 = None
-        self.combattant_j1 = None
-        self.combattant_j2 = None
-        self.glyphe_j1 = None
-        self.glyphe_j2 = None
-        self.phase = "choix_combattant"
+        self.j1 = random.choice([self.joueur_humain, self.joueur_ia])
+        self.j2 = self.joueur_ia if self.j1 is self.joueur_humain else self.joueur_humain
         self.dernier_resultat = None
         self.historique = []
         self.terminee = False
         self.vainqueur = None
+        self._preparer_duel()
 
-        self.j1 = random.choice([self.joueur_humain, self.joueur_ia])
-        self.j2 = self.joueur_ia if self.j1 is self.joueur_humain else self.joueur_humain
-        self._distribuer_main_initiale()
-        self._piocher_glyphes_manche()
+    # ------------------------------------------------------------ helpers
+    def _joueur_du_role(self, role):
+        return self.j1 if role == "j1" else self.j2
+
+    def _combattant_du_role(self, role):
+        return self.combattant_j1 if role == "j1" else self.combattant_j2
+
+    def _draft_du_role(self, role):
+        return self.draft_j1 if role == "j1" else self.draft_j2
+
+    @staticmethod
+    def _role_oppose(role):
+        return "j2" if role == "j1" else "j1"
+
+    def _role_humain(self):
+        return "j1" if self.j1 is self.joueur_humain else "j2"
+
+    # -------------------------------------------------------- mise en place
+    def _preparer_duel(self):
+        """Lance le pool central du duel et remet a zero l'etat de la manche."""
+        self.pool_initial = lancer_pool()
+        self.pool_des = list(self.pool_initial)
+        self.combattant_j1 = None
+        self.combattant_j2 = None
+        self.draft_j1 = []
+        self.draft_j2 = []
+        self.drafteur_courant = None
+        self.premier_drafteur = None
+        self.dernier_resultat = None
+        self.phase = "choix_combattant"
         self._auto_choix_ia_si_necessaire()
 
     # ------------------------------------------------------------------ IA
     def _auto_choix_ia_si_necessaire(self):
         if self.j1.est_ia and self.combattant_j1 is None:
-            self._choix_ia(self.j1, "j1", "combattant_j1", "glyphe_j1")
+            self._choix_ia(self.j1, "j1", "combattant_j1")
         if self.j2.est_ia and self.combattant_j2 is None and self.combattant_j1 is not None:
-            self._choix_ia(self.j2, "j2", "combattant_j2", "glyphe_j2")
+            self._choix_ia(self.j2, "j2", "combattant_j2")
+        if self.combattant_j1 is not None and self.combattant_j2 is not None and self.phase == "choix_combattant":
+            self._demarrer_draft()
 
-    def _choix_ia(self, joueur, role, attr_combattant, attr_glyphe):
-        """L'IA choisit, via une heuristique simple (cf. ia.py), le Combattant et le
-        Glyphe de sa main qui maximisent la Puissance totale estimee pour ce duel."""
+    def _choix_ia(self, joueur, role, attr_combattant):
+        """L'IA choisit son Combattant (cf. ia.py) en simulant le draft qui suivra sur le
+        pool deja tire. Si elle joue en second, elle connait deja le Combattant adverse ;
+        sinon elle moyenne sur ceux encore disponibles en face."""
         adversaire = self.joueur_ia if joueur is self.joueur_humain else self.joueur_humain
-        instance, glyphe = choisir_combattant_et_glyphe(
-            joueur, role, self.duel_numero, NB_DUELS_MAX, joueur.pv, adversaire.pv
+        combattant_adverse = self.combattant_j1 if role == "j2" else None
+        instance = choisir_combattant(
+            joueur, adversaire, combattant_adverse, role, self.pool_des,
+            self.duel_numero, NB_DUELS_MAX, joueur.pv, adversaire.pv,
         )
-        joueur.main_glyphes.remove(glyphe)
         setattr(self, attr_combattant, instance)
-        setattr(self, attr_glyphe, glyphe)
 
-    # ---------------------------------------------------------------- pioche
-    def _distribuer_main_initiale(self):
-        """A la mise en place de la partie, chaque joueur recoit un premier Glyphe en
-        main (avant meme la pioche de la premiere manche)."""
-        self.joueur_humain.main_glyphes.append(self.deck_glyphes.pop())
-        self.joueur_ia.main_glyphes.append(self.deck_glyphes.pop())
-
-    def _piocher_glyphes_manche(self):
-        """Au debut de chaque manche, chaque joueur pioche un Glyphe supplementaire
-        dans le deck commun, qui s'ajoute a celui deja en main (non joue lors de la
-        manche precedente) : il choisira lequel des deux jouer sur son Combattant."""
-        self.joueur_humain.main_glyphes.append(self.deck_glyphes.pop())
-        self.joueur_ia.main_glyphes.append(self.deck_glyphes.pop())
+    def _auto_draft_ia_si_necessaire(self):
+        while self.phase == "draft" and self._joueur_du_role(self.drafteur_courant).est_ia:
+            role = self.drafteur_courant
+            de = choisir_de(
+                self._combattant_du_role(role).template,
+                self._draft_du_role(role),
+                self._combattant_du_role(self._role_oppose(role)).template,
+                self._draft_du_role(self._role_oppose(role)),
+                self.pool_des, role, self.duel_numero, NB_DUELS_MAX,
+                self._joueur_du_role(role).pv, self._joueur_du_role(self._role_oppose(role)).pv,
+            )
+            self._attribuer_de(role, de)
 
     # ------------------------------------------------------------ actions
-    def soumettre_combattant(self, combattant_id, glyphe_id):
+    def soumettre_combattant(self, combattant_id):
         if self.phase != "choix_combattant":
             raise ErreurPartie("Ce n'est pas la phase de choix du Combattant")
 
         if self.j1 is self.joueur_humain:
-            cible_joueur, attr_combattant, attr_glyphe = self.j1, "combattant_j1", "glyphe_j1"
+            cible_joueur, attr_combattant = self.j1, "combattant_j1"
         else:
             if self.combattant_j1 is None:
                 raise ErreurPartie("En attente du choix de Combattant de l'IA")
-            cible_joueur, attr_combattant, attr_glyphe = self.j2, "combattant_j2", "glyphe_j2"
+            cible_joueur, attr_combattant = self.j2, "combattant_j2"
 
         if getattr(self, attr_combattant) is not None:
             raise ErreurPartie("Le Combattant humain a deja ete choisi pour ce duel")
@@ -112,39 +148,84 @@ class Partie:
         if instance is None:
             raise ErreurPartie("Combattant indisponible")
 
-        glyphe = next((g for g in cible_joueur.main_glyphes if g.id == glyphe_id), None)
-        if glyphe is None:
-            raise ErreurPartie("Glyphe indisponible dans la main du joueur")
-
-        cible_joueur.main_glyphes.remove(glyphe)
         setattr(self, attr_combattant, instance)
-        setattr(self, attr_glyphe, glyphe)
-
         self._auto_choix_ia_si_necessaire()
-        if self.combattant_j1 is not None and self.combattant_j2 is not None:
-            self._resoudre_duel_courant()
         return self.etat_dict()
+
+    def _demarrer_draft(self):
+        """Ouvre la phase de draft. Le Combattant a la meilleure initiative choisit en
+        premier ; a egalite, c'est J1 (regle du spec)."""
+        initiative_j1 = self.combattant_j1.template.initiative
+        initiative_j2 = self.combattant_j2.template.initiative
+        self.drafteur_courant = "j1" if initiative_j1 >= initiative_j2 else "j2"
+        self.premier_drafteur = self.drafteur_courant
+        self.phase = "draft"
+        self._auto_draft_ia_si_necessaire()
+
+    def drafter_de(self, de_id):
+        if self.phase != "draft":
+            raise ErreurPartie("Ce n'est pas la phase de draft")
+        role_humain = self._role_humain()
+        if self.drafteur_courant != role_humain:
+            raise ErreurPartie("Ce n'est pas a toi de drafter")
+        de = next((d for d in self.pool_des if d["id"] == de_id), None)
+        if de is None:
+            raise ErreurPartie("De indisponible dans le pool")
+
+        self._attribuer_de(role_humain, de)
+        return self.etat_dict()
+
+    def _attribuer_de(self, role, de):
+        """Retire `de` du pool central et l'ajoute a la main du role donne, puis passe la
+        main a l'adversaire (alternance stricte) ou resout le duel si le draft est fini."""
+        self.pool_des.remove(de)
+        de["rang_draft"] = len(self.pool_initial) - len(self.pool_des)
+        de["draft_par"] = role
+        self._draft_du_role(role).append(de)
+
+        if len(self.draft_j1) >= DES_PAR_JOUEUR and len(self.draft_j2) >= DES_PAR_JOUEUR:
+            self._resoudre_duel_courant()
+            return
+        self.drafteur_courant = self._role_oppose(role)
+        self._auto_draft_ia_si_necessaire()
 
     def _resoudre_duel_courant(self):
         joueur_humain_est_j1 = self.j1 is self.joueur_humain
-        glyphe_j1 = self.glyphe_j1
-        glyphe_j2 = self.glyphe_j2
+        template_j1 = self.combattant_j1.template
+        template_j2 = self.combattant_j2.template
 
         resultat = resoudre_duel(
-            self.j1, self.combattant_j1, glyphe_j1,
-            self.j2, self.combattant_j2, glyphe_j2,
+            self.j1, self.combattant_j1, self.draft_j1,
+            self.j2, self.combattant_j2, self.draft_j2,
             self.duel_numero, NB_DUELS_MAX,
         )
         self.combattant_j1.utilise = True
         self.combattant_j2.utilise = True
         resultat["duel_numero"] = self.duel_numero
-        resultat["combattant_j1"] = {"nom": self.combattant_j1.template.nom, "glyphe": glyphe_j1.notation_txt(), "puissance_glyphe": glyphe_j1.puissance, "energie": glyphe_j1.energie, "role": "humain" if joueur_humain_est_j1 else "ia"}
-        resultat["combattant_j2"] = {"nom": self.combattant_j2.template.nom, "glyphe": glyphe_j2.notation_txt(), "puissance_glyphe": glyphe_j2.puissance, "energie": glyphe_j2.energie, "role": "ia" if joueur_humain_est_j1 else "humain"}
+        resultat["premier_drafteur"] = self.premier_drafteur
+        resultat["combattant_j1"] = self._info_cote(
+            template_j1, self.draft_j1, "humain" if joueur_humain_est_j1 else "ia"
+        )
+        resultat["combattant_j2"] = self._info_cote(
+            template_j2, self.draft_j2, "ia" if joueur_humain_est_j1 else "humain"
+        )
         self.dernier_resultat = resultat
         self.historique.append(resultat)
         self.phase = "duel_resolu"
+        self.drafteur_courant = None
 
         self._verifier_fin_partie(fin_de_manche=(self.duel_numero >= NB_DUELS_MAX))
+
+    @staticmethod
+    def _info_cote(template, jet, role):
+        return {
+            "nom": template.nom,
+            "role": role,
+            "initiative": template.initiative,
+            "jet": jet,
+            "puissance_des": sum(de["puissance"] for de in jet),
+            "energie": sum(de["energie"] for de in jet),
+        }
 
     def duel_suivant(self):
         if self.phase != "duel_resolu":
@@ -162,14 +243,7 @@ class Partie:
                 self.j1, self.j2 = self.j2, self.j1
 
         self.duel_numero += 1
-        self.combattant_j1 = None
-        self.combattant_j2 = None
-        self.glyphe_j1 = None
-        self.glyphe_j2 = None
-        self.dernier_resultat = None
-        self.phase = "choix_combattant"
-        self._piocher_glyphes_manche()
-        self._auto_choix_ia_si_necessaire()
+        self._preparer_duel()
         return self.etat_dict()
 
     def _verifier_fin_partie(self, fin_de_manche):
@@ -192,42 +266,25 @@ class Partie:
             else:
                 self.vainqueur = None
 
-    # --------------------------------------------------------- comptage Glyphes
-    def glyphes_restants(self):
-        """Pour chacun des 4 types de Glyphe, combien d'exemplaires restent
-        potentiellement disponibles (sur le total de depart), etant donne ceux deja
-        joues (reveles en resolution de duel). Les Glyphes actuellement en main (y
-        compris la main cachee de l'IA) comptent donc comme "restants", puisque leur
-        type n'est pas encore connu de l'autre joueur avant d'etre joue."""
-        joues = Counter()
-        for resultat in self.historique:
-            for cle in ("combattant_j1", "combattant_j2"):
-                info = resultat[cle]
-                joues[(info["puissance_glyphe"], info["energie"])] += 1
-        return [
-            {
-                "puissance": puissance,
-                "energie": energie,
-                "total": total,
-                "joues": joues.get((puissance, energie), 0),
-                "restants": total - joues.get((puissance, energie), 0),
-            }
-            for puissance, energie, total in GLYPH_DISTRIBUTION
-        ]
-
     # --------------------------------------------------------------- etat
     def etat_dict(self):
         return {
             "phase": self.phase,
             "duel_numero": self.duel_numero,
             "duels_max": NB_DUELS_MAX,
+            "des_par_joueur": DES_PAR_JOUEUR,
             "j1": "humain" if self.j1 is self.joueur_humain else "ia",
             "joueur_humain": self.joueur_humain.to_dict(),
-            "joueur_ia": self.joueur_ia.to_dict(cacher_main=True),
+            "joueur_ia": self.joueur_ia.to_dict(),
             "combattant_j1": self.combattant_j1.template.id if self.combattant_j1 else None,
             "combattant_j2": self.combattant_j2.template.id if self.combattant_j2 else None,
+            "pool_des": self.pool_des,
+            "pool_initial": self.pool_initial,
+            "draft_j1": self.draft_j1,
+            "draft_j2": self.draft_j2,
+            "drafteur_courant": self.drafteur_courant,
+            "premier_drafteur": self.premier_drafteur,
             "dernier_resultat": self.dernier_resultat,
-            "glyphes_restants": self.glyphes_restants(),
             "terminee": self.terminee,
             "vainqueur": self.vainqueur,
         }

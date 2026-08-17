@@ -273,62 +273,49 @@ button:disabled {
   white-space: nowrap;
 }
 
-/* ---------- Compteur de Glyphes restants ---------- */
-.glyphes-restants {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
+/* ---------- Legende des des ---------- */
+.legende-des {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 16px;
   margin-bottom: 20px;
 }
 
-.glyphes-restants-libelle {
-  font-size: 0.75rem;
+.legende-des summary {
+  cursor: pointer;
+  font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 1px;
   color: var(--text-dim);
 }
 
-.glyphes-restants-liste {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+.legende-liste {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
 }
 
-.mini-glyphe {
+.legende-de {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  align-items: flex-start;
+  gap: 10px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 4px 10px;
-  font-size: 0.8rem;
+  padding: 8px 10px;
 }
 
-.mini-glyphe.epuise {
-  opacity: 0.4;
-}
-
-.mini-glyphe-puissance {
-  font-weight: 900;
-}
-
-.mini-glyphe-energie {
+.legende-texte {
   display: flex;
-  gap: 2px;
-  min-width: 18px;
+  flex-direction: column;
+  font-size: 0.72rem;
+  line-height: 1.4;
 }
 
-.mini-glyphe-energie .rond-energie {
-  width: 6px;
-  height: 6px;
-}
-
-.mini-glyphe-compte {
-  color: var(--text-dim);
-}
+.legende-faces { color: var(--text); font-variant-numeric: tabular-nums; }
+.legende-moyenne { color: var(--text-dim); }
 
 /* ---------- Zone de duel ---------- */
 .zone-duel {
@@ -365,49 +352,7 @@ button:disabled {
 }
 .message-attente.cache { display: none; }
 
-/* ---------- Glyphes ---------- */
-.grille-glyphes {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.carte-glyphe {
-  background: var(--bg-card);
-  border: 2px solid var(--border);
-  border-radius: 10px;
-  width: 84px;
-  padding: 10px 6px;
-  text-align: center;
-  cursor: pointer;
-  transition: transform 0.12s ease, border-color 0.12s ease;
-}
-
-.carte-glyphe:hover {
-  transform: translateY(-3px);
-  border-color: var(--accent-2);
-}
-
-.carte-glyphe.selectionnee {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent), var(--shadow);
-}
-
-.glyphe-puissance {
-  font-size: 1.5rem;
-  font-weight: 900;
-}
-
-.glyphe-energie {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 4px;
-  min-height: 10px;
-  margin-top: 6px;
-}
-
+/* ---------- Des ---------- */
 .rond-energie {
   display: inline-block;
   width: 8px;
@@ -417,22 +362,144 @@ button:disabled {
   box-shadow: 0 0 4px rgba(224, 182, 76, 0.8);
 }
 
-.grille-glyphes.inactif .carte-glyphe {
-  cursor: default;
-  opacity: 0.8;
+.de {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  border: 1px solid rgba(0, 0, 0, 0.45);
+  vertical-align: middle;
+  flex: none;
 }
 
-.grille-glyphes.inactif .carte-glyphe:hover {
-  transform: none;
-  border-color: var(--border);
+/* La couleur annonce le type de ressource attendu (Puissance / Energie / melange). */
+.de-rouge { background: #c9301f; }
+.de-bleu { background: #2470c4; }
+.de-violet { background: #7b3fb8; }
+
+.aucun-de {
+  font-size: 0.7rem;
+  font-style: italic;
+  color: var(--text-dim);
 }
 
-.carte-glyphe.dos {
-  background: repeating-linear-gradient(45deg, var(--bg-card), var(--bg-card) 6px, #2c2f3a 6px, #2c2f3a 12px);
-  cursor: default;
+/* ---------- Pool central et draft ---------- */
+.zone-pool {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 18px 14px;
+  margin-bottom: 20px;
 }
 
-.zone-glyphes.cache { display: none; }
+.pool-entete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pool-entete h4 {
+  margin: 0;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+}
+
+.pool-consigne {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.pool-consigne.actif {
+  color: var(--accent);
+  font-style: normal;
+  font-weight: 700;
+}
+
+.pool-des {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  min-height: 46px;
+  align-items: center;
+  margin: 12px 0;
+}
+
+.de-lance.draftable {
+  cursor: pointer;
+  box-shadow: 0 0 0 2px var(--accent);
+  transition: transform 0.12s ease;
+}
+
+.de-lance.draftable:hover { transform: translateY(-4px) scale(1.06); }
+
+.drafts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  border-top: 1px dashed var(--border);
+  padding-top: 10px;
+}
+
+.draft-cote h5 {
+  margin: 0 0 6px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+}
+
+.draft-cote-ia { text-align: right; }
+
+.draft-compte {
+  color: var(--accent-2);
+  font-weight: 700;
+}
+
+.draft-liste {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  min-height: 44px;
+}
+
+.draft-cote-ia .draft-liste { justify-content: flex-end; }
+
+/* ---------- Apercu d'initiative avant engagement ---------- */
+.zone-apercu {
+  width: 100%;
+  max-width: 640px;
+  background: var(--bg-panel);
+  border: 1px solid var(--accent-2);
+  border-radius: 10px;
+  padding: 10px 16px;
+}
+
+.zone-apercu.cache { display: none; }
+
+.apercu-titre {
+  margin: 0 0 6px;
+  font-size: 0.8rem;
+  color: var(--accent-2);
+  text-align: center;
+}
+
+.apercu-detail {
+  margin: 0;
+  font-size: 0.8rem;
+  text-align: center;
+  color: var(--text-dim);
+}
+
+.apercu-detail b { color: var(--text); }
+.apercu-detail.favorable b { color: var(--ok); }
+.apercu-detail.defavorable b { color: var(--danger); }
 
 /* ---------- Duel : cartes en presence ---------- */
 .carte-duel {
@@ -454,21 +521,83 @@ button:disabled {
 
 .carte-duel h3 { margin: 6px 0; }
 
-.carte-duel .glyphe-joue {
-  margin-top: 8px;
-  font-weight: 800;
-  color: var(--accent);
+.carte-duel .ligne-initiative {
+  font-size: 0.74rem;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
-.carte-duel .glyphe-joue-puissance {
-  font-size: 1.4rem;
+.carte-duel .ligne-initiative b { color: var(--text); }
+
+.badge-initiative {
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-.carte-duel .glyphe-joue-energie {
+.jet-des {
   display: flex;
   justify-content: center;
-  gap: 4px;
-  margin-top: 4px;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 10px 0 6px;
+}
+
+.de-lance {
+  width: 38px;
+  height: 42px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+}
+
+.de-lance .de-puissance {
+  font-size: 1.25rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.de-lance .de-energie {
+  display: flex;
+  gap: 2px;
+  min-height: 6px;
+}
+
+.de-lance .rond-energie {
+  width: 6px;
+  height: 6px;
+  box-shadow: none;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+}
+
+.jet-totaux {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  align-items: center;
+  font-size: 0.74rem;
+  color: var(--text-dim);
+}
+
+.jet-totaux b { color: var(--text); font-size: 0.9rem; }
+
+.jet-energie {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
 }
 
 .carte-duel .pouvoir-actif {
