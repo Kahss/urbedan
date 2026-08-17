@@ -372,13 +372,10 @@ button:disabled {
   flex: none;
 }
 
-/* Couleur = type de ressource attendu, teinte = quantite attendue. */
-.de-rouge.de-clair { background: #e8877f; }
-.de-rouge.de-fonce { background: #b8271a; }
-.de-bleu.de-clair { background: #8fbde8; }
-.de-bleu.de-fonce { background: #1c62b0; }
-.de-violet.de-clair { background: #bfa3e0; }
-.de-violet.de-fonce { background: #6c34ad; }
+/* La couleur annonce le type de ressource attendu (Puissance / Energie / melange). */
+.de-rouge { background: #c9301f; }
+.de-bleu { background: #2470c4; }
+.de-violet { background: #7b3fb8; }
 
 /* Un de "donne" (inscrit sur la ligne Adverse) part chez l'adversaire : liseré clair. */
 .de-donne {
@@ -496,8 +493,6 @@ button:disabled {
   color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
 }
-
-.de-lance.de-clair { color: #14151a; text-shadow: none; }
 
 .de-lance.origine-adverse {
   border: 2px dashed var(--text);

@@ -60,7 +60,7 @@ class DuelCombattant:
         self.degats = self.template.degats
         # Chaque de figure dans le detail, y compris ceux qui sortent 0 Puissance : le
         # detail doit se relire face au jet affiche, de en de.
-        self.detail_puissance = [(f"de {de['libelle']}", de["puissance"]) for de in jet]
+        self.detail_puissance = [(de["libelle"], de["puissance"]) for de in jet]
         self.detail_degats = [("base", self.template.degats)]
         self.stoppe = False
         self.protege = False
@@ -205,11 +205,16 @@ class MoteurDuel:
         if t in ("puissance", "degats", "vie"):
             champ = "pv" if t == "vie" else t
             cible = source if effet.get("cible", "soi") == "soi" else adv
-            if mod == "contrecoup" and not source.gagnant:
-                self.log.append(
-                    f"{source.template.nom} Pouvoir ({pouvoir['description']}) : Contrecoup non declenche (pas de victoire)"
-                )
-                return
+            if mod == "contrecoup":
+                # Contrecoup (pouvoirs.csv) : "Applique a soi-meme en cas de victoire".
+                # L'effet est ecrit comme visant l'adversaire ; il est redirige vers le
+                # Combattant lui-meme s'il remporte le duel, et ne se produit pas sinon.
+                if not source.gagnant:
+                    self.log.append(
+                        f"{source.template.nom} Pouvoir ({pouvoir['description']}) : Contrecoup non declenche (pas de victoire)"
+                    )
+                    return
+                cible = source
             valeur = _valeur_effective(effet.get("valeur", 0), pouvoir, source)
             avant = cible.puissance if champ == "puissance" else (cible.degats if champ == "degats" else cible.joueur.pv)
             applique = self._appliquer(source, cible, champ, valeur, label)

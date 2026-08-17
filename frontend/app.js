@@ -80,7 +80,7 @@ function infobulleDe(de) {
 /** Pastille d'un de non lance (tel qu'imprime sur une carte Combattant). */
 function creerDe(de, classesSup = "") {
   const el = document.createElement("span");
-  el.className = `de de-${de.couleur} de-${de.teinte} ${classesSup}`.trim();
+  el.className = `de de-${de.couleur} ${classesSup}`.trim();
   el.title = infobulleDe(de);
   return el;
 }
@@ -88,7 +88,7 @@ function creerDe(de, classesSup = "") {
 /** Pastille d'un de lance : la Puissance obtenue en gros, l'Energie en ronds. */
 function creerDeLance(resultat) {
   const el = document.createElement("span");
-  el.className = `de de-lance de-${resultat.couleur} de-${resultat.teinte} origine-${resultat.origine}`;
+  el.className = `de de-lance de-${resultat.couleur} origine-${resultat.origine}`;
   el.title =
     `${resultat.libelle} (${resultat.origine === "personnel" ? "de personnel" : "de donne par l'adversaire"})` +
     ` — resultat ${resultat.puissance}/${resultat.energie}`;

@@ -4,21 +4,20 @@
 Urban Eredan est un jeu de cartes qui se fait s'affronter deux équipes de combattants. Chaque équipe est composée de 4 combattants. Une partie est constituée d'au maximum 4 duels faisant s'opposer un membre de chaque équipe à chaque fois. La partie se termine soit lorsque l'un des deux joueurs est KO, soit à la fin des 4 duels, le gagnant étant le joueur avec le plus de vie restante.
 
 ## Composants principaux
-- Dés : ce sont eux qui déterminent la Puissance et l'Énergie d'un Combattant pendant un duel. Ce sont des dés spéciaux à 6 faces ; chaque face porte une Puissance (0 à 6) et une Énergie (0 à 2), notées "X/Y". La Puissance sert à départager les deux Combattants du duel, l'Énergie détermine si le Pouvoir du Combattant s'active. Les répartitions des valeurs limitent la variance des résultats tout en restant aléatoires. Il existe trois couleurs, déclinées chacune en deux teintes :
+- Dés : ce sont eux qui déterminent la Puissance et l'Énergie d'un Combattant pendant un duel. Ce sont des dés spéciaux à 6 faces ; chaque face porte une Puissance (0 à 6) et une Énergie (0 à 2), notées "X/Y". La Puissance sert à départager les deux Combattants du duel, l'Énergie détermine si le Pouvoir du Combattant s'active. Les répartitions des valeurs limitent la variance des résultats tout en restant aléatoires. Il existe trois dés, un par couleur :
   - rouge : plus orienté Puissance ; bleu : plus orienté Énergie ; violet : un mélange des deux
-  - clair : valeurs plutôt faibles ; foncé : valeurs plus élevées
-  - Le code couleur / teinte donne rapidement une idée a priori du type de ressource que le joueur peut s'attendre à recevoir, et dans quelles quantités.
+  - Le code couleur donne rapidement une idée a priori du type de ressource que le joueur peut s'attendre à recevoir.
   - Faces de chaque dé :
-    - Rouge clair : 3/0 3/0 2/0 2/0 1/0 1/0 — Rouge foncé : 5/0 5/0 4/0 4/0 2/0 2/0
-    - Bleu clair : 1/1 1/1 0/1 0/1 0/1 0/1 — Bleu foncé : 3/1 3/1 1/2 1/2 0/2 0/2
-    - Violet clair : 2/0 2/0 1/1 1/1 1/0 0/1 — Violet foncé : 4/1 4/0 3/1 3/0 2/0 1/1
+    - Rouge : 4/0 4/0 3/0 3/0 2/0 2/0
+    - Bleu : 2/1 2/1 1/1 1/1 0/2 0/2
+    - Violet : 3/1 3/0 2/1 2/0 1/0 1/1
 - Cartes Combattant : ce sont les membres de chaque équipe. Un Combattant n'a pas de Puissance imprimée ; il possède les caractéristiques suivantes :
   - Nom
   - Dés personnels : le ou les dés qu'il lance pour déterminer sa Puissance et son Énergie
   - Dés adverses : le ou les dés qu'il donne à l'adversaire du duel, qui les ajoute à ses propres dés personnels
   - Dégâts
   - Pouvoir
-  En moyenne, un Combattant a deux dés personnels et un dé adverse. Les dés servent de valeur d'ajustement : un Combattant peut être très fort en ayant deux dés personnels foncés, mais donner en contrepartie un dé foncé à l'adversaire. De même, un Combattant peut être à double tranchant en offrant à l'adversaire la possibilité d'avoir plus d'Énergie via le dé qu'il lui donne.
+  En moyenne, un Combattant a deux dés personnels et un dé adverse. Les dés servent de valeur d'ajustement : un Combattant peut être très fort en ayant trois dés personnels, mais donner en contrepartie deux dés à l'adversaire. De même, un Combattant peut être à double tranchant en offrant à l'adversaire la possibilité d'avoir plus d'Énergie via le dé bleu qu'il lui donne.
 - Suivi de Points de Vie (PV, matérialisé par une carte dans le jeu physique et par un compteur dans le jeu vidéo).
 
 ## Mise en place

@@ -31,7 +31,7 @@ data/combattants.json       Liste des Combattants jouables (editable a la main)
 backend/
   app.py                    Serveur Flask (API REST)
   engine/
-    des.py                  Definition des 6 des, jet, statistiques
+    des.py                  Definition des 3 des, jet, statistiques
     models.py               Combattants, Joueurs
     powers.py               Moteur generique de resolution des Pouvoirs
     ia.py                   Heuristique de choix de l'IA (Combattant)
@@ -44,21 +44,25 @@ generate_metagame.py        Simulation IA vs IA et statistiques de victoire par 
 ## Les des
 
 Chaque de est un de a 6 faces portant, sur chaque face, un couple **Puissance / Energie**
-note `X/Y`. Trois couleurs, deux teintes chacune :
+note `X/Y`. Un de par couleur, sans declinaison de teinte :
 
 | De | Faces | Moyenne |
 | --- | --- | --- |
-| Rouge clair | 3/0 3/0 2/0 2/0 1/0 1/0 | 2,00 P / 0,00 E |
-| Rouge fonce | 5/0 5/0 4/0 4/0 2/0 2/0 | 3,67 P / 0,00 E |
-| Bleu clair | 1/1 1/1 0/1 0/1 0/1 0/1 | 0,33 P / 1,00 E |
-| Bleu fonce | 3/1 3/1 1/2 1/2 0/2 0/2 | 1,33 P / 1,67 E |
-| Violet clair | 2/0 2/0 1/1 1/1 1/0 0/1 | 1,17 P / 0,50 E |
-| Violet fonce | 4/1 4/0 3/1 3/0 2/0 1/1 | 2,83 P / 0,50 E |
+| Rouge | 4/0 4/0 3/0 3/0 2/0 2/0 | 3,00 P / 0,00 E |
+| Bleu | 2/1 2/1 1/1 1/1 0/2 0/2 | 1,00 P / 1,33 E |
+| Violet | 3/1 3/0 2/1 2/0 1/0 1/1 | 2,00 P / 0,50 E |
 
-La couleur annonce le type de ressource (rouge = Puissance, bleu = Energie, violet =
-melange), la teinte la quantite (clair = faible, fonce = elevee). Les faces sont
-volontairement repetitives pour limiter la variance des jets. Le catalogue est expose par
-`GET /api/des` et affiche en legende dans l'interface.
+La couleur annonce le type de ressource : rouge = Puissance pure, bleu = Energie (et
+**au moins 1 Energie garantie** a chaque jet), violet = melange. Les faces sont
+volontairement repetitives, et resserrees autour de leur moyenne, pour limiter la
+variance des jets. Le catalogue est expose par `GET /api/des` et affiche en legende dans
+l'interface.
+
+Les trois des ayant une valeur globale voisine, le principal levier de puissance d'un
+Combattant n'est pas la couleur de ses des mais leur **nombre** : chaque de personnel en
+plus, ou chaque de adverse en moins, pese lourd (de l'ordre de 8 a 10 points de taux de
+victoire dans les simulations). La couleur, elle, oriente le profil : acces a l'Energie
+(donc activation du Pouvoir) contre Puissance brute.
 
 ## Composition du pool d'un duel
 
@@ -72,9 +76,11 @@ pool du Combattant B = des personnels de B + des adverses de A
 Chaque joueur lance son pool ; la somme des Puissances obtenues est sa Puissance de
 depart pour le duel, la somme des Energies est l'Energie dont il dispose pour activer son
 Pouvoir. Les dons croises font tout l'arbitrage du choix de Combattant : un Combattant
-peut etre tres fort avec deux des personnels fonces mais offrir un de fonce a
-l'adversaire ; un autre peut se reveler a double tranchant en donnant a l'adversaire
-l'Energie qui activera le Pouvoir de celui-ci.
+peut etre tres fort avec trois des personnels mais en offrir deux a l'adversaire (Iron,
+Cascade) ; un autre peut se reveler a double tranchant en donnant a l'adversaire le de
+bleu qui activera le Pouvoir de celui-ci (Verrou, Suture) — ou au contraire en tirer
+profit, comme Mirage qui offre un de bleu precisement pour retourner contre l'adversaire
+l'Energie qu'il en tirera.
 
 ## Editer / ajouter des Combattants
 
@@ -87,8 +93,8 @@ possede un seul Pouvoir :
   "id": "identifiant_unique",
   "nom": "Nom affiche",
   "degats": 3,
-  "des_personnels": ["violet_fonce", "bleu_clair"],
-  "des_adverses": ["rouge_clair"],
+  "des_personnels": ["violet", "bleu"],
+  "des_adverses": ["rouge"],
   "pouvoir": {
     "description": "Texte affiche sur la carte",
     "condition": null,
@@ -99,11 +105,10 @@ possede un seul Pouvoir :
 }
 ```
 
-- `des_personnels` / `des_adverses` : listes de types de des parmi `rouge_clair`,
-  `rouge_fonce`, `bleu_clair`, `bleu_fonce`, `violet_clair`, `violet_fonce`. Un type
-  inconnu fait echouer le chargement au demarrage du serveur. Les deux listes peuvent
-  etre vides. En moyenne sur le roster, un Combattant a deux des personnels et un de
-  adverse.
+- `des_personnels` / `des_adverses` : listes de types de des parmi `rouge`, `bleu`,
+  `violet`. Un type inconnu fait echouer le chargement au demarrage du serveur. Les
+  deux listes peuvent etre vides. Sur le roster fourni, la moyenne est de 2,09 des
+  personnels et 1,00 de adverse par Combattant.
 - `degats` : valeur fixe imprimee sur la carte, infligee aux PV adverses par le vainqueur
   du duel (eventuellement modifiee par les Pouvoirs).
 - `energie_min` (optionnel, defaut 0) : cout minimum en Energie pour activer le Pouvoir,
@@ -145,7 +150,7 @@ des des que l'adversaire lui donnera.
 
 A la resolution d'un duel, l'API renvoie pour chaque Combattant le detail complet du
 calcul (`puissance_txt`, `degats_txt`, affiches sur la carte du duel resolu), sous la
-forme `total = X (de Rouge fonce) + Y (de Bleu clair) + Z (Pouvoir Nom) ...`. **Chaque de
+forme `total = X (Rouge) + Y (Bleu) + Z (Pouvoir Nom) ...`. **Chaque de
 du jet** apparait comme une ligne separee (y compris ceux qui sortent 0 Puissance, pour
 que le detail se relise de en de face au jet affiche), suivi de chaque Pouvoir ayant
 modifie la valeur, dans l'ordre ou il a ete applique. Cela permet de verifier precisement
@@ -204,7 +209,7 @@ choix suivants ont ete valides ou tranches avec l'utilisateur avant developpemen
 - **Par energie adverse** : multiplie la valeur de l'effet par l'Energie obtenue par
   l'adversaire ce duel-ci (ex : Mirage, qui retourne contre l'adversaire l'Energie que
   celui-ci a tiree — Energie a laquelle Mirage contribue volontairement en lui donnant un
-  de bleu fonce).
+  de bleu).
 - **Par energie en jeu** : multiplie la valeur de l'effet par la somme des deux Energies
   obtenues ce duel-ci (la sienne et celle de l'adversaire) (ex : Surge).
 - **Contrecoup** : l'effet, normalement dirige vers l'adversaire, s'applique a
@@ -266,11 +271,11 @@ lors que son equipe gagne) :
 .venv/bin/python generate_metagame.py -n 20000
 ```
 
-Sur 20 000 parties, le roster fourni tient dans une fourchette de **43,3 % a 49,3 %**.
+Sur 20 000 parties, le roster fourni tient dans une fourchette de **43,1 % a 48,1 %**.
 Attention a la lecture : environ 7 % des parties sont nulles (egalite de PV apres 4
 duels) et ne comptent comme victoire pour personne, ce qui centre la distribution autour
-de **46,4 %** et non de 50 %. La fourchette cible "45-55 %" heritee de la version
-precedente doit donc etre lue comme "centre +/- 5 points", soit environ 41,5-51,5 %.
+de **46,1 %** et non de 50 %. La fourchette cible "45-55 %" heritee de la version
+precedente doit donc etre lue comme "centre +/- 5 points", soit environ 41-51 %.
 
 ## Tests effectues
 
