@@ -4,13 +4,18 @@ Prototype jouable en solo (vs IA) du jeu de societe Urban Eredan (`game.md`), av
 backend Python (moteur de regles + IA) et un frontend web (HTML/CSS/JS, jouable
 uniquement au clic).
 
+Cette branche implemente la version **"des par personnage"** decrite dans
+`versions/dice_by_characters.md` : les cartes Glyphes ont disparu, les Combattants n'ont
+plus de Puissance imprimee, et leur Puissance / Energie proviennent du jet d'un pool de
+des propre a chaque duel.
+
 ## Lancer le jeu
 
-Un environnement virtuel Python existe deja dans `venv/`. Depuis la racine du projet :
+L'environnement virtuel est gere par `uv` (`.venv/` a la racine) :
 
 ```
-venv\Scripts\python.exe -m pip install -r backend\requirements.txt
-venv\Scripts\python.exe backend\app.py
+uv sync
+.venv/bin/python backend/app.py
 ```
 
 Puis ouvrir http://127.0.0.1:5000/ dans un navigateur.
@@ -26,26 +31,64 @@ data/combattants.json       Liste des Combattants jouables (editable a la main)
 backend/
   app.py                    Serveur Flask (API REST)
   engine/
-    models.py               Glyphes, Combattants, Joueurs
-    powers.py                Moteur generique de resolution des Pouvoirs
-    ia.py                    Heuristique de choix de l'IA (Combattant + Glyphe)
-    game.py                  Orchestration d'une Partie (mise en place, duels, IA)
+    des.py                  Definition des 6 des, jet, statistiques
+    models.py               Combattants, Joueurs
+    powers.py               Moteur generique de resolution des Pouvoirs
+    ia.py                   Heuristique de choix de l'IA (Combattant)
+    game.py                 Orchestration d'une Partie (mise en place, duels, IA)
 frontend/
   index.html / style.css / app.js   Interface (100% cliquable, sans framework)
+generate_metagame.py        Simulation IA vs IA et statistiques de victoire par Combattant
 ```
+
+## Les des
+
+Chaque de est un de a 6 faces portant, sur chaque face, un couple **Puissance / Energie**
+note `X/Y`. Trois couleurs, deux teintes chacune :
+
+| De | Faces | Moyenne |
+| --- | --- | --- |
+| Rouge clair | 3/0 3/0 2/0 2/0 1/0 1/0 | 2,00 P / 0,00 E |
+| Rouge fonce | 5/0 5/0 4/0 4/0 2/0 2/0 | 3,67 P / 0,00 E |
+| Bleu clair | 1/1 1/1 0/1 0/1 0/1 0/1 | 0,33 P / 1,00 E |
+| Bleu fonce | 3/1 3/1 1/2 1/2 0/2 0/2 | 1,33 P / 1,67 E |
+| Violet clair | 2/0 2/0 1/1 1/1 1/0 0/1 | 1,17 P / 0,50 E |
+| Violet fonce | 4/1 4/0 3/1 3/0 2/0 1/1 | 2,83 P / 0,50 E |
+
+La couleur annonce le type de ressource (rouge = Puissance, bleu = Energie, violet =
+melange), la teinte la quantite (clair = faible, fonce = elevee). Les faces sont
+volontairement repetitives pour limiter la variance des jets. Le catalogue est expose par
+`GET /api/des` et affiche en legende dans l'interface.
+
+## Composition du pool d'un duel
+
+Une fois les deux Combattants engages :
+
+```
+pool du Combattant A = des personnels de A + des adverses de B
+pool du Combattant B = des personnels de B + des adverses de A
+```
+
+Chaque joueur lance son pool ; la somme des Puissances obtenues est sa Puissance de
+depart pour le duel, la somme des Energies est l'Energie dont il dispose pour activer son
+Pouvoir. Les dons croises font tout l'arbitrage du choix de Combattant : un Combattant
+peut etre tres fort avec deux des personnels fonces mais offrir un de fonce a
+l'adversaire ; un autre peut se reveler a double tranchant en donnant a l'adversaire
+l'Energie qui activera le Pouvoir de celui-ci.
 
 ## Editer / ajouter des Combattants
 
 `data/combattants.json` peut etre modifie a la main puis rechargé automatiquement au
 lancement d'une nouvelle partie (pas besoin de redemarrer le serveur). Chaque Combattant
-ne possede plus qu'un seul Pouvoir :
+possede un seul Pouvoir :
 
 ```json
 {
   "id": "identifiant_unique",
   "nom": "Nom affiche",
-  "puissance": 4,
   "degats": 3,
+  "des_personnels": ["violet_fonce", "bleu_clair"],
+  "des_adverses": ["rouge_clair"],
   "pouvoir": {
     "description": "Texte affiche sur la carte",
     "condition": null,
@@ -56,18 +99,25 @@ ne possede plus qu'un seul Pouvoir :
 }
 ```
 
+- `des_personnels` / `des_adverses` : listes de types de des parmi `rouge_clair`,
+  `rouge_fonce`, `bleu_clair`, `bleu_fonce`, `violet_clair`, `violet_fonce`. Un type
+  inconnu fait echouer le chargement au demarrage du serveur. Les deux listes peuvent
+  etre vides. En moyenne sur le roster, un Combattant a deux des personnels et un de
+  adverse.
+- `degats` : valeur fixe imprimee sur la carte, infligee aux PV adverses par le vainqueur
+  du duel (eventuellement modifiee par les Pouvoirs).
 - `energie_min` (optionnel, defaut 0) : cout minimum en Energie pour activer le Pouvoir,
-  note "X+" — le Pouvoir s'active des lors que l'Energie du Glyphe joue est superieure ou
-  egale a `energie_min` (`0` ou absent = Pouvoir toujours actif, meme avec un Glyphe
-  d'Energie 0).
+  note "X+" — le Pouvoir s'active des lors que l'Energie **totale obtenue au jet** est
+  superieure ou egale a `energie_min` (`0` ou absent = Pouvoir toujours actif, meme avec
+  une Energie de 0).
 - `condition` (optionnel) : un des mots-cles Condition de `pouvoirs.csv` —
   `courage`, `riposte`, `vengeance`, `domination`, `victoire`, `defaite`, `surpuissance`.
 - `modificateur` (optionnel) : un des mots-cles Modificateur —
   `patience`, `impatience`, `par_energie`, `par_energie_adverse`, `par_energie_en_jeu`,
-  `contrecoup`. `par_energie` multiplie la valeur de l'effet par l'Energie jouee par le
+  `contrecoup`. `par_energie` multiplie la valeur de l'effet par l'Energie obtenue par le
   Combattant lui-meme (ex : "+1 Puissance / Energie") ; `par_energie_adverse` multiplie
-  par l'Energie jouee par l'adversaire ce duel-ci ; `par_energie_en_jeu` multiplie par la
-  somme des deux Energies jouees (soi + adversaire). Dans tous les cas, combine a
+  par l'Energie obtenue par l'adversaire ce duel-ci ; `par_energie_en_jeu` multiplie par
+  la somme des deux Energies (soi + adversaire). Dans tous les cas, combine a
   `energie_min`, cela permet un Pouvoir qui necessite un minimum d'Energie propre pour
   s'activer tout en scalant sur une Energie differente (la sienne, celle de l'adversaire,
   ou le total des deux).
@@ -84,25 +134,26 @@ ne possede plus qu'un seul Pouvoir :
 Un Pouvoir peut activer plusieurs `effets` (liste), mais un seul `condition` /
 `modificateur`.
 
-**L'Energie du Glyphe joue determine si l'unique Pouvoir du Combattant s'active**, en le
-comparant a son seuil `energie_min` : Energie jouee >= `energie_min` -> le Pouvoir
-s'active (avec, le cas echeant, une valeur multipliee par cette Energie via
-`par_energie`) ; sinon, il reste inactif. Un Combattant n'a donc jamais plus d'un Pouvoir
-actif par duel (hors effet de Copie pouvoir). Concevoir un personnage revient a choisir
-un seul Pouvoir, son cout minimum en Energie (0 = toujours disponible, 3 = ne
-s'active qu'en sacrifiant toute la Puissance du Glyphe 0/3) et, eventuellement, un
-scaling par Energie jouee au-dela de ce seuil.
+**L'Energie totale obtenue au jet determine si l'unique Pouvoir du Combattant s'active**,
+en la comparant a son seuil `energie_min`. Un Combattant n'a donc jamais plus d'un
+Pouvoir actif par duel (hors effet de Copie pouvoir). Concevoir un personnage revient a
+choisir ses des personnels, les des qu'il concede a l'adversaire, ses Degats, un unique
+Pouvoir et son cout en Energie — sachant que l'Energie qu'il pourra reunir depend aussi
+des des que l'adversaire lui donnera.
 
 ## Detail du calcul de Puissance / Degats
 
 A la resolution d'un duel, l'API renvoie pour chaque Combattant le detail complet du
 calcul (`puissance_txt`, `degats_txt`, affiches sur la carte du duel resolu), sous la
-forme `total = X (base) + Y (glyphe) + Z (Pouvoir N Nom) ...`. Chaque contribution
-(base, Glyphe, chaque Pouvoir ayant modifie la valeur, y compris un Echange ou une copie
-de pouvoir) apparait comme une ligne separee, dans l'ordre ou elle a ete appliquee. Cela
-permet de verifier precisement d'ou vient un nombre qui semblerait incoherent au premier
-abord (ex : un Combattant dont la Puissance ne semble pas inclure son Glyphe, alors
-qu'un Echange ulterieur la lui a simplement retiree).
+forme `total = X (de Rouge fonce) + Y (de Bleu clair) + Z (Pouvoir Nom) ...`. **Chaque de
+du jet** apparait comme une ligne separee (y compris ceux qui sortent 0 Puissance, pour
+que le detail se relise de en de face au jet affiche), suivi de chaque Pouvoir ayant
+modifie la valeur, dans l'ordre ou il a ete applique. Cela permet de verifier precisement
+d'ou vient un nombre qui semblerait incoherent au premier abord.
+
+La Puissance totale n'est pas bornee a 0 : un Pouvoir de reduction important (ex : Iron)
+peut faire passer un Combattant en Puissance negative. Seuls les Degats sont bornes a 0
+au moment de l'application.
 
 ## Hypotheses et choix d'implementation
 
@@ -110,16 +161,23 @@ Certaines regles de `game.md` / `pouvoirs.csv` laissaient place a interpretation
 choix suivants ont ete valides ou tranches avec l'utilisateur avant developpement :
 
 - **Selection d'equipe** : avant chaque partie, le joueur choisit manuellement ses 4
-  Combattants parmi tous ceux disponibles (20 fournis) ; l'IA tire au hasard 4
+  Combattants parmi tous ceux disponibles (22 fournis) ; l'IA tire au hasard 4
   Combattants distincts parmi ceux restants.
-- **Un seul Pouvoir par Combattant** : chaque Combattant ne possede plus qu'un unique
-  Pouvoir, actif des lors que l'Energie du Glyphe joue atteint son seuil `energie_min`
+- **Les Degats restent une valeur fixe imprimee** sur la carte : seule la Puissance est
+  passee aux des.
+- **Information au moment du choix** : l'ordre de choix est celui de la version
+  precedente — J1 engage son Combattant, puis J2 engage le sien **en voyant celui de
+  J1**. Comme il n'y a plus de Glyphe cache, J2 connait donc les deux pools de des exacts
+  avant de choisir ; seul le jet reste aleatoire. C'est la contrepartie assumee de la
+  disparition de l'information cachee.
+- **Un seul Pouvoir par Combattant** : chaque Combattant ne possede qu'un unique
+  Pouvoir, actif des lors que l'Energie totale du jet atteint son seuil `energie_min`
   (note "X+"). **Ordre de resolution** : au sein d'un duel, J1 resout son Pouvoir (s'il
   est actif) avant que J2 ne resolve le sien.
 - **Stop pouvoir et Copie pouvoir sont generiques** : ils visent toujours l'unique
-  Pouvoir de l'adversaire, s'il est actif (Energie jouee >= son seuil `energie_min`). Si
-  l'adversaire n'a pas atteint ce seuil (Pouvoir inactif), il n'y a rien a annuler ni a
-  copier.
+  Pouvoir de l'adversaire, s'il est actif (Energie obtenue >= son seuil `energie_min`).
+  Si l'adversaire n'a pas atteint ce seuil (Pouvoir inactif), il n'y a rien a annuler ni
+  a copier.
 - **Stop pouvoir** : agit retroactivement si le Pouvoir cible a deja ete resolu (le cas
   lorsque J2 vise le Pouvoir de J1, deja joue), ou par anticipation sinon (J1 vise le
   Pouvoir de J2 qui n'a pas encore joue). Cela fonctionne aussi pour annuler
@@ -139,16 +197,16 @@ choix suivants ont ete valides ou tranches avec l'utilisateur avant developpemen
 - **Patience** : multiplie la valeur de l'effet par le numero du duel courant dans la
   partie (1 a 4). **Impatience** : multiplie par le nombre de duels restants a jouer,
   celui-ci compris (`duels_max - duel_numero + 1`, soit 4 au duel 1, 1 au duel 4).
-- **Par energie** : multiplie la valeur de l'effet par l'Energie du Glyphe joue par le
-  Combattant qui possede ce Pouvoir (ex : Echo, Cobra, Iron, Riff). Combine a
+- **Par energie** : multiplie la valeur de l'effet par l'Energie totale obtenue au jet
+  par le Combattant qui possede ce Pouvoir (ex : Echo, Cobra, Iron, Riff). Combine a
   `energie_min`, cela permet un Pouvoir qui necessite un minimum d'Energie pour
-  s'activer, et dont l'effet croit ensuite avec l'Energie investie au-dela de ce seuil.
-- **Par energie adverse** : multiplie la valeur de l'effet par l'Energie jouee par
-  l'adversaire ce duel-ci, independamment de la propre Energie du Combattant (ex :
-  Mirage, qui retourne l'investissement en Energie de l'adversaire contre lui).
+  s'activer, et dont l'effet croit ensuite avec l'Energie obtenue au-dela de ce seuil.
+- **Par energie adverse** : multiplie la valeur de l'effet par l'Energie obtenue par
+  l'adversaire ce duel-ci (ex : Mirage, qui retourne contre l'adversaire l'Energie que
+  celui-ci a tiree — Energie a laquelle Mirage contribue volontairement en lui donnant un
+  de bleu fonce).
 - **Par energie en jeu** : multiplie la valeur de l'effet par la somme des deux Energies
-  jouees ce duel-ci (la sienne et celle de l'adversaire) (ex : Surge, qui se nourrit du
-  chaos total du duel, peu importe qui l'a genere).
+  obtenues ce duel-ci (la sienne et celle de l'adversaire) (ex : Surge).
 - **Contrecoup** : l'effet, normalement dirige vers l'adversaire, s'applique a
   soi-meme uniquement si le Combattant remporte le duel (sinon il ne se produit pas).
 - **Copie pouvoir** : copie la definition du Pouvoir actuellement actif de l'adversaire
@@ -167,54 +225,64 @@ choix suivants ont ete valides ou tranches avec l'utilisateur avant developpemen
   infligent chacun leurs Degats ; le joueur J2 du duel devient J1 du duel suivant (et
   inversement), conformement a `game.md`.
 - **Equipe visible** : le roster complet (les 4 Combattants, utilises ou non) de chaque
-  joueur est visible par l'autre pendant toute la partie ; la main de Glyphes de l'IA
-  (valeurs et nombre de cartes) reste totalement masquee jusqu'a la resolution du duel.
-- **Main de 2 Glyphes par manche** : chaque joueur pioche un premier Glyphe a la mise en
-  place de la partie (main de depart), puis un Glyphe supplementaire au debut de chaque
-  manche (duel), dans le deck commun (16 cartes, 4 exemplaires de chacun des 4 types de
-  Glyphe, partage par les deux joueurs, jamais reconstitue en cours de partie). Il a
-  donc 2 Glyphes disponibles pour choisir lequel associer au Combattant qu'il joue ce
-  duel-ci ; l'autre reste en main pour la manche suivante. Le joueur humain voit sa
-  propre main avant de choisir son Combattant et son Glyphe ; celle de l'IA reste cachee
-  jusqu'a la resolution du duel.
-- **Compteur de Glyphes restants** : l'interface rappelle, pour chacun des 4 types de
-  Glyphe, combien d'exemplaires restent potentiellement disponibles (sur les 5 de
-  depart), en comptant uniquement ceux deja joues (reveles en resolution de duel) — les
-  Glyphes actuellement dans une main (y compris celle, cachee, de l'IA) sont donc
-  toujours comptes comme "restants", puisque leur type n'est pas encore connu de
-  l'autre joueur.
+  joueur est visible par l'autre pendant toute la partie, des et Pouvoirs compris.
 
 ## IA
 
-L'IA (`engine/ia.py`) choisit, parmi ses Combattants disponibles et ses Glyphes en main,
-la combinaison qui maximise une estimation de la Puissance totale du duel (en cas
-d'egalite : les Degats, puis la Vie), plutot qu'un tirage purement aleatoire. Cette
-estimation ne compte que ce qui est certain au moment du choix :
+L'IA (`engine/ia.py`) choisit, parmi ses Combattants disponibles, celui qui maximise une
+**marge** estimee (sa Puissance moins celle de l'adversaire), et non plus sa seule
+Puissance : puisque les des adverses inscrits sur la carte engagee sont offerts a
+l'adversaire, un bon Combattant peut etre un mauvais choix ce tour-ci.
+
+- **Puissance** : esperance exacte de chaque pool (somme des moyennes des des).
+- **Energie** : la distribution du total d'Energie d'un pool est calculee exactement par
+  convolution des distributions de chaque de. On en tire la probabilite d'atteindre le
+  seuil `energie_min`, et l'Energie moyenne *sachant* ce seuil atteint (utilisee par
+  `par_energie`). Chaque effet est pondere par cette probabilite d'activation.
 - Courage / Riposte / Vengeance / Domination sont evalues immediatement (role du duel,
   PV courants) ; Victoire / Defaite / Surpuissance / Contrecoup dependent de l'issue du
   duel (inconnue au moment du choix) et ne sont donc jamais comptes.
-- Patience / Impatience / Par energie sont calcules directement ; Par energie adverse /
-  Par energie en jeu utilisent l'Energie moyenne d'un Glyphe pioche au hasard (1,5),
-  l'Energie reelle de l'adversaire etant inconnue avant la resolution.
-- Stop pouvoir / Copie pouvoir / Protection / Echange dependent trop du Combattant et du
-  Glyphe adverses (inconnus) pour etre estimes utilement : ils ne modifient pas le
-  score.
+- **Echange** est estime exactement en esperance (les deux pools sont connus) : il vaut
+  l'ecart de Puissance entre les deux camps, et l'ecart de Degats.
+- **Stop pouvoir / Protection / Copie pouvoir** sont croises entre les deux estimations
+  d'un meme duel : un Stop probable rabote le gain adverse, une Protection annule la part
+  du gain adverse qui vise ce cote-ci, une Copie ajoute au copieur le gain immediat
+  d'en face.
+- Quand l'IA joue en second, elle connait le Combattant adverse, donc les deux pools
+  exacts. Quand elle joue en premier, elle moyenne son evaluation sur les Combattants
+  encore disponibles en face ; elle ne cherche pas a anticiper que l'adversaire
+  choisira ensuite le meilleur contre.
 
 Les egalites de score sont tranchees au hasard, pour eviter un jeu totalement
 previsible.
 
+## Equilibrage du roster
+
+`generate_metagame.py` simule des parties completes jouees par l'heuristique IA des deux
+cotes et donne le pourcentage de victoire de chaque Combattant (un Combattant "gagne" des
+lors que son equipe gagne) :
+
+```
+.venv/bin/python generate_metagame.py -n 20000
+```
+
+Sur 20 000 parties, le roster fourni tient dans une fourchette de **43,3 % a 49,3 %**.
+Attention a la lecture : environ 7 % des parties sont nulles (egalite de PV apres 4
+duels) et ne comptent comme victoire pour personne, ce qui centre la distribution autour
+de **46,4 %** et non de 50 %. La fourchette cible "45-55 %" heritee de la version
+precedente doit donc etre lue comme "centre +/- 5 points", soit environ 41,5-51,5 %.
+
 ## Tests effectues
 
-- Simulation de 30 parties completes en choix aleatoires via le moteur Python (sans
-  crash).
+- Simulation de 20 000 parties completes via le moteur Python (sans crash), avec releve
+  des taux de victoire par Combattant.
+- Diagnostic complementaire par Combattant (frequence d'engagement, taux de victoire en
+  duel, Energie moyenne obtenue, taux d'activation du Pouvoir, Puissance moyenne).
 - Simulation d'une partie complete via l'API HTTP reelle (serveur Flask demarre),
-  verifiant le cycle pioche Glyphe -> choix Combattant (resolution automatique une fois
-  les deux choisis) -> duel suivant -> fin de partie, ainsi que le rejet propre
-  (HTTP 400) d'une action invalide.
-- Scenarios cibles verifiant individuellement : Protection (retroactive + blocage),
-  Stop pouvoir (retroactif), Contrecoup (redirection sur victoire), Surpuissance,
-  Patience/Impatience (base duel courant), regle "Energie = quel Pouvoir s'active" (et
-  non plus combien), genericite de Stop pouvoir et Copie pouvoir (y compris le cas
-  "l'adversaire n'a active aucun Pouvoir").
-- Verification manuelle du frontend (HTML/CSS/JS) par lecture de code ; a tester
-  visuellement dans un navigateur avant mise en usage reel.
+  verifiant le cycle choix Combattant (resolution automatique une fois les deux choisis)
+  -> duel suivant -> fin de partie, le rejet propre (HTTP 400) d'une action invalide, la
+  coherence des totaux Puissance/Energie avec les des du jet, et la **composition croisee
+  des pools** (des personnels du Combattant + des adverses de celui d'en face, dans cet
+  ordre, avec la bonne origine).
+- Verification visuelle du frontend dans un navigateur (Chromium headless) sur les trois
+  ecrans : selection d'equipe, choix de Combattant avec apercu du pool, duel resolu.

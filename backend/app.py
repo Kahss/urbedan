@@ -3,6 +3,7 @@ import os
 
 from flask import Flask, jsonify, request, send_from_directory
 
+from engine.des import catalogue
 from engine.game import ErreurPartie, Partie, charger_combattants
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -11,7 +12,9 @@ FRONTEND_DIR = os.path.join(BASE_DIR, "..", "frontend")
 
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="")
 
-TEMPLATES = charger_combattants(DATA_PATH)
+# Chargement au demarrage : sert de validation immediate du fichier de Combattants
+# (types de des inconnus, champs manquants) plutot que d'echouer au premier appel API.
+charger_combattants(DATA_PATH)
 
 # Etat de jeu en memoire : une seule partie active a la fois (POC solo local).
 partie = None
@@ -24,7 +27,16 @@ def index():
 
 @app.get("/api/combattants")
 def api_combattants():
-    return jsonify([t.to_dict() for t in TEMPLATES.values()])
+    # Relit le fichier a chaque appel : une edition manuelle de data/combattants.json est
+    # visible des le retour a l'ecran de selection, sans redemarrer le serveur.
+    return jsonify([t.to_dict() for t in charger_combattants(DATA_PATH).values()])
+
+
+@app.get("/api/des")
+def api_des():
+    """Catalogue statique des 6 types de des (faces, moyennes), pour la legende du
+    frontend."""
+    return jsonify(catalogue())
 
 
 @app.post("/api/partie")
@@ -55,7 +67,7 @@ def api_choix_combattant():
         return jsonify({"erreur": "Aucune partie en cours"}), 404
     body = request.get_json(force=True) or {}
     try:
-        etat = partie.soumettre_combattant(body.get("combattant_id"), body.get("glyphe_id"))
+        etat = partie.soumettre_combattant(body.get("combattant_id"))
     except ErreurPartie as e:
         return jsonify({"erreur": str(e)}), 400
     return jsonify(etat)

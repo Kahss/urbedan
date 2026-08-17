@@ -1,13 +1,19 @@
 {
-  "$schema_doc": "Voir README.md section 'Schema des Combattants' pour le detail des champs condition/modificateur/energie_min/effets. Les champs 'archetype' et 'description' sont purement narratifs : ils ne sont lus ni par le moteur, ni par le frontend (CombattantTemplate.to_dict() ne les expose pas). Depuis la refonte 'mono Pouvoir', chaque Combattant ne possede plus qu'un seul Pouvoir, qui peut definir un cout minimum en Energie (energie_min, note 'X+') et etre multiplie par l'Energie (modificateur par_energie).",
+  "$schema_doc": "Voir README.md pour le detail des champs des_personnels / des_adverses / condition / modificateur / energie_min / effets. Les champs 'archetype' et 'description' sont purement narratifs : ils ne sont lus ni par le moteur, ni par le frontend. Un Combattant n'a plus de Puissance imprimee : sa Puissance et son Energie proviennent du jet de ses des personnels, augmentes des des adverses inscrits sur la carte du Combattant d'en face. Types de des disponibles : rouge_clair, rouge_fonce, bleu_clair, bleu_fonce, violet_clair, violet_fonce.",
   "combattants": [
     {
       "id": "riff",
       "nom": "Riff",
       "archetype": "Le DJ des block-parties",
       "description": "Platines calees sur le toit d'un parking desaffecte, Riff a grandi au son des basses qui remontent des caves du quartier. Il ne se bat jamais sans musique : chaque duel est un set improvise ou il monte crescendo, certain que le premier morceau pose donne toujours le ton. La legende dit qu'il n'a jamais perdu un affrontement commence sur son propre tempo.",
-      "puissance": 4,
       "degats": 0,
+      "des_personnels": [
+        "bleu_fonce",
+        "violet_clair"
+      ],
+      "des_adverses": [
+        "violet_clair"
+      ],
       "pouvoir": {
         "description": "Courage : +2 Puissance / +2 Dégâts par Energie",
         "condition": "courage",
@@ -32,8 +38,14 @@
       "nom": "Nova",
       "archetype": "La hackeuse activiste",
       "description": "Nova a coupe le courant de tout un pate d'immeubles a quinze ans, juste pour voir ce que ca ferait. Aujourd'hui elle infiltre les automatismes adverses en plein duel, les desactive, puis retourne leurs propres protocoles contre eux. Elle ne frappe jamais fort la premiere fois : elle prefere demonter le systeme de l'interieur avant de porter le coup de grace.",
-      "puissance": 4,
       "degats": 5,
+      "des_personnels": [
+        "bleu_fonce",
+        "rouge_clair"
+      ],
+      "des_adverses": [
+        "rouge_fonce"
+      ],
       "pouvoir": {
         "description": "Copie puis annule le Pouvoir actif adverse",
         "condition": null,
@@ -54,8 +66,14 @@
       "nom": "Grind",
       "archetype": "Le rider de skatepark",
       "description": "Grind n'a jamais mis les pieds dans une salle de sport : tout ce qu'il sait, il l'a appris en se plantant sur le bitume d'un bowl abandonne. Chaque chute est une lecon, chaque revers un tremplin pour la figure suivante. Plus le tournoi avance, plus ses gestes deviennent precis — l'experience du bitume, ca ne s'oublie pas.",
-      "puissance": 5,
       "degats": 2,
+      "des_personnels": [
+        "rouge_clair",
+        "rouge_fonce"
+      ],
+      "des_adverses": [
+        "violet_clair"
+      ],
       "pouvoir": {
         "description": "Patience : +2 Puissance",
         "modificateur": "patience",
@@ -74,10 +92,16 @@
       "nom": "Blaze",
       "archetype": "Le writer pyromane",
       "description": "Blaze tague a la bombe et au chalumeau, et personne ne l'arrete tant que la piece n'est pas terminee. Il frappe plus fort quand il sent l'adversaire deja affaibli, sans pitie pour les plus faibles — mais quand on lui tient tete, une rage froide prend le dessus et le rend plus dangereux encore. On raconte que ses fresques les plus connues ont fini par bruler la moitie du mur qui les portait.",
-      "puissance": 4,
       "degats": 2,
+      "des_personnels": [
+        "violet_fonce",
+        "violet_clair"
+      ],
+      "des_adverses": [
+        "violet_clair"
+      ],
       "pouvoir": {
-        "description": "Vengeance : +4 Puissance, +4 Degats",
+        "description": "Vengeance : +5 Puissance, +5 Degats",
         "condition": "vengeance",
         "modificateur": null,
         "energie_min": 1,
@@ -85,12 +109,12 @@
           {
             "type": "degats",
             "cible": "soi",
-            "valeur": 4
+            "valeur": 5
           },
           {
             "type": "puissance",
             "cible": "soi",
-            "valeur": 4
+            "valeur": 5
           }
         ]
       }
@@ -100,10 +124,18 @@
       "nom": "Iron",
       "archetype": "Le videur increvable",
       "description": "Videur du Zenith Club depuis dix ans, Iron a arrete de compter les coups qu'il a encaisses a la place des autres. Rien ne l'ebranle : il absorbe, encaisse, et laisse l'adversaire s'epuiser contre sa garde plutot que de forcer le passage. Quand la situation degenere vraiment, c'est lui qui ferme la porte, dans tous les sens du terme.",
-      "puissance": 6,
       "degats": 2,
+      "des_personnels": [
+        "rouge_fonce",
+        "violet_fonce",
+        "bleu_clair"
+      ],
+      "des_adverses": [
+        "rouge_clair",
+        "violet_clair"
+      ],
       "pouvoir": {
-        "description": "Protection et -1 Puissance adverse par Energie",
+        "description": "Protection et -2 Puissance adverse par Energie",
         "condition": null,
         "modificateur": "par_energie",
         "energie_min": 1,
@@ -114,7 +146,7 @@
           {
             "type": "puissance",
             "cible": "adversaire",
-            "valeur": -1
+            "valeur": -2
           }
         ]
       }
@@ -124,8 +156,14 @@
       "nom": "Cobra",
       "archetype": "Le motard de nuit",
       "description": "Personne ne sait qui se cache sous le casque de Cobra, seulement qu'on l'entend arriver avant de le voir. Il roule sans filet, mord avant de reflechir, et plus la course s'envenime, plus il plante les crocs profondement. Sa plus grande victoire l'a laisse a moitie inconscient au bord de la route — il dit que ca en valait le coup.",
-      "puissance": 4,
       "degats": 3,
+      "des_personnels": [
+        "bleu_fonce",
+        "violet_clair"
+      ],
+      "des_adverses": [
+        "violet_clair"
+      ],
       "pouvoir": {
         "description": "Vampirisme 1 par Energie",
         "condition": null,
@@ -144,8 +182,14 @@
       "nom": "Echo",
       "archetype": "La danseuse de battle",
       "description": "Echo n'a pas de coup fourre, pas de plan tordu : juste des annees de battles de rue et une technique irreprochable. Chaque geste qu'elle pose s'ajoute au precedent, sans jamais faiblir ni se laisser distraire par l'adversaire. Face a elle, tout le monde sait exactement ce qui va arriver — et perd quand meme.",
-      "puissance": 4,
       "degats": 3,
+      "des_personnels": [
+        "bleu_fonce",
+        "bleu_clair"
+      ],
+      "des_adverses": [
+        "rouge_fonce"
+      ],
       "pouvoir": {
         "description": "+2 Puissance / + 1 Dégât par Energie",
         "modificateur": "par_energie",
@@ -169,13 +213,19 @@
       "nom": "Vex",
       "archetype": "La voyante des quais",
       "description": "Vex lit l'avenir dans les graffitis et les tickets de loterie perdus, installee sur son carton pres du canal. Elle tire une etrange force de ses propres defaites, se relance encore plus fort a chaque victoire, et plus l'ecart de Puissance avec l'adversaire est grand en sa faveur, plus la malediction qu'elle jette ensuite est cruelle.",
-      "puissance": 4,
       "degats": 3,
+      "des_personnels": [
+        "bleu_fonce",
+        "rouge_clair"
+      ],
+      "des_adverses": [
+        "violet_clair"
+      ],
       "pouvoir": {
         "description": "Défaite : -6 Vie adverse",
         "condition": "defaite",
         "modificateur": null,
-        "energie_min": 2,
+        "energie_min": 1,
         "effets": [
           {
             "type": "vie",
@@ -190,8 +240,14 @@
       "nom": "Mirage",
       "archetype": "L'illusionniste du marche aux puces",
       "description": "Sur son etal de bric-a-brac, Mirage ne vend jamais rien : elle observe. Elle laisse l'adversaire miser gros, sourit, puis lui retourne exactement l'energie qu'il vient d'investir contre elle. Plus on joue fort contre Mirage, plus on nourrit le tour qu'elle est en train de preparer.",
-      "puissance": 4,
       "degats": 3,
+      "des_personnels": [
+        "violet_fonce",
+        "bleu_clair"
+      ],
+      "des_adverses": [
+        "bleu_fonce"
+      ],
       "pouvoir": {
         "description": "+2 Puissance par Energie adverse",
         "condition": null,
@@ -211,8 +267,14 @@
       "nom": "Surge",
       "archetype": "L'anarchiste electrique",
       "description": "Surge court-circuite les transformateurs du quartier pour le plaisir de sentir l'air crepiter. Peu lui importe qui a lance l'etincelle : plus un duel devient intense des deux cotes, plus elle absorbe ce chaos ambiant et le transforme en decharge.",
-      "puissance": 3,
       "degats": 3,
+      "des_personnels": [
+        "bleu_clair",
+        "violet_clair"
+      ],
+      "des_adverses": [
+        "bleu_fonce"
+      ],
       "pouvoir": {
         "description": "+2 Puissance par Energie en jeu",
         "condition": null,
@@ -232,32 +294,17 @@
       "nom": "Jab",
       "archetype": "Le boxeur de rue",
       "description": "Jab n'a jamais mis les pieds dans un club select : ses rounds, il les a faits au parking du Zenith, sous les phares des voitures garees en cercle. Il n'attaque jamais le premier — il regarde, encaisse un temps, puis place le contre exact au moment ou l'adversaire s'expose. Personne ne l'a jamais vu porter le premier coup, et personne n'a jamais gagne contre lui en deuxieme position.",
-      "puissance": 4,
       "degats": 4,
+      "des_personnels": [
+        "violet_fonce",
+        "violet_clair"
+      ],
+      "des_adverses": [
+        "violet_clair"
+      ],
       "pouvoir": {
-        "description": "Riposte : +3 Puissance",
+        "description": "Riposte : +4 Puissance",
         "condition": "riposte",
-        "modificateur": null,
-        "energie_min": 1,
-        "effets": [
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 3
-          }
-        ]
-      }
-    },
-    {
-      "id": "buzzer",
-      "nom": "Buzzer",
-      "archetype": "Le meneur de streetball",
-      "description": "Sur le playground du quartier, Buzzer ne joue jamais pour l'egalite. Des qu'il sent son equipe en tete, il accelere, enchaine les paniers et referme le match avant que l'adversaire n'espere revenir. Ceux qui l'ont affronte disent tous la meme chose : le pire moment pour jouer contre Buzzer, c'est quand il a deja de l'avance.",
-      "puissance": 5,
-      "degats": 2,
-      "pouvoir": {
-        "description": "Domination : +4 Puissance",
-        "condition": "domination",
         "modificateur": null,
         "energie_min": 1,
         "effets": [
@@ -270,12 +317,43 @@
       }
     },
     {
+      "id": "buzzer",
+      "nom": "Buzzer",
+      "archetype": "Le meneur de streetball",
+      "description": "Sur le playground du quartier, Buzzer ne joue jamais pour l'egalite. Des qu'il sent son equipe en tete, il accelere, enchaine les paniers et referme le match avant que l'adversaire n'espere revenir. Ceux qui l'ont affronte disent tous la meme chose : le pire moment pour jouer contre Buzzer, c'est quand il a deja de l'avance.",
+      "degats": 2,
+      "des_personnels": [
+        "rouge_fonce",
+        "bleu_clair"
+      ],
+      "des_adverses": [],
+      "pouvoir": {
+        "description": "Domination : +5 Puissance",
+        "condition": "domination",
+        "modificateur": null,
+        "energie_min": 1,
+        "effets": [
+          {
+            "type": "puissance",
+            "cible": "soi",
+            "valeur": 5
+          }
+        ]
+      }
+    },
+    {
       "id": "verve",
       "nom": "Verve",
       "archetype": "Le MC de battle rap",
       "description": "Verve n'improvise jamais vraiment : chaque round gagne nourrit le suivant, chaque rime qui touche lui donne un souffle de plus pour la suite. Sur la scene du sous-sol du Kaine Club, on ne l'a jamais vu perdre pied une fois lance — au contraire, plus il enchaine les victoires, plus sa voix porte.",
-      "puissance": 5,
       "degats": 3,
+      "des_personnels": [
+        "rouge_fonce",
+        "bleu_fonce"
+      ],
+      "des_adverses": [
+        "violet_clair"
+      ],
       "pouvoir": {
         "description": "Victoire : +4 Vie",
         "condition": "victoire",
@@ -295,8 +373,15 @@
       "nom": "Gambit",
       "archetype": "Le joueur d'echecs du parc",
       "description": "Gambit joue aux echecs contre n'importe qui pour un billet, sur la table en beton du square Voltaire, et il ne propose jamais une partie qu'il n'a pas deja gagnee dans sa tete. Quand l'ecart devient ecrasant en sa faveur, il ne se contente pas de gagner la partie : il porte le coup de grace qui laisse l'adversaire incapable de revenir.",
-      "puissance": 7,
       "degats": 1,
+      "des_personnels": [
+        "rouge_fonce",
+        "rouge_fonce"
+      ],
+      "des_adverses": [
+        "bleu_clair",
+        "bleu_clair"
+      ],
       "pouvoir": {
         "description": "Surpuissance : +4 Vie et -4 Vie adverse",
         "condition": "surpuissance",
@@ -319,8 +404,13 @@
       "nom": "Nitro",
       "archetype": "Le rider de BMX gonfle a l'energie",
       "description": "Nitro carbure aux canettes energisantes et aux figures impossibles enchainees des les premieres secondes. Il demarre a fond, quitte a s'essouffler plus tard dans le tournoi : mieux vaut l'affronter en fin de journee qu'au tout premier duel, quand l'adrenaline coule encore a flots.",
-      "puissance": 1,
       "degats": 3,
+      "des_personnels": [
+        "bleu_fonce"
+      ],
+      "des_adverses": [
+        "violet_clair"
+      ],
       "pouvoir": {
         "description": "Impatience : +2 Puissance",
         "condition": null,
@@ -340,8 +430,15 @@
       "nom": "Cascade",
       "archetype": "Le cascadeur du parking desaffecte",
       "description": "Cascade s'entraine sur le toit du parking abandonne de la zone industrielle, enchainant des sauts que personne d'autre n'oserait tenter. Il ne ressent la montee d'adrenaline qu'une fois la figure reussie : c'est seulement apres avoir gagne le duel qu'il retrouve un second souffle, comme si la victoire elle-meme le soignait.",
-      "puissance": 7,
       "degats": 5,
+      "des_personnels": [
+        "rouge_fonce",
+        "rouge_fonce",
+        "violet_clair"
+      ],
+      "des_adverses": [
+        "rouge_clair"
+      ],
       "pouvoir": {
         "description": "Contrecoup : +3 Vie",
         "condition": null,
@@ -360,8 +457,14 @@
       "nom": "Mime",
       "archetype": "Le mime du parvis",
       "description": "Mime ne parle jamais, mais il observe chaque adversaire avec une attention presque derangeante avant de reproduire, trait pour trait, le geste qu'il vient de voir. Sur le parvis de la gare, les passants s'arretent pour le regarder imiter n'importe qui a la perfection — et en duel, il fait exactement pareil.",
-      "puissance": 5,
       "degats": 4,
+      "des_personnels": [
+        "violet_fonce",
+        "violet_clair"
+      ],
+      "des_adverses": [
+        "violet_clair"
+      ],
       "pouvoir": {
         "description": "Copie le Pouvoir adverse",
         "condition": null,
@@ -379,8 +482,14 @@
       "nom": "Verrou",
       "archetype": "La bloqueuse de roller derby",
       "description": "Verrou n'a jamais marque le moindre point sur la piste de sa ligue de roller derby — et personne ne le lui a jamais reproche, parce que son travail c'est d'empecher les autres de passer. Elle place son epaule au bon moment, ferme la trajectoire, et l'adversaire se retrouve arrete net, sans jamais comprendre comment.",
-      "puissance": 5,
       "degats": 3,
+      "des_personnels": [
+        "rouge_fonce",
+        "bleu_clair"
+      ],
+      "des_adverses": [
+        "violet_fonce"
+      ],
       "pouvoir": {
         "description": "Annule le Pouvoir actif adverse",
         "condition": null,
@@ -398,13 +507,19 @@
       "nom": "Furet",
       "archetype": "Le pickpocket agile du marche",
       "description": "Furet se faufile entre les etals du marche couvert sans jamais se faire voir, et ce qu'il derobe n'est pas toujours ce qu'on croit. Dans le feu d'un duel, il peut echanger sa situation avec celle de l'adversaire d'un geste aussi discret qu'un vol a la tire — et repartir avec ce qui comptait vraiment.",
-      "puissance": 4,
-      "degats": 4,
+      "degats": 2,
+      "des_personnels": [
+        "bleu_fonce",
+        "violet_clair"
+      ],
+      "des_adverses": [
+        "rouge_fonce"
+      ],
       "pouvoir": {
         "description": "Echange Puissance/Degats avec l'adversaire",
         "condition": null,
         "modificateur": null,
-        "energie_min": 2,
+        "energie_min": 1,
         "effets": [
           {
             "type": "echange"
@@ -417,8 +532,14 @@
       "nom": "Suture",
       "archetype": "Le medecin de rue benevole",
       "description": "Suture tient une infirmerie de fortune dans l'arriere-boutique d'une friperie, et soigne quiconque en a besoin sans poser de questions. Plus un affrontement s'eternise, plus son geste devient sur : ce n'est jamais au premier duel qu'elle est la plus efficace, mais a mesure que le tournoi avance et que l'experience s'accumule.",
-      "puissance": 4,
       "degats": 2,
+      "des_personnels": [
+        "rouge_clair",
+        "violet_fonce"
+      ],
+      "des_adverses": [
+        "bleu_clair"
+      ],
       "pouvoir": {
         "description": "Patience : +1 Vie",
         "condition": null,
@@ -438,8 +559,14 @@
       "nom": "Toph",
       "archetype": "La Bandite Aveugle",
       "description": "On l'a sous-estimee toute sa vie : une gamine, aveugle, forcement vulnerable. Chaque adversaire qui la croit en position de faiblesse decouvre la meme chose : pieds nus sur le bitume, elle sent chaque vibration, chaque feinte, chaque ruse avant meme qu'elle ne se declenche. Alors le mepris se retourne aussitot contre lui, sous la forme d'un deluge de pierre et de metal.",
-      "puissance": 6,
       "degats": 3,
+      "des_personnels": [
+        "rouge_fonce",
+        "bleu_clair"
+      ],
+      "des_adverses": [
+        "violet_clair"
+      ],
       "pouvoir": {
         "description": "Vengeance : Stop Pouvoir et +4 Puissance",
         "condition": "vengeance",
@@ -462,8 +589,12 @@
       "nom": "Loup",
       "archetype": "Le collecteur de dettes qu'on ne rembourse jamais deux fois",
       "description": "Deux lames courbes glissent hors de son manteau, silencieuses, precises. Loup ne se presse jamais : il attend que la balance penche en sa faveur, calme, presque indifferent, avant de prelever sa part. Un sifflotement lent annonce toujours sa venue dans les couloirs vides, bien avant qu'on ne le voie -- et une fois qu'il a l'avantage, il ne repart jamais les mains vides.",
-      "puissance": 5,
       "degats": 4,
+      "des_personnels": [
+        "violet_fonce",
+        "bleu_clair"
+      ],
+      "des_adverses": [],
       "pouvoir": {
         "description": "Domination : Vampirisme 2 par Energie",
         "condition": "domination",

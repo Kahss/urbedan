@@ -19,24 +19,25 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(BASE_DIR, "backend"))
 
 from engine.game import NB_DUELS_MAX, Partie, charger_combattants  # noqa: E402
-from engine.ia import choisir_combattant_et_glyphe  # noqa: E402
+from engine.ia import choisir_combattant  # noqa: E402
 
 DATA_PATH = os.path.join(BASE_DIR, "data", "combattants.json")
 
 
 def jouer_choix_humain(partie):
-    """Fait choisir au joueur 'humain' de la partie son Combattant et son Glyphe pour
-    le duel en cours, via la meme heuristique que l'IA (cf. engine/ia.py), de maniere a
-    simuler un affrontement IA contre IA."""
+    """Fait choisir au joueur 'humain' de la partie son Combattant pour le duel en
+    cours, via la meme heuristique que l'IA (cf. engine/ia.py), de maniere a simuler un
+    affrontement IA contre IA."""
     role = "j1" if partie.j1 is partie.joueur_humain else "j2"
     if getattr(partie, "combattant_" + role) is not None:
         return
     adversaire = partie.joueur_ia
-    instance, glyphe = choisir_combattant_et_glyphe(
-        partie.joueur_humain, role, partie.duel_numero, NB_DUELS_MAX,
-        partie.joueur_humain.pv, adversaire.pv,
+    combattant_adverse = partie.combattant_j1 if role == "j2" else None
+    instance = choisir_combattant(
+        partie.joueur_humain, adversaire, combattant_adverse, role,
+        partie.duel_numero, NB_DUELS_MAX, partie.joueur_humain.pv, adversaire.pv,
     )
-    partie.soumettre_combattant(instance.template.id, glyphe.id)
+    partie.soumettre_combattant(instance.template.id)
 
 
 def jouer_partie(templates, tous_les_ids):
