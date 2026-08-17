@@ -17,7 +17,11 @@
   <!-- Ecran : selection d'equipe -->
   <section id="ecran-selection" class="ecran">
     <h2>Choisis ton equipe (4 Combattants)</h2>
-    <p class="aide">Clique sur 4 Combattants pour constituer ton equipe. L'IA recevera automatiquement les 4 restants.</p>
+    <p class="aide">
+      Chaque duel se resout sur un champ de bataille commun, decoupe en 3 Zones :
+      <b class="zone-nom">Bitume</b>, <b class="zone-nom">Hauteur</b>, <b class="zone-nom">Souterrain</b>.
+      Un Combattant ne tire parti que des Zones de son Avantage. Pense a couvrir les trois.
+    </p>
     <div id="grille-selection" class="grille-combattants"></div>
     <div class="barre-action">
       <span id="compteur-selection">0 / 4 selectionnes</span>
@@ -43,9 +47,9 @@
       </div>
     </div>
 
-    <div class="glyphes-restants">
-      <span class="glyphes-restants-libelle">Glyphes restants :</span>
-      <div id="glyphes-restants-liste" class="glyphes-restants-liste"></div>
+    <div class="zone-champ">
+      <div id="champ-carte" class="champ-carte"></div>
+      <p id="champ-consigne" class="champ-consigne"></p>
     </div>
 
     <div class="zone-duel">
@@ -56,10 +60,6 @@
 
       <div class="centre-duel">
         <div id="combattants-en-duel" class="combattants-en-duel"></div>
-        <div id="zone-glyphes" class="zone-glyphes cache">
-          <p id="libelle-glyphes">Glyphe pioche pour ce duel :</p>
-          <div id="main-glyphes" class="grille-glyphes"></div>
-        </div>
         <div id="zone-resultat" class="zone-resultat cache">
           <div id="journal-resolution" class="journal"></div>
           <button id="btn-duel-suivant">Duel suivant</button>
@@ -72,6 +72,16 @@
         <div id="equipe-ia" class="grille-combattants petite"></div>
       </div>
     </div>
+
+    <details class="legende-champs">
+      <summary>Composition du deck de champs de bataille</summary>
+      <p class="aide legende-aide">
+        30 cartes : 10 modeles, chacun en 3 exemplaires dont les valeurs sont decalees d'une
+        Zone. Aucune Zone n'est donc structurellement meilleure qu'une autre. Le dos ne
+        revele que les couleurs : ni les valeurs, ni l'Energie.
+      </p>
+      <div id="legende-champs-liste" class="legende-liste"></div>
+    </details>
   </section>
 
   <!-- Ecran : fin de partie -->

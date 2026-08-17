@@ -1,14 +1,17 @@
 """Moteur generique de resolution des Pouvoirs, pilote par les mots-cles de pouvoirs.csv.
 
 Hypotheses de resolution retenues pour ce POC (voir README.md) :
+- La Puissance et l'Energie d'un Combattant proviennent du champ de bataille commun du
+  duel : il encaisse la valeur et l'Energie des seules cases couvertes par son `avantage`.
+  Les deux Combattants lisent donc la meme carte, mais pas les memes cases.
 - Chaque Combattant ne possede plus qu'un seul Pouvoir. Ce Pouvoir peut definir un cout
-  minimum en Energie (`energie_min`, note "X+") : il ne s'active que si l'Energie du
-  Glyphe joue est superieure ou egale a ce seuil (`energie_min` absent ou 0 = Pouvoir
-  toujours actif, quelle que soit l'Energie jouee, y compris 0). Le modificateur
+  minimum en Energie (`energie_min`, note "X+") : il ne s'active que si l'Energie recoltee
+  sur ses cases est superieure ou egale a ce seuil (`energie_min` absent ou 0 = Pouvoir
+  toujours actif, quelle que soit l'Energie, y compris 0). Le modificateur
   `par_energie` permet en plus de multiplier la valeur de l'effet par l'Energie
-  effectivement jouee par le Combattant (ex : "+1 Puissance / Energie"). `par_energie_adverse`
-  multiplie par l'Energie jouee par l'adversaire, et `par_energie_en_jeu` par la somme des
-  deux Energies jouees (soi + adversaire) ce duel-ci.
+  effectivement recoltee par le Combattant (ex : "+1 Puissance / Energie"). `par_energie_adverse`
+  multiplie par l'Energie recoltee par l'adversaire, et `par_energie_en_jeu` par la somme des
+  deux Energies recoltees (soi + adversaire) ce duel-ci.
 - Un duel se resout en 2 passes : Pass 1 (pouvoir "immediat"), puis determination du
   vainqueur, puis Pass 2 (pouvoir conditionne par Victoire / Defaite / Surpuissance, ou
   modificateur Contrecoup).
@@ -23,10 +26,10 @@ Hypotheses de resolution retenues pour ce POC (voir README.md) :
   bloque toute nouvelle modification adverse (puissance/degats/vie/stop/copie) pour le
   reste de la resolution du duel.
 - Patience/Impatience se basent sur le numero du duel courant dans la partie (1 a 4),
-  independamment de l'Energie jouee.
-- Le detail du calcul de la Puissance/des Degats de chaque Combattant (base, Glyphe,
-  contribution du Pouvoir) est trace et restitue (`detail_puissance`, `detail_degats`,
-  `puissance_txt`, `degats_txt`) pour affichage transparent.
+  independamment de l'Energie recoltee.
+- Le detail du calcul de la Puissance/des Degats de chaque Combattant (base, case par case
+  du champ de bataille, contribution du Pouvoir) est trace et restitue (`detail_puissance`,
+  `detail_degats`, `puissance_txt`, `degats_txt`) pour affichage transparent.
 """
 
 
@@ -42,17 +45,21 @@ def _formater_detail(total, detail):
 
 
 class DuelCombattant:
-    def __init__(self, joueur, instance, glyphe, role, duel_numero, duels_max):
+    def __init__(self, joueur, instance, champ, role, duel_numero, duels_max):
         self.joueur = joueur
         self.instance = instance
         self.template = instance.template
-        self.glyphe = glyphe
+        self.champ = champ
         self.role = role  # "J1" ou "J2"
         self.duel_numero = duel_numero
         self.duels_max = duels_max
-        self.puissance = self.template.puissance + glyphe.puissance
+        avantage = self.template.avantage
+        # Le Combattant n'encaisse que les cases du champ de bataille couvertes par son
+        # avantage : leur valeur va a sa Puissance, leur Energie alimente son Pouvoir.
+        self.energie = champ.energie(avantage)
+        self.puissance = self.template.puissance + champ.bonus(avantage)
         self.degats = self.template.degats
-        self.detail_puissance = [("base", self.template.puissance), ("glyphe", glyphe.puissance)]
+        self.detail_puissance = [("base", self.template.puissance)] + champ.detail(avantage)
         self.detail_degats = [("base", self.template.degats)]
         self.stoppe = False
         self.protege = False
@@ -60,12 +67,12 @@ class DuelCombattant:
         self.adversaire = None
 
     def pouvoir_actif(self):
-        """Retourne le Pouvoir du Combattant s'il est active par l'Energie du Glyphe
-        joue (>= energie_min du Pouvoir), sinon None."""
+        """Retourne le Pouvoir du Combattant s'il est active par l'Energie recoltee sur
+        ses cases (>= energie_min du Pouvoir), sinon None."""
         pouvoir = self.template.pouvoir
         if pouvoir is None:
             return None
-        if self.glyphe.energie < pouvoir.get("energie_min", 0):
+        if self.energie < pouvoir.get("energie_min", 0):
             return None
         return pouvoir
 
@@ -73,11 +80,11 @@ class DuelCombattant:
 def _valeur_effective(valeur, pouvoir, source):
     mod = pouvoir.get("modificateur")
     if mod == "par_energie":
-        return valeur * source.glyphe.energie
+        return valeur * source.energie
     if mod == "par_energie_adverse":
-        return valeur * source.adversaire.glyphe.energie
+        return valeur * source.adversaire.energie
     if mod == "par_energie_en_jeu":
-        return valeur * (source.glyphe.energie + source.adversaire.glyphe.energie)
+        return valeur * (source.energie + source.adversaire.energie)
     if mod == "patience":
         return valeur * source.duel_numero
     if mod == "impatience":
@@ -392,8 +399,10 @@ class MoteurDuel:
         }
 
 
-def resoudre_duel(joueur_j1, combattant_j1, glyphe_j1, joueur_j2, combattant_j2, glyphe_j2, duel_numero, duels_max=4):
-    dc1 = DuelCombattant(joueur_j1, combattant_j1, glyphe_j1, "J1", duel_numero, duels_max)
-    dc2 = DuelCombattant(joueur_j2, combattant_j2, glyphe_j2, "J2", duel_numero, duels_max)
+def resoudre_duel(joueur_j1, combattant_j1, joueur_j2, combattant_j2, champ, duel_numero, duels_max=4):
+    """Le champ de bataille est commun aux deux Combattants : c'est leur `avantage`
+    respectif qui determine les cases dont chacun beneficie."""
+    dc1 = DuelCombattant(joueur_j1, combattant_j1, champ, "J1", duel_numero, duels_max)
+    dc2 = DuelCombattant(joueur_j2, combattant_j2, champ, "J2", duel_numero, duels_max)
     moteur = MoteurDuel(dc1, dc2)
     return moteur.resoudre()

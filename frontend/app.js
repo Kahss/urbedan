@@ -6,11 +6,12 @@ const ecranSelection = document.getElementById("ecran-selection");
 const ecranPartie = document.getElementById("ecran-partie");
 const ecranFin = document.getElementById("ecran-fin");
 
+const ZONES = ["Bitume", "Hauteur", "Souterrain"];
+
 let combattantsDisponibles = [];
 const equipeSelectionnee = new Set();
 let etatCourant = null;
-let glypheSelectionneId = null;
-let combattantSelectionneId = null;
+let legendeChargee = false;
 
 // -------------------------------------------------------------- utilitaires
 
@@ -34,6 +35,10 @@ function trouverCombattant(etat, id) {
   );
 }
 
+function humanRole(etat) {
+  return etat.j1 === "humain" ? "j1" : "j2";
+}
+
 function conditionEstValidee(pouvoir, role, pvSoi, pvAdv) {
   if (!pouvoir) return false;
   switch (pouvoir.condition) {
@@ -50,7 +55,43 @@ function conditionEstValidee(pouvoir, role, pvSoi, pvAdv) {
   }
 }
 
-function creerCarteCombattant(data, { selectionnable = false, selectionnee = false, active = false, conditionValidee = false, onClick = null } = {}) {
+function rondsEnergie(energie) {
+  return Array.from({ length: energie }, () => `<span class="rond-energie"></span>`).join("");
+}
+
+function seuilEnergieInfo(energieMin) {
+  if (energieMin > 0) {
+    return { html: rondsEnergie(energieMin), titre: `Energie ${energieMin} ou plus` };
+  }
+  return { html: `<span class="rond-energie rond-energie-vide"></span>`, titre: "Toujours actif" };
+}
+
+// ------------------------------------------------------------ Avantage
+
+// Les 3 Zones du champ de bataille, celles de l'Avantage du Combattant mises en avant.
+// Quand le dos de la carte du duel est connu, chaque Zone prend sa couleur : le joueur lit
+// d'un coup d'oeil si le Combattant couvre les bonnes cases.
+function creerAvantage(avantage, dos, { compact = false } = {}) {
+  const el = document.createElement("div");
+  el.className = compact ? "avantage compact" : "avantage";
+  const zones = avantage || [];
+  el.title = "Avantage : " + zones.map((z) => ZONES[z - 1]).join(", ");
+  for (let zone = 1; zone <= 3; zone++) {
+    const cellule = document.createElement("span");
+    const couvert = zones.includes(zone);
+    cellule.className = "avantage-case " + (couvert ? "couvert" : "hors");
+    if (dos) cellule.classList.add("dos-" + dos[zone - 1]);
+    cellule.textContent = ZONES[zone - 1][0];
+    el.appendChild(cellule);
+  }
+  return el;
+}
+
+function creerCarteCombattant(data, options = {}) {
+  const {
+    selectionnable = false, selectionnee = false, active = false,
+    conditionValidee = false, dos = null, onClick = null,
+  } = options;
   const carte = document.createElement("div");
   carte.className = "carte-combattant";
   if (selectionnable) carte.classList.add("selectionnable");
@@ -67,6 +108,8 @@ function creerCarteCombattant(data, { selectionnable = false, selectionnee = fal
   stats.className = "stats-combattant";
   stats.innerHTML = `<span>Puissance <b>${data.puissance}</b></span><span>Degats <b>${data.degats}</b></span>`;
   carte.appendChild(stats);
+
+  carte.appendChild(creerAvantage(data.avantage, dos));
 
   const liste = document.createElement("ul");
   liste.className = "liste-pouvoirs";
@@ -98,24 +141,60 @@ function formaterDetailListe(detail) {
     .join("");
 }
 
-function rondsEnergie(energie) {
-  return Array.from({ length: energie }, () => `<span class="rond-energie"></span>`).join("");
-}
+// ------------------------------------------------------ champ de bataille
 
-function seuilEnergieInfo(energieMin) {
-  if (energieMin > 0) {
-    return { html: rondsEnergie(energieMin), titre: `Energie ${energieMin} ou plus` };
-  }
-  return { html: `<span class="rond-energie rond-energie-vide"></span>`, titre: "Toujours actif" };
-}
-
-function creerCarteGlyphe(glyphe, onClick, { selectionnee = false } = {}) {
+// Tant que le duel n'est pas resolu, le serveur ne transmet que `dos` : les valeurs et
+// l'Energie n'existent pas cote client, il n'y a donc rien a devoiler par inadvertance.
+function creerChampCarte(champ) {
   const carte = document.createElement("div");
-  carte.className = "carte-glyphe";
-  if (selectionnee) carte.classList.add("selectionnee");
-  carte.innerHTML = `<div class="glyphe-puissance">${glyphe.puissance}</div><div class="glyphe-energie">${rondsEnergie(glyphe.energie)}</div>`;
-  if (onClick) carte.addEventListener("click", onClick);
+  carte.className = "champ-carte-interne" + (champ.revele ? " revele" : " cache-recto");
+
+  const titre = document.createElement("div");
+  titre.className = "champ-titre";
+  titre.textContent = champ.revele ? champ.nom : "Champ de bataille — face cachee";
+  carte.appendChild(titre);
+
+  const cases = document.createElement("div");
+  cases.className = "champ-cases";
+  for (let i = 0; i < 3; i++) {
+    const couleur = champ.revele ? champ.cases[i].couleur : champ.dos[i];
+    const bloc = document.createElement("div");
+    bloc.className = `champ-case dos-${couleur}`;
+    const zone = `<span class="champ-zone">${ZONES[i]}</span>`;
+    if (champ.revele) {
+      const valeur = champ.cases[i].valeur;
+      bloc.innerHTML = `${zone}
+        <span class="champ-valeur">${valeur > 0 ? "+" : ""}${valeur}</span>
+        <span class="champ-energie">${rondsEnergie(champ.cases[i].energie)}</span>`;
+    } else {
+      bloc.innerHTML = `${zone}<span class="champ-valeur inconnu">?</span><span class="champ-energie"></span>`;
+    }
+    cases.appendChild(bloc);
+  }
+  carte.appendChild(cases);
   return carte;
+}
+
+async function remplirLegendeChamps() {
+  if (legendeChargee) return;
+  const modeles = await api("/champs");
+  const conteneur = document.getElementById("legende-champs-liste");
+  vider(conteneur);
+  modeles.forEach((modele) => {
+    const el = document.createElement("div");
+    el.className = "legende-modele";
+    const cases = modele.cases
+      .map(
+        (c) =>
+          `<span class="legende-case dos-${c.couleur}">${c.valeur > 0 ? "+" : ""}${c.valeur}` +
+          `<span class="champ-energie">${rondsEnergie(c.energie)}</span></span>`
+      )
+      .join("");
+    el.innerHTML = `<span class="legende-nom">${modele.nom}</span><span class="legende-cases">${cases}</span>` +
+      `<span class="legende-exemplaires">x${modele.exemplaires}</span>`;
+    conteneur.appendChild(el);
+  });
+  legendeChargee = true;
 }
 
 // ------------------------------------------------------- ecran de selection
@@ -130,15 +209,16 @@ function renderGrilleSelection() {
   const grille = document.getElementById("grille-selection");
   vider(grille);
   combattantsDisponibles.forEach((c) => {
-    const carte = creerCarteCombattant(
-      { ...c, utilise: false },
-      {
-        selectionnable: true,
-        selectionnee: equipeSelectionnee.has(c.id),
-        onClick: () => toggleSelection(c.id),
-      }
+    grille.appendChild(
+      creerCarteCombattant(
+        { ...c, utilise: false },
+        {
+          selectionnable: true,
+          selectionnee: equipeSelectionnee.has(c.id),
+          onClick: () => toggleSelection(c.id),
+        }
+      )
     );
-    grille.appendChild(carte);
   });
   const compteur = document.getElementById("compteur-selection");
   compteur.textContent = `${equipeSelectionnee.size} / 4 selectionnes`;
@@ -162,6 +242,7 @@ document.getElementById("btn-lancer-partie").addEventListener("click", async () 
   });
   ecranSelection.classList.add("cache");
   ecranPartie.classList.remove("cache");
+  remplirLegendeChamps();
   render(etat);
 });
 
@@ -174,9 +255,7 @@ document.getElementById("btn-nouvelle-partie").addEventListener("click", async (
 // ------------------------------------------------------------- ecran partie
 
 function peutChoisirMaintenant(etat) {
-  const humainSlot = humanRole(etat);
-  const humainChoisiId = etat["combattant_" + humainSlot];
-  return etat.phase === "choix_combattant" && humainChoisiId === null;
+  return etat.phase === "choix_combattant" && etat["combattant_" + humanRole(etat)] === null;
 }
 
 function render(etat) {
@@ -185,19 +264,8 @@ function render(etat) {
     renderFin(etat);
     return;
   }
-  // Si les selections en cours ne correspondent plus a l'etat actuel (nouvelle manche,
-  // ou plus qu'un seul choix possible), on les reinitialise / auto-selectionne.
-  const peutChoisir = peutChoisirMaintenant(etat);
-  const main = (peutChoisir && etat.joueur_humain.main_glyphes) || [];
-  if (!main.some((g) => g.id === glypheSelectionneId)) {
-    glypheSelectionneId = main.length === 1 ? main[0].id : null;
-  }
-  const dispo = (peutChoisir && etat.joueur_humain.equipe.filter((c) => !c.utilise)) || [];
-  if (!dispo.some((c) => c.id === combattantSelectionneId)) {
-    combattantSelectionneId = dispo.length === 1 ? dispo[0].id : null;
-  }
   renderTableauBord(etat);
-  renderGlyphesRestants(etat);
+  renderChamp(etat);
   renderEquipes(etat);
   renderZoneCentrale(etat);
 }
@@ -222,29 +290,32 @@ function renderTableauBord(etat) {
   document.getElementById("pv-ia-texte").textContent = `${pvI} PV`;
   document.getElementById("pv-humain-ronds").innerHTML = pvRonds(pvH);
   document.getElementById("pv-ia-ronds").innerHTML = pvRonds(pvI);
-  document.getElementById("duel-numero-texte").textContent = `Duel ${Math.min(etat.duel_numero, etat.duels_max)} / ${etat.duels_max}`;
+  document.getElementById("duel-numero-texte").textContent =
+    `Duel ${Math.min(etat.duel_numero, etat.duels_max)} / ${etat.duels_max}`;
 }
 
-function humanRole(etat) {
-  return etat.j1 === "humain" ? "j1" : "j2";
-}
-
-function renderGlyphesRestants(etat) {
-  const conteneur = document.getElementById("glyphes-restants-liste");
+function renderChamp(etat) {
+  const conteneur = document.getElementById("champ-carte");
   vider(conteneur);
-  (etat.glyphes_restants || []).forEach((g) => {
-    const el = document.createElement("div");
-    el.className = "mini-glyphe";
-    if (g.restants === 0) el.classList.add("epuise");
-    el.innerHTML = `<span class="mini-glyphe-puissance">${g.puissance}</span><span class="mini-glyphe-energie">${rondsEnergie(g.energie)}</span><span class="mini-glyphe-compte">${g.restants}/${g.total}</span>`;
-    conteneur.appendChild(el);
-  });
+  conteneur.appendChild(creerChampCarte(etat.champ));
+
+  const consigne = document.getElementById("champ-consigne");
+  if (etat.phase === "duel_resolu") {
+    consigne.textContent = "Champ de bataille revele : chaque Combattant encaisse ses Zones.";
+  } else if (peutChoisirMaintenant(etat)) {
+    consigne.textContent =
+      "Seules les couleurs sont connues : vert = valeur positive, gris = nulle, rouge = negative. " +
+      "Ni les valeurs exactes, ni l'Energie ne sont visibles avant la revelation.";
+  } else {
+    consigne.textContent = "En attente de l'adversaire...";
+  }
 }
 
 function renderEquipes(etat) {
   const peutChoisir = peutChoisirMaintenant(etat);
   const roleHumain = humanRole(etat);
   const roleIa = roleHumain === "j1" ? "j2" : "j1";
+  const dos = etat.champ.dos;
 
   const grilleHumain = document.getElementById("equipe-humain");
   vider(grilleHumain);
@@ -253,13 +324,10 @@ function renderEquipes(etat) {
     grilleHumain.appendChild(
       creerCarteCombattant(c, {
         selectionnable: peutChoisir && !c.utilise,
-        selectionnee: c.id === combattantSelectionneId,
         active,
+        dos,
         conditionValidee: conditionEstValidee(c.pouvoir, roleHumain, etat.joueur_humain.pv, etat.joueur_ia.pv),
-        onClick:
-          peutChoisir && !c.utilise
-            ? () => armerCombattant(c.id)
-            : null,
+        onClick: peutChoisir && !c.utilise ? () => engager(c.id) : null,
       })
     );
   });
@@ -271,66 +339,38 @@ function renderEquipes(etat) {
     grilleIa.appendChild(
       creerCarteCombattant(c, {
         active,
+        dos,
         conditionValidee: conditionEstValidee(c.pouvoir, roleIa, etat.joueur_ia.pv, etat.joueur_humain.pv),
       })
     );
   });
 }
 
-function armerCombattant(id) {
-  combattantSelectionneId = id;
-  if (glypheSelectionneId !== null) {
-    soumettreChoix();
-  } else {
-    renderEquipes(etatCourant);
-    renderZoneCentrale(etatCourant);
-  }
-}
-
-function armerGlyphe(id) {
-  glypheSelectionneId = id;
-  if (combattantSelectionneId !== null) {
-    soumettreChoix();
-  } else {
-    renderEquipes(etatCourant);
-    renderZoneCentrale(etatCourant);
-  }
-}
-
-async function soumettreChoix() {
-  const combattantId = combattantSelectionneId;
-  const glypheId = glypheSelectionneId;
-  combattantSelectionneId = null;
-  glypheSelectionneId = null;
+async function engager(combattantId) {
   const etat = await api("/partie/combattant", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ combattant_id: combattantId, glyphe_id: glypheId }),
+    body: JSON.stringify({ combattant_id: combattantId }),
   });
   render(etat);
 }
 
 function renderZoneCentrale(etat) {
-  const zoneGlyphes = document.getElementById("zone-glyphes");
   const zoneResultat = document.getElementById("zone-resultat");
   const messageAttente = document.getElementById("message-attente");
   const conteneurDuel = document.getElementById("combattants-en-duel");
 
-  zoneGlyphes.classList.add("cache");
   zoneResultat.classList.add("cache");
   messageAttente.classList.add("cache");
   vider(conteneurDuel);
 
   const humainSlot = humanRole(etat);
   const iaSlot = humainSlot === "j1" ? "j2" : "j1";
-  const humainId = etat["combattant_" + humainSlot];
-  const iaId = etat["combattant_" + iaSlot];
-
   const resultat = etat.dernier_resultat;
 
   [
-    { id: humainId, role: "Toi", slot: humainSlot },
-    { id: iaId, role: "IA", slot: iaSlot },
+    { id: etat["combattant_" + humainSlot], role: "Toi", slot: humainSlot },
+    { id: etat["combattant_" + iaSlot], role: "IA", slot: iaSlot },
   ].forEach(({ id, role, slot }) => {
     const labelRole = `${role} (${slot.toUpperCase()})`;
     if (id === null) {
@@ -344,9 +384,13 @@ function renderZoneCentrale(etat) {
     const carte = document.createElement("div");
     carte.className = "carte-duel";
     let contenu = `<div class="role">${labelRole}</div><h3>${data.nom}</h3>`;
+
     if (resultat) {
       const infoCote = resultat.combattant_j1.nom === data.nom ? resultat.combattant_j1 : resultat.combattant_j2;
-      contenu += `<div class="glyphe-joue"><span class="glyphe-joue-puissance">${infoCote.puissance_glyphe}</span><span class="glyphe-joue-energie">${rondsEnergie(infoCote.energie)}</span></div>`;
+      contenu += `<div class="recolte">
+        <span class="recolte-bonus">${infoCote.bonus_champ >= 0 ? "+" : ""}${infoCote.bonus_champ}</span>
+        <span class="recolte-energie">${rondsEnergie(infoCote.energie) || "&mdash;"}</span>
+      </div>`;
       const pouvoirActif = data.pouvoir && infoCote.energie >= data.pouvoir.energie_min ? data.pouvoir : null;
       contenu += `<div class="pouvoir-actif">${
         pouvoirActif
@@ -367,40 +411,17 @@ function renderZoneCentrale(etat) {
         contenu += `<ul class="detail-liste degats">${formaterDetailListe(resultat.detail_degats[data.nom])}</ul>`;
       }
     } else {
-      contenu += `<div class="glyphe-joue">Puissance ${data.puissance} / Degats ${data.degats}</div>`;
+      contenu += `<div class="recolte-attente">Puissance ${data.puissance} / Degats ${data.degats}</div>`;
     }
     carte.innerHTML = contenu;
+    carte.appendChild(creerAvantage(data.avantage, etat.champ.dos, { compact: true }));
     conteneurDuel.appendChild(carte);
   });
 
-  const libelleGlyphes = document.getElementById("libelle-glyphes");
-  const mainGlyphes = document.getElementById("main-glyphes");
-
   if (etat.phase === "choix_combattant") {
-    zoneGlyphes.classList.remove("cache");
-    vider(mainGlyphes);
-
-    if (humainId === null) {
-      const main = etat.joueur_humain.main_glyphes || [];
-      messageAttente.textContent =
-        main.length > 1
-          ? "Choisis ton Combattant et le Glyphe a lui associer, dans l'ordre de ton choix."
-          : "Choisis ton Combattant : ton unique Glyphe en main lui sera associe.";
-      libelleGlyphes.textContent = "Ta main de Glyphes pour cette manche :";
-      mainGlyphes.classList.remove("inactif");
-      main.forEach((g) => {
-        mainGlyphes.appendChild(
-          creerCarteGlyphe(g, () => armerGlyphe(g.id), { selectionnee: g.id === glypheSelectionneId })
-        );
-      });
-    } else {
-      messageAttente.textContent = "En attente du choix de l'IA...";
-      libelleGlyphes.textContent = "Glyphe restant en main pour la prochaine manche :";
-      mainGlyphes.classList.add("inactif");
-      (etat.joueur_humain.main_glyphes || []).forEach((g) => {
-        mainGlyphes.appendChild(creerCarteGlyphe(g, null));
-      });
-    }
+    messageAttente.textContent = peutChoisirMaintenant(etat)
+      ? "Engage le Combattant qui tire le meilleur parti de ce champ de bataille."
+      : "En attente du choix de l'IA...";
     messageAttente.classList.remove("cache");
   } else if (etat.phase === "duel_resolu") {
     zoneResultat.classList.remove("cache");

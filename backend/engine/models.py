@@ -1,44 +1,23 @@
-"""Modeles de donnees pour Urban Eredan : Glyphes, Combattants, Joueurs."""
-import itertools
-import random
+"""Modeles de donnees pour Urban Eredan : Combattants, Joueurs."""
 
-# Repartition des Glyphes definie dans game.md : (puissance, energie, quantite)
-# Autant d'exemplaires de chaque type (4), pour un deck de 16 cartes au total.
-GLYPH_DISTRIBUTION = [
-    (6, 0, 4),
-    (4, 1, 4),
-    (2, 2, 4),
-    (0, 3, 4),
-]
-
-_glyphe_id_counter = itertools.count(1)
+NB_ZONES = 3
 
 
-class Glyphe:
-    def __init__(self, puissance, energie):
-        self.id = next(_glyphe_id_counter)
-        self.puissance = puissance
-        self.energie = energie
-
-    def notation_txt(self):
-        return f"{self.puissance}/{self.energie}"
-
-    def to_dict(self):
-        return {
-            "id": self.id,
-            "puissance": self.puissance,
-            "energie": self.energie,
-            "notation": self.notation_txt(),
-        }
+class DonneesInvalides(Exception):
+    pass
 
 
-def construire_deck_glyphes():
-    deck = []
-    for puissance, energie, quantite in GLYPH_DISTRIBUTION:
-        for _ in range(quantite):
-            deck.append(Glyphe(puissance, energie))
-    random.shuffle(deck)
-    return deck
+def valider_avantage(avantage, nom):
+    """L'`avantage` est la liste des Zones du champ de bataille dont le Combattant tire
+    parti : entre 1 et 3 index distincts compris entre 1 et 3."""
+    if not isinstance(avantage, list) or not 1 <= len(avantage) <= NB_ZONES:
+        raise DonneesInvalides(f"{nom} : 'avantage' doit contenir entre 1 et {NB_ZONES} Zones")
+    if len(set(avantage)) != len(avantage):
+        raise DonneesInvalides(f"{nom} : 'avantage' ne peut pas repeter une Zone")
+    for index in avantage:
+        if not isinstance(index, int) or not 1 <= index <= NB_ZONES:
+            raise DonneesInvalides(f"{nom} : Zone invalide dans 'avantage' ({index})")
+    return sorted(avantage)
 
 
 class CombattantTemplate:
@@ -49,6 +28,7 @@ class CombattantTemplate:
         self.nom = data["nom"]
         self.puissance = data["puissance"]
         self.degats = data["degats"]
+        self.avantage = valider_avantage(data["avantage"], data["nom"])
         self.pouvoir = data["pouvoir"]  # dict unique (description, condition, modificateur, energie_min, effets)
 
     def to_dict(self):
@@ -57,6 +37,7 @@ class CombattantTemplate:
             "nom": self.nom,
             "puissance": self.puissance,
             "degats": self.degats,
+            "avantage": self.avantage,
             "pouvoir": self.pouvoir,
         }
 
@@ -69,14 +50,9 @@ class CombattantEnEquipe:
         self.utilise = False
 
     def to_dict(self):
-        return {
-            "id": self.template.id,
-            "nom": self.template.nom,
-            "puissance": self.template.puissance,
-            "degats": self.template.degats,
-            "pouvoir": self.template.pouvoir,
-            "utilise": self.utilise,
-        }
+        data = self.template.to_dict()
+        data["utilise"] = self.utilise
+        return data
 
 
 class Joueur:
@@ -85,16 +61,14 @@ class Joueur:
         self.est_ia = est_ia
         self.pv = 10
         self.equipe = equipe  # liste de CombattantEnEquipe (4)
-        self.main_glyphes = []  # Glyphes en main (jusqu'a 2), dont un sera joue pour la manche en cours
 
     def combattants_disponibles(self):
         return [c for c in self.equipe if not c.utilise]
 
-    def to_dict(self, cacher_main=False):
+    def to_dict(self):
         return {
             "nom": self.nom,
             "est_ia": self.est_ia,
             "pv": self.pv,
             "equipe": [c.to_dict() for c in self.equipe],
-            "main_glyphes": None if cacher_main else [g.to_dict() for g in self.main_glyphes],
         }

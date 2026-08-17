@@ -3,6 +3,7 @@ import os
 
 from flask import Flask, jsonify, request, send_from_directory
 
+from engine.champs import catalogue
 from engine.game import ErreurPartie, Partie, charger_combattants
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -24,7 +25,16 @@ def index():
 
 @app.get("/api/combattants")
 def api_combattants():
-    return jsonify([t.to_dict() for t in TEMPLATES.values()])
+    # Recharge depuis le disque pour prendre en compte une edition manuelle de
+    # data/combattants.json sans redemarrer le serveur.
+    return jsonify([t.to_dict() for t in charger_combattants(DATA_PATH).values()])
+
+
+@app.get("/api/champs")
+def api_champs():
+    """Composition du deck de champs de bataille : information publique, affichee en
+    legende. Ne dit rien de la carte en cours, seulement de ce que le deck contient."""
+    return jsonify(catalogue())
 
 
 @app.post("/api/partie")
@@ -55,7 +65,7 @@ def api_choix_combattant():
         return jsonify({"erreur": "Aucune partie en cours"}), 404
     body = request.get_json(force=True) or {}
     try:
-        etat = partie.soumettre_combattant(body.get("combattant_id"), body.get("glyphe_id"))
+        etat = partie.soumettre_combattant(body.get("combattant_id"))
     except ErreurPartie as e:
         return jsonify({"erreur": str(e)}), 400
     return jsonify(etat)

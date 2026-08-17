@@ -1,105 +1,106 @@
-"""Heuristique de choix de l'IA : quel Combattant jouer, et quel Glyphe de sa main lui
-associer, pour la manche en cours.
+"""Heuristique de choix de l'IA : quel Combattant engager sur le champ de bataille du duel.
 
-Remplace un tirage purement aleatoire par une estimation simple de la Puissance totale
-(puis, en cas d'egalite, des Degats, puis de la Vie) que produirait chaque combinaison
-Combattant disponible / Glyphe en main, en ne comptant que ce qui est certain au moment
-du choix :
-- Courage / Riposte / Vengeance / Domination sont verifiables immediatement (role du
-  duel, PV courants). Victoire / Defaite / Surpuissance / Contrecoup dependent de
-  l'issue du duel, inconnue au moment du choix : ils ne sont jamais comptes.
-- Patience / Impatience / Par energie sont calculables directement. Par energie
-  adverse / Par energie en jeu utilisent l'Energie moyenne d'un Glyphe pioche au hasard
-  (l'Energie reellement jouee par l'adversaire n'est pas connue avant la resolution).
-- Stop pouvoir / Copie pouvoir / Protection / Echange dependent trop du Combattant et
-  du Glyphe adverses (inconnus) pour etre estimes utilement : ils ne modifient pas le
-  score (l'IA ne les recherche ni ne les evite specifiquement).
+Au moment d'engager son Combattant, l'IA ne connait que le dos de la carte : la couleur
+des 3 cases. Elle n'a acces ni aux valeurs du recto, ni a la presence d'Energie — pas
+plus que le joueur humain. Elle procede donc par esperance :
 
-L'IA choisit la combinaison de meilleur score ; les egalites sont tranchees au hasard
-pour eviter un jeu totalement previsible.
+1. elle enumere les faces du deck dont le dos correspond a celui revele. La composition
+   du deck est publique (elle est affichee en legende dans l'interface), mais l'IA ne
+   tient volontairement pas compte des cartes deja jouees dans la partie : elle ne compte
+   pas les cartes, exactement comme un joueur qui ne les memoriserait pas.
+2. pour chaque face possible et chaque Combattant candidat, elle resout reellement le
+   duel avec le moteur de `powers.py`, sur des Joueurs fictifs, et mesure l'ecart de PV
+   qui en resulte. Elle n'a donc pas besoin d'approximer les Pouvoirs : Victoire,
+   Surpuissance, Contrecoup, Stop pouvoir, Echange... sont evalues exactement, mais sur
+   une carte hypothetique.
+3. elle retient le Combattant dont l'ecart de PV moyen sur ces faces est le meilleur.
+
+L'information disponible depend du role, et l'IA en tient compte :
+- en J2, elle connait le Combattant deja engage par J1 : elle evalue directement sa
+  reponse.
+- en J1, elle ne le connait pas. Les equipes etant face visible, elle suppose que
+  l'adversaire repondra au mieux (minimax a un coup) et retient le Combattant dont la
+  meilleure reponse adverse coute le moins cher.
+
+Les egalites sont tranchees au hasard pour eviter un jeu totalement previsible.
 """
 import random
+from collections import defaultdict
 
-from .models import GLYPH_DISTRIBUTION
-
-_TOTAL_CARTES = sum(quantite for _, _, quantite in GLYPH_DISTRIBUTION)
-ENERGIE_MOYENNE_GLYPHE = sum(energie * quantite for _, energie, quantite in GLYPH_DISTRIBUTION) / _TOTAL_CARTES
-
-
-def _condition_certaine(condition, role, pv_soi, pv_adv):
-    """True/False si la condition est verifiable des maintenant, None si elle depend de
-    l'issue du duel (inconnue au moment du choix)."""
-    if condition is None:
-        return True
-    if condition == "courage":
-        return role == "j1"
-    if condition == "riposte":
-        return role == "j2"
-    if condition == "vengeance":
-        return pv_adv > pv_soi
-    if condition == "domination":
-        return pv_adv < pv_soi
-    return None  # victoire / defaite / surpuissance
+from .champs import ChampDeBataille, faces_du_deck
+from .powers import resoudre_duel
 
 
-def _estimer_gain(pouvoir, energie_jouee, role, duel_numero, duels_max, pv_soi, pv_adv):
-    """Estime (gain_puissance, gain_degats, gain_vie) si `pouvoir` est joue avec
-    `energie_jouee`, a partir des seules informations connues avant la resolution."""
-    if pouvoir is None or energie_jouee < pouvoir.get("energie_min", 0):
-        return 0, 0, 0
+class _JoueurFictif:
+    """Joueur jetable : sert uniquement de support aux PV pendant la resolution d'un duel
+    hypothetique, sans jamais toucher a l'etat de la partie."""
 
-    if _condition_certaine(pouvoir.get("condition"), role, pv_soi, pv_adv) is not True:
-        return 0, 0, 0
+    __slots__ = ("nom", "pv", "est_ia", "equipe")
 
-    modificateur = pouvoir.get("modificateur")
-    if modificateur == "contrecoup":
-        return 0, 0, 0  # ne se declenche qu'en cas de victoire, inconnue au moment du choix
-
-    def valeur_effective(valeur):
-        if modificateur == "par_energie":
-            return valeur * energie_jouee
-        if modificateur == "par_energie_adverse":
-            return valeur * ENERGIE_MOYENNE_GLYPHE
-        if modificateur == "par_energie_en_jeu":
-            return valeur * (energie_jouee + ENERGIE_MOYENNE_GLYPHE)
-        if modificateur == "patience":
-            return valeur * duel_numero
-        if modificateur == "impatience":
-            return valeur * (duels_max - duel_numero + 1)
-        return valeur
-
-    gain_puissance = gain_degats = gain_vie = 0.0
-    for effet in pouvoir.get("effets", []):
-        cible_soi = effet.get("cible", "soi") == "soi"
-        if effet["type"] == "puissance":
-            valeur = valeur_effective(effet.get("valeur", 0))
-            gain_puissance += valeur if cible_soi else -valeur
-        elif effet["type"] == "degats":
-            if cible_soi:
-                gain_degats += valeur_effective(effet.get("valeur", 0))
-        elif effet["type"] == "vampirisme":
-            x = valeur_effective(effet.get("valeur", 0))
-            gain_vie += 2 * x  # -x cote adverse, +x cote soi : ecart net de 2x
-
-    return gain_puissance, gain_degats, gain_vie
+    def __init__(self, nom, pv):
+        self.nom = nom
+        self.pv = pv
+        self.est_ia = True
+        self.equipe = []
 
 
-def choisir_combattant_et_glyphe(joueur, role, duel_numero, duels_max, pv_soi, pv_adv):
-    """Choisit, parmi les Combattants disponibles et les Glyphes en main du joueur, la
-    combinaison qui maximise la Puissance totale estimee pour ce duel (puis les Degats,
-    puis la Vie, en cas d'egalite). Retourne (instance_combattant, glyphe)."""
-    combinaisons = []
-    for instance in joueur.combattants_disponibles():
-        for glyphe in joueur.main_glyphes:
-            gain_puissance, gain_degats, gain_vie = _estimer_gain(
-                instance.template.pouvoir, glyphe.energie, role, duel_numero, duels_max, pv_soi, pv_adv
+def _indexer_par_dos():
+    index = defaultdict(list)
+    for nom, cases in faces_du_deck():
+        champ = ChampDeBataille(nom, cases)
+        index[tuple(champ.dos())].append(champ)
+    return dict(index)
+
+
+_FACES_PAR_DOS = _indexer_par_dos()
+
+
+def champs_possibles(dos):
+    """Les faces du deck compatibles avec le dos revele."""
+    return _FACES_PAR_DOS.get(tuple(dos), [])
+
+
+def _ecart_pv(instance_j1, instance_j2, champ, duel_numero, duels_max, pv_j1, pv_j2):
+    """Resout un duel hypothetique sur `champ` et retourne l'ecart de PV (J1 - J2) qu'il
+    produit."""
+    fictif_j1 = _JoueurFictif("j1", pv_j1)
+    fictif_j2 = _JoueurFictif("j2", pv_j2)
+    resoudre_duel(fictif_j1, instance_j1, fictif_j2, instance_j2, champ, duel_numero, duels_max)
+    return (fictif_j1.pv - pv_j1) - (fictif_j2.pv - pv_j2)
+
+
+def _esperance(instance, instance_adverse, role, champs, duel_numero, duels_max, pv_soi, pv_adv):
+    """Ecart de PV moyen, en notre faveur, sur l'ensemble des faces encore possibles."""
+    total = 0
+    for champ in champs:
+        if role == "j1":
+            total += _ecart_pv(instance, instance_adverse, champ, duel_numero, duels_max, pv_soi, pv_adv)
+        else:
+            total -= _ecart_pv(instance_adverse, instance, champ, duel_numero, duels_max, pv_adv, pv_soi)
+    return total / len(champs)
+
+
+def choisir_combattant(joueur, adversaire, role, duel_numero, duels_max, dos, combattant_adverse=None):
+    """Choisit le Combattant a engager. `combattant_adverse` est fourni quand le joueur
+    est J2 (le Combattant de J1 est deja sur la table), None quand il est J1."""
+    candidats = joueur.combattants_disponibles()
+    champs = champs_possibles(dos)
+    reponses = adversaire.combattants_disponibles()
+    if len(candidats) == 1 or not champs or (combattant_adverse is None and not reponses):
+        return random.choice(candidats)
+
+    contexte = (duel_numero, duels_max, joueur.pv, adversaire.pv)
+    scores = []
+    for instance in candidats:
+        if combattant_adverse is not None:
+            score = _esperance(instance, combattant_adverse, role, champs, *contexte)
+        else:
+            # J1 ne sait pas ce qu'on lui opposera : il retient l'hypothese la plus
+            # defavorable, celle ou l'adversaire repond au mieux.
+            score = min(
+                _esperance(instance, reponse, role, champs, *contexte) for reponse in reponses
             )
-            puissance_totale = instance.template.puissance + glyphe.puissance + gain_puissance
-            degats_totaux = instance.template.degats + gain_degats
-            score = (puissance_totale, degats_totaux, gain_vie)
-            combinaisons.append((score, instance, glyphe))
+        scores.append((score, instance))
 
-    meilleur_score = max(score for score, _, _ in combinaisons)
-    meilleures = [c for c in combinaisons if c[0] == meilleur_score]
-    _, instance, glyphe = random.choice(meilleures)
-    return instance, glyphe
+    meilleur = max(score for score, _ in scores)
+    return random.choice([instance for score, instance in scores if score == meilleur])
