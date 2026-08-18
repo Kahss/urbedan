@@ -399,40 +399,6 @@ button:disabled {
 .caracs-combattant.grand .carac { padding: 8px 0; font-size: 1.2rem; }
 .caracs-combattant.grand .carac b { font-size: 1.5rem; }
 
-/* ---------- Suivi des cartes Bataille encore en pioche ---------- */
-.cartes-deck {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  flex-wrap: wrap;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 8px 12px;
-  margin-bottom: 14px;
-}
-
-.cartes-deck-libelle {
-  color: var(--text-dim);
-  text-transform: uppercase;
-  font-size: 0.7rem;
-  letter-spacing: 1px;
-}
-
-.cartes-deck-liste { display: flex; flex-wrap: wrap; gap: 5px; }
-
-.mini-bataille {
-  font-size: 0.68rem;
-  padding: 2px 7px 2px 16px;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  position: relative;
-  cursor: help;
-}
-
-.mini-bataille.sortie { opacity: 0.28; text-decoration: line-through; }
-
 .puce-rouge::before, .puce-vert::before, .puce-bleu::before {
   content: "";
   position: absolute;
@@ -596,3 +562,64 @@ button:disabled {
 .revelee-issue.gain { color: var(--ok); }
 .revelee-issue.perte { color: var(--danger); }
 .revelee-issue.nulle { color: var(--text-dim); }
+
+/* ---------- Animation : revelation d'une carte Bataille puis attribution ---------- */
+/* Deux temps : la carte sort de la pioche choisie (rotation + glissement), marque une
+   pause face visible, puis file vers le camp qui remporte la bataille — ou grise sur
+   place si la bataille est nulle. */
+.carte-bataille.animee { transform-style: preserve-3d; }
+.carte-bataille.animee.depuis-pioche-1 { --origine: -156px; }
+.carte-bataille.animee.depuis-pioche-2 { --origine: 156px; }
+
+.carte-bataille.animee.attribution-gain {
+  animation: revelation 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both,
+             attribution-gauche 0.45s ease-in 0.55s both;
+}
+
+.carte-bataille.animee.attribution-perte {
+  animation: revelation 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both,
+             attribution-droite 0.45s ease-in 0.55s both;
+}
+
+.carte-bataille.animee.attribution-nulle {
+  animation: revelation 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both,
+             attribution-neutre 0.45s ease-in 0.55s both;
+}
+
+@keyframes revelation {
+  0% { transform: translateX(var(--origine, 0)) rotateY(84deg) scale(0.92); opacity: 0; }
+  60% { transform: translateX(0) rotateY(0) scale(1.05); opacity: 1; }
+  100% { transform: none; opacity: 1; }
+}
+
+@keyframes attribution-gauche {
+  to { transform: translate(-150px, -118px) scale(0.5); opacity: 0; }
+}
+
+@keyframes attribution-droite {
+  to { transform: translate(150px, -118px) scale(0.5); opacity: 0; }
+}
+
+@keyframes attribution-neutre {
+  60% { filter: grayscale(1); opacity: 0.35; transform: scale(0.92); }
+  to { filter: grayscale(1); opacity: 0; transform: scale(0.88); }
+}
+
+.marqueur.gagne.vient-de-gagner { animation: apparition-marqueur 0.5s ease-out 0.5s both; }
+
+@keyframes apparition-marqueur {
+  0% { background: transparent; border-color: var(--border); box-shadow: none; transform: scale(1); }
+  50% { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 18px rgba(255, 90, 31, 0.85); transform: scale(1.8); }
+  100% { background: var(--accent); border-color: var(--accent); transform: scale(1); }
+}
+
+.ligne-bataille.nouvelle { animation: apparition-ligne 0.4s ease-out 0.55s both; }
+
+@keyframes apparition-ligne {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carte-bataille.animee, .marqueur.vient-de-gagner, .ligne-bataille.nouvelle { animation: none; }
+}

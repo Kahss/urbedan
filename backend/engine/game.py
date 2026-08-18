@@ -2,7 +2,7 @@
 import json
 import random
 
-from .batailles import Pioches, catalogue
+from .batailles import Pioches
 from .ia import choisir_combattant, choisir_pioche
 from .models import CombattantEnEquipe, CombattantTemplate, Joueur
 
@@ -47,7 +47,7 @@ class Partie:
         self.joueur_humain.pv = PV_DEPART
         self.joueur_ia.pv = PV_DEPART
 
-        # Les 2 pioches de cartes Bataille restent au centre de la table toute la partie.
+        # Les 2 pioches de cartes Bataille, remelangees au debut de chaque duel.
         self.pioches = Pioches()
 
         self.duel_numero = 1
@@ -78,6 +78,9 @@ class Partie:
 
     # ------------------------------------------------------------------ duel
     def _initialiser_duel(self):
+        # Le deck complet est remelange et recoupe en deux pioches : chaque duel repart du
+        # meme ensemble de cartes, sans memoire du duel precedent.
+        self.pioches.remelanger()
         self.combattant_j1 = None
         self.combattant_j2 = None
         self.batailles = {"j1": [], "j2": []}
@@ -167,7 +170,7 @@ class Partie:
     # -------------------------------------------------------------- batailles
     def _jouer_bataille(self, index):
         """Revele la carte du dessus de la pioche choisie, resout sa condition et
-        l'attribue au vainqueur (ou a la defausse si la bataille est nulle)."""
+        l'attribue au vainqueur ; si la bataille est nulle, la carte est ecartee."""
         role_choix = self.role_actif
         carte = self.pioches.piocher(index)
         gagnant_role = carte.resoudre(self._caracs("j1"), self._caracs("j2"))
@@ -298,10 +301,6 @@ class Partie:
         if self.terminee:
             return self.etat_dict()
 
-        # Les cartes du duel (batailles remportees et batailles nulles) rejoignent la
-        # defausse commune, d'ou elles pourront realimenter une pioche epuisee.
-        self.pioches.defausser(self.batailles["j1"] + self.batailles["j2"] + self.nulles)
-
         # Le premier joueur du duel suivant est le gagnant du duel precedent ; en cas de
         # double victoire, J1 et J2 echangent leurs roles.
         gagnants_roles = self.dernier_resultat["gagnants_roles"]
@@ -332,17 +331,6 @@ class Partie:
             else:
                 self.vainqueur = None
 
-    # ------------------------------------------------- suivi des cartes Bataille
-    def cartes_du_deck(self):
-        """Les 20 cartes du deck, en signalant celles qui dorment encore dans les deux
-        pioches. C'est une information publique : le deck est connu et toutes les cartes
-        revelees sont visibles ; seule leur repartition entre les 2 pioches est cachee."""
-        noms_en_pioche = {carte.nom for carte in self.pioches.cartes_en_pioche()}
-        return [
-            {**carte, "en_pioche": carte["nom"] in noms_en_pioche}
-            for carte in catalogue()
-        ]
-
     # --------------------------------------------------------------- etat
     def etat_dict(self):
         sommets = self.pioches.sommets()
@@ -370,7 +358,6 @@ class Partie:
                 }
                 for index, sommet in enumerate(sommets)
             ],
-            "cartes_du_deck": self.cartes_du_deck(),
             "dernier_resultat": self.dernier_resultat,
             "terminee": self.terminee,
             "vainqueur": self.vainqueur,

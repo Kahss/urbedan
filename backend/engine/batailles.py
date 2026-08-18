@@ -12,13 +12,12 @@ est donc partiel et parfois trompeur — un dos rouge annonce le plus souvent "F
 plus haute", mais peut aussi cacher "Force la plus basse", une somme ou un departage ou
 la Force n'est que secondaire.
 
-Le deck compte 20 cartes distinctes, structurees de facon symetrique : chaque
+Le deck compte 21 cartes distinctes, structurees de facon symetrique : chaque
 caracteristique est la caracteristique principale de 6 cartes (3 "la plus haute", 1 "la
 plus basse", 1 somme avec la suivante, 1 departage par la suivante), auxquelles
-s'ajoutent 2 cartes globales qui lisent les trois caracteristiques. Aucune
-caracteristique n'est donc structurellement meilleure qu'une autre. Les dos se
-repartissent en 6 rouges, 7 verts et 7 bleus : 20 n'etant pas divisible par 3, les deux
-cartes globales rompent d'un cheveu la symetrie des dos (jamais celle des conditions).
+s'ajoutent 3 cartes globales qui lisent les trois caracteristiques. Aucune
+caracteristique n'est donc structurellement meilleure qu'une autre, et les dos se
+repartissent exactement en 7 rouges, 7 verts et 7 bleus.
 """
 import itertools
 import random
@@ -28,8 +27,6 @@ CARACS = ("force", "dexterite", "sagesse")
 COULEUR_PAR_CARAC = {"force": "rouge", "dexterite": "vert", "sagesse": "bleu"}
 LIBELLE_CARAC = {"force": "Force", "dexterite": "Dexterite", "sagesse": "Sagesse"}
 
-NB_CARTES_PAR_PIOCHE = 10
-
 # Modeles de carte : nom, type de condition et caracteristiques lues, couleur du dos.
 # Les types de condition :
 #   max              : la caracteristique la plus haute l'emporte
@@ -38,6 +35,8 @@ NB_CARTES_PAR_PIOCHE = 10
 #   max_departage    : la plus haute l'emporte ; a egalite, une seconde caracteristique
 #   total            : le total des trois caracteristiques le plus haut l'emporte
 #   meilleure        : la meilleure des trois caracteristiques la plus haute l'emporte
+#   pire             : celui dont la plus petite des trois caracteristiques est la plus
+#                      faible perd la bataille (donc : la plus petite la plus haute gagne)
 # Les caracteristiques tournent en cycle (force -> dexterite -> sagesse -> force) pour
 # que les trois groupes de 6 cartes soient rigoureusement equivalents.
 MODELES = [
@@ -65,6 +64,7 @@ MODELES = [
     # --- Cartes globales : elles lisent les trois caracteristiques ---
     {"nom": "Melee generale", "type": "total", "verso": "vert"},
     {"nom": "Coup d'eclat", "type": "meilleure", "verso": "bleu"},
+    {"nom": "Maillon faible", "type": "pire", "verso": "rouge"},
 ]
 
 _compteur_carte = itertools.count(1)
@@ -99,7 +99,9 @@ def libelle_condition(modele):
         )
     if type_condition == "total":
         return "Total des trois caracteristiques le plus haut"
-    return "Meilleure caracteristique la plus haute"
+    if type_condition == "meilleure":
+        return "Meilleure caracteristique la plus haute"
+    return "Le joueur dont la plus petite caracteristique est la plus faible perd"
 
 
 def _cle(modele, caracs):
@@ -117,14 +119,18 @@ def _cle(modele, caracs):
         return (caracs[modele["carac"]], caracs[modele["departage"]])
     if type_condition == "total":
         return (sum(caracs[c] for c in CARACS),)
-    return (max(caracs[c] for c in CARACS),)
+    if type_condition == "meilleure":
+        return (max(caracs[c] for c in CARACS),)
+    # "pire" : la plus petite caracteristique la plus haute l'emporte, donc celui dont la
+    # plus petite est la plus faible perd la bataille.
+    return (min(caracs[c] for c in CARACS),)
 
 
 def _valider_modeles():
     """Le dos ne peut annoncer qu'une couleur effectivement lue par la condition, et le
     deck doit rester rigoureusement symetrique entre les trois caracteristiques."""
-    if len(MODELES) != 2 * NB_CARTES_PAR_PIOCHE:
-        raise ValueError(f"{2 * NB_CARTES_PAR_PIOCHE} cartes attendues, {len(MODELES)} definies")
+    if len(MODELES) % len(CARACS) != 0:
+        raise ValueError(f"{len(MODELES)} cartes : le deck doit etre divisible par {len(CARACS)}")
     if len({m["nom"] for m in MODELES}) != len(MODELES):
         raise ValueError("Deux cartes Bataille portent le meme nom")
     for modele in MODELES:
@@ -141,6 +147,13 @@ def _valider_modeles():
                 par_carac[modele["carac"]] += 1
         if len(set(par_carac.values())) != 1:
             raise ValueError(f"Conditions '{type_condition}' inegalement reparties : {par_carac}")
+    # Chaque couleur doit apparaitre au dos du meme nombre de cartes : le choix d'une
+    # pioche plutot que l'autre ne doit favoriser aucune caracteristique a priori.
+    par_couleur = {couleur: 0 for couleur in COULEUR_PAR_CARAC.values()}
+    for modele in MODELES:
+        par_couleur[modele["verso"]] += 1
+    if len(set(par_couleur.values())) != 1:
+        raise ValueError(f"Dos inegalement repartis : {par_couleur}")
 
 
 _valider_modeles()
@@ -179,7 +192,7 @@ class CarteBataille:
 
 
 def construire_deck():
-    """Les 20 cartes du deck, melangees."""
+    """Les cartes du deck, melangees."""
     deck = [CarteBataille(modele) for modele in MODELES]
     random.shuffle(deck)
     return deck
@@ -199,50 +212,38 @@ def catalogue():
 
 
 class Pioches:
-    """Les 2 pioches de cartes Bataille posees au centre de la table pour toute la
-    partie : le deck de 20 cartes est melange puis coupe en deux pioches de 10. A son
-    tour, un joueur choisit l'une des deux pioches, en ne connaissant que la couleur au
-    dos de sa carte du dessus. Les cartes revelees rejoignent la defausse a la fin du
-    duel ; si une pioche s'epuise, la defausse est melangee et repartie sous les deux
-    pioches."""
+    """Les 2 pioches de cartes Bataille posees au centre de la table. Le deck complet est
+    melange puis coupe en deux au debut de chaque duel : chaque duel repart donc du meme
+    ensemble de cartes, sans memoire de celles sorties au duel precedent. A son tour, un
+    joueur choisit l'une des deux pioches, en ne connaissant que la couleur au dos de sa
+    carte du dessus. Un duel ne pouvant reveler que 7 cartes, une pioche ne peut pas
+    s'epuiser en cours de duel."""
 
     def __init__(self):
+        self.piles = [[], []]
+        self.remelanger()
+
+    def remelanger(self):
+        """Reconstitue les deux pioches a partir du deck complet melange."""
         deck = construire_deck()
-        self.piles = [deck[:NB_CARTES_PAR_PIOCHE], deck[NB_CARTES_PAR_PIOCHE:]]
-        self.defausse = []
+        coupe = len(deck) // 2
+        self.piles = [deck[:coupe], deck[coupe:]]
 
     def sommets(self):
         """La carte du dessus de chaque pioche (None si la pioche est vide)."""
-        self._reapprovisionner()
         return [pile[-1] if pile else None for pile in self.piles]
 
     def piocher(self, index):
         """Retire et retourne la carte du dessus de la pioche demandee."""
         if index not in (0, 1):
             raise IndexError("Pioche inconnue")
-        self._reapprovisionner()
         if not self.piles[index]:
             raise IndexError("Pioche vide")
         return self.piles[index].pop()
 
-    def defausser(self, cartes):
-        self.defausse.extend(cartes)
-
     def cartes_en_pioche(self):
         """Les cartes encore endormies dans les deux pioches, toutes pioches confondues.
         Leur liste est une information publique (le deck est connu et les cartes revelees
-        sont visibles de tous) : seule leur repartition entre les deux pioches est
-        cachee."""
+        pendant le duel sont visibles de tous) : seule leur repartition entre les deux
+        pioches est cachee."""
         return [carte for pile in self.piles for carte in pile]
-
-    def _reapprovisionner(self):
-        """Si une pioche est vide, la defausse est melangee et repartie sous les deux
-        pioches, en alternance, pour que les deux emplacements restent alimentes."""
-        if all(self.piles):
-            return
-        if not self.defausse:
-            return
-        random.shuffle(self.defausse)
-        for i, carte in enumerate(self.defausse):
-            self.piles[i % 2].insert(0, carte)
-        self.defausse = []

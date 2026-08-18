@@ -16,6 +16,15 @@ let combattantsDisponibles = [];
 const equipeSelectionnee = new Set();
 let etatCourant = null;
 
+// Un seul appel a l'API peut faire jouer plusieurs batailles (celle du joueur, puis celle
+// de l'IA) : on les rejoue une par une, animation comprise, avant d'afficher l'etat final.
+const DUREE_BATAILLE = 1100;
+let bataillesAffichees = 0;
+
+function attendre(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 // -------------------------------------------------------------- utilitaires
 
 async function api(path, options) {
@@ -101,23 +110,30 @@ function creerDosPioche(pioche, { cliquable = false, onClick = null } = {}) {
   return carte;
 }
 
-function creerCarteRevelee(entree) {
+function creerCarteRevelee(entree, { animee = false } = {}) {
   const el = document.createElement("div");
   el.className = `carte-bataille recto bord-${entree.carte.verso}`;
   const issue = entree.gagnant_nom ? entree.gagnant_nom : "Bataille nulle";
   const classeIssue = entree.gagnant_camp === "humain" ? "gain" : entree.gagnant_camp === "ia" ? "perte" : "nulle";
+  if (animee) {
+    // Deux temps : la carte sort de la pioche choisie, puis file vers le camp qui
+    // remporte la bataille (ou grise sur place si la bataille est nulle).
+    el.classList.add("animee", `depuis-pioche-${entree.pioche}`, `attribution-${classeIssue}`);
+  }
   el.innerHTML =
-    `<span class="revelee-libelle">Derniere carte revelee</span>` +
+    `<span class="revelee-libelle">Bataille ${entree.numero}</span>` +
     `<span class="bataille-nom">${entree.carte.nom}</span>` +
     `<span class="bataille-condition">${entree.carte.condition}</span>` +
     `<span class="revelee-issue ${classeIssue}">${issue}</span>`;
   return el;
 }
 
-function marqueursBatailles(gagnees, total) {
+function marqueursBatailles(gagnees, total, { dernierAnime = false } = {}) {
   let html = "";
   for (let i = 0; i < total; i++) {
-    html += `<span class="marqueur ${i < gagnees ? "gagne" : ""}"></span>`;
+    const classes = [i < gagnees ? "gagne" : ""];
+    if (dernierAnime && i === gagnees - 1) classes.push("vient-de-gagner");
+    html += `<span class="marqueur ${classes.join(" ")}"></span>`;
   }
   return html;
 }
@@ -181,7 +197,8 @@ document.getElementById("btn-lancer-partie").addEventListener("click", async () 
   });
   ecranSelection.classList.add("cache");
   ecranPartie.classList.remove("cache");
-  render(etat);
+  bataillesAffichees = 0;
+  await appliquerEtat(etat);
 });
 
 document.getElementById("btn-nouvelle-partie").addEventListener("click", async () => {
@@ -196,16 +213,27 @@ function peutChoisirCombattant(etat) {
   return etat.phase === "choix_combattant" && etat["combattant_" + roleHumain(etat)] === null;
 }
 
-function render(etat) {
+async function appliquerEtat(etat) {
+  const journal = etat.journal_batailles || [];
+  if (journal.length < bataillesAffichees) bataillesAffichees = 0;  // nouveau duel
+  while (bataillesAffichees < journal.length) {
+    bataillesAffichees += 1;
+    render(etat, { jusqua: bataillesAffichees, animation: true });
+    await attendre(DUREE_BATAILLE);
+  }
+  bataillesAffichees = journal.length;
+  render(etat);
+}
+
+function render(etat, options = {}) {
   etatCourant = etat;
   if (etat.terminee && etat.phase !== "duel_resolu") {
     renderFin(etat);
     return;
   }
-  renderTableauBord(etat);
-  renderCartesDeck(etat);
-  renderEquipes(etat);
-  renderZoneCentrale(etat);
+  renderTableauBord(etat, options);
+  renderEquipes(etat, options);
+  renderZoneCentrale(etat, options);
 }
 
 function pvRonds(pv) {
@@ -221,36 +249,47 @@ function pvRonds(pv) {
   return html;
 }
 
-function renderTableauBord(etat) {
-  document.getElementById("pv-humain-texte").textContent = `${etat.joueur_humain.pv} PV`;
-  document.getElementById("pv-ia-texte").textContent = `${etat.joueur_ia.pv} PV`;
-  document.getElementById("pv-humain-ronds").innerHTML = pvRonds(etat.joueur_humain.pv);
-  document.getElementById("pv-ia-ronds").innerHTML = pvRonds(etat.joueur_ia.pv);
+function pvAffiches(etat, enAnimation) {
+  const pv = { humain: etat.joueur_humain.pv, ia: etat.joueur_ia.pv };
+  const resultat = etat.dernier_resultat;
+  // Tant que les batailles defilent, le duel n'est pas encore cense etre resolu : on
+  // rend les PV perdus par le camp qui vient de subir les Degats, pour ne pas devoiler
+  // l'issue du duel avant la derniere bataille.
+  if (enAnimation && resultat) {
+    resultat.gagnants_roles.forEach((role) => {
+      const gagnant = resultat["combattant_" + role];
+      const perdant = resultat["combattant_" + (role === "j1" ? "j2" : "j1")];
+      pv[perdant.camp] += resultat.degats[gagnant.nom];
+    });
+  }
+  return pv;
+}
+
+function renderTableauBord(etat, options = {}) {
+  const pv = pvAffiches(etat, options.animation === true);
+  document.getElementById("pv-humain-texte").textContent = `${pv.humain} PV`;
+  document.getElementById("pv-ia-texte").textContent = `${pv.ia} PV`;
+  document.getElementById("pv-humain-ronds").innerHTML = pvRonds(pv.humain);
+  document.getElementById("pv-ia-ronds").innerHTML = pvRonds(pv.ia);
   document.getElementById("duel-numero-texte").textContent =
     `Duel ${Math.min(etat.duel_numero, etat.duels_max)} / ${etat.duels_max}`;
   document.getElementById("premier-joueur-texte").textContent =
     etat.j1 === "humain" ? "Tu es J1 : tu engages et tu pioches en premier" : "L'IA est J1 : elle engage et pioche en premier";
 }
 
-function renderCartesDeck(etat) {
-  const conteneur = document.getElementById("cartes-deck-liste");
-  vider(conteneur);
-  (etat.cartes_du_deck || []).forEach((carte) => {
-    const el = document.createElement("div");
-    el.className = `mini-bataille puce-${carte.verso}`;
-    if (!carte.en_pioche) el.classList.add("sortie");
-    el.title = `${carte.nom} - ${carte.condition} (dos ${carte.verso})`;
-    el.textContent = carte.nom;
-    conteneur.appendChild(el);
-  });
-}
-
-function renderEquipes(etat) {
+function renderEquipes(etat, options = {}) {
   const peutChoisir = peutChoisirCombattant(etat);
+  // Pendant l'animation, les deux Combattants engages sont encore en duel : le moteur les
+  // a deja marques "utilise", mais l'interface ne doit pas le montrer avant la fin.
+  const enDuel = (c) =>
+    options.animation === true && (c.id === etat.combattant_j1 || c.id === etat.combattant_j2)
+      ? { ...c, utilise: false }
+      : c;
 
   const grilleHumain = document.getElementById("equipe-humain");
   vider(grilleHumain);
-  etat.joueur_humain.equipe.forEach((c) => {
+  etat.joueur_humain.equipe.forEach((brut) => {
+    const c = enDuel(brut);
     const active = c.id === etat.combattant_j1 || c.id === etat.combattant_j2;
     grilleHumain.appendChild(
       creerCarteCombattant(c, {
@@ -263,7 +302,8 @@ function renderEquipes(etat) {
 
   const grilleIa = document.getElementById("equipe-ia");
   vider(grilleIa);
-  etat.joueur_ia.equipe.forEach((c) => {
+  etat.joueur_ia.equipe.forEach((brut) => {
+    const c = enDuel(brut);
     const active = c.id === etat.combattant_j1 || c.id === etat.combattant_j2;
     grilleIa.appendChild(creerCarteCombattant(c, { active }));
   });
@@ -275,7 +315,7 @@ async function soumettreCombattant(id) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ combattant_id: id }),
   });
-  render(etat);
+  await appliquerEtat(etat);
 }
 
 async function soumettrePioche(index) {
@@ -284,10 +324,10 @@ async function soumettrePioche(index) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ pioche: index }),
   });
-  render(etat);
+  await appliquerEtat(etat);
 }
 
-function renderZoneCentrale(etat) {
+function renderZoneCentrale(etat, options = {}) {
   const zonePioches = document.getElementById("zone-pioches");
   const zoneJournal = document.getElementById("zone-journal");
   const zoneResultat = document.getElementById("zone-resultat");
@@ -300,9 +340,24 @@ function renderZoneCentrale(etat) {
   messageAttente.classList.add("cache");
   vider(conteneurDuel);
 
+  // Pendant l'animation, on rejoue l'etat tel qu'il etait apres la bataille `jusqua` :
+  // score, journal et pioches sont reconstitues a cet instant, et le resultat du duel
+  // reste masque jusqu'a la derniere bataille.
+  const enAnimation = options.animation === true;
+  const journalComplet = etat.journal_batailles || [];
+  const jusqua = options.jusqua === undefined ? journalComplet.length : options.jusqua;
+  const entrees = journalComplet.slice(0, jusqua);
+  const enAttente = journalComplet.slice(jusqua);
+  const derniere = entrees[entrees.length - 1];
+  const phase = enAnimation ? "batailles" : etat.phase;
+  const resultat = enAnimation ? null : etat.dernier_resultat;
+  const score = {
+    j1: entrees.filter((e) => e.gagnant_role === "j1").length,
+    j2: entrees.filter((e) => e.gagnant_role === "j2").length,
+  };
+
   const slotHumain = roleHumain(etat);
   const slotIa = roleIa(etat);
-  const resultat = etat.dernier_resultat;
 
   [
     { role: "Toi", slot: slotHumain },
@@ -318,10 +373,11 @@ function renderZoneCentrale(etat) {
       return;
     }
     const data = trouverCombattant(etat, id);
-    const gagnees = etat.score[slot];
+    const gagnees = score[slot];
+    const vientDeGagner = enAnimation && derniere && derniere.gagnant_role === slot;
     let contenu = `<div class="role">${labelRole}</div><h3>${data.nom}</h3>`;
     contenu += `<div class="caracs-combattant grand">${caracsHtml(data)}</div>`;
-    contenu += `<div class="marqueurs">${marqueursBatailles(gagnees, etat.batailles_pour_gagner)}</div>`;
+    contenu += `<div class="marqueurs">${marqueursBatailles(gagnees, etat.batailles_pour_gagner, { dernierAnime: vientDeGagner })}</div>`;
     contenu += `<div class="compte-batailles">${gagnees} bataille${gagnees > 1 ? "s" : ""} remportee${gagnees > 1 ? "s" : ""}</div>`;
     if (resultat) {
       if (resultat.gagnants_roles.includes(slot)) {
@@ -338,17 +394,18 @@ function renderZoneCentrale(etat) {
     conteneurDuel.appendChild(carte);
   });
 
-  // Journal des batailles du duel en cours
-  if ((etat.journal_batailles || []).length) {
+  // Journal des batailles deja resolues
+  if (entrees.length) {
     zoneJournal.classList.remove("cache");
     const journal = document.getElementById("journal-batailles");
     vider(journal);
-    etat.journal_batailles.forEach((entree) => {
+    entrees.forEach((entree, rang) => {
       const ligne = document.createElement("div");
       ligne.className = "ligne-bataille";
       if (entree.gagnant_camp === "humain") ligne.classList.add("gain");
       else if (entree.gagnant_camp === "ia") ligne.classList.add("perte");
       else ligne.classList.add("nulle");
+      if (enAnimation && rang === entrees.length - 1) ligne.classList.add("nouvelle");
       const valeurs = ["j1", "j2"]
         .map((slot) => {
           const nom = trouverCombattant(etat, etat["combattant_" + slot]).nom;
@@ -364,39 +421,48 @@ function renderZoneCentrale(etat) {
         `<span class="puce-${entree.carte.verso}" title="dos ${entree.carte.verso}"></span>` +
         `<span class="bataille-titre">${entree.carte.nom}<em>${entree.carte.condition}</em></span>` +
         `<span class="bataille-detail">${valeurs}</span>` +
-        `<span class="bataille-issue">${issue}</span>` +
-        `<span class="bataille-source">pioche ${entree.pioche} (${entree.choisie_par === "humain" ? "toi" : "IA"})</span>`;
+        `<span class="bataille-issue">${issue}</span>`;
       journal.appendChild(ligne);
     });
   }
 
-  if (etat.phase === "choix_combattant") {
+  if (phase === "choix_combattant") {
     messageAttente.classList.remove("cache");
     messageAttente.textContent = peutChoisirCombattant(etat)
       ? slotHumain === "j1"
         ? "Tu es J1 : engage ton Combattant, l'IA choisira le sien en le connaissant."
         : "Tu es J2 : engage ton Combattant en connaissant celui que l'IA vient d'engager."
       : "En attente du choix de l'IA...";
-  } else if (etat.phase === "batailles") {
+  } else if (phase === "batailles") {
     zonePioches.classList.remove("cache");
     const conteneurPioches = document.getElementById("pioches");
     vider(conteneurPioches);
-    const aMoi = etat.joueur_actif === "humain";
-    document.getElementById("libelle-pioches").textContent = aMoi
-      ? "A toi : choisis la pioche dont tu veux reveler la carte du dessus."
-      : "L'IA choisit sa pioche...";
-    const derniere = (etat.journal_batailles || []).slice(-1)[0];
+    const aMoi = etat.joueur_actif === "humain" && !enAnimation && !enAttente.length;
+    document.getElementById("libelle-pioches").textContent = enAnimation
+      ? `Bataille ${derniere.numero} : ${derniere.carte.condition}`
+      : aMoi
+        ? "A toi : choisis la pioche dont tu veux reveler la carte du dessus."
+        : "L'IA choisit sa pioche...";
     etat.pioches.forEach((pioche, rang) => {
       // La derniere carte revelee est posee entre les deux pioches, face visible.
-      if (rang === 1 && derniere) conteneurPioches.appendChild(creerCarteRevelee(derniere));
+      if (rang === 1 && derniere) {
+        conteneurPioches.appendChild(creerCarteRevelee(derniere, { animee: enAnimation }));
+      }
+      // Etat de la pioche a l'instant reconstitue : les cartes tirees plus tard y dorment
+      // encore, et son dos est celui que le joueur voyait alors.
+      const aVenir = enAttente.find((e) => e.pioche === pioche.index + 1);
       conteneurPioches.appendChild(
-        creerDosPioche(pioche, {
-          cliquable: aMoi && pioche.restantes > 0,
-          onClick: () => soumettrePioche(pioche.index),
-        })
+        creerDosPioche(
+          {
+            index: pioche.index,
+            verso: aVenir ? aVenir.carte.verso : pioche.verso,
+            restantes: pioche.restantes + enAttente.filter((e) => e.pioche === pioche.index + 1).length,
+          },
+          { cliquable: aMoi && pioche.restantes > 0, onClick: () => soumettrePioche(pioche.index) }
+        )
       );
     });
-  } else if (etat.phase === "duel_resolu") {
+  } else if (phase === "duel_resolu") {
     zoneResultat.classList.remove("cache");
     const journal = document.getElementById("journal-resolution");
     vider(journal);
@@ -422,7 +488,8 @@ function renderZoneCentrale(etat) {
 
 async function duelSuivant() {
   const etat = await api("/partie/suivant", { method: "POST" });
-  render(etat);
+  bataillesAffichees = 0;
+  await appliquerEtat(etat);
 }
 
 function renderFin(etat) {
