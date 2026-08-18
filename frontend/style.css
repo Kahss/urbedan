@@ -10,6 +10,9 @@
   --ok: #3ecf6a;
   --danger: #ff4757;
   --or: #e0b64c;
+  --rouge: #ff5252;
+  --vert: #46d16b;
+  --bleu: #4d94ff;
   --shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
 }
 
@@ -106,11 +109,6 @@ h2 { text-align: center; }
   box-shadow: 0 0 20px rgba(255, 90, 31, 0.35);
 }
 
-.carte-combattant.condition-validee {
-  outline: 2px solid var(--or);
-  outline-offset: 2px;
-}
-
 .carte-combattant h4 {
   margin: 0 0 6px;
   font-size: 1.05rem;
@@ -128,37 +126,6 @@ h2 { text-align: center; }
 }
 
 .stats-combattant b { color: var(--text); }
-
-.liste-pouvoirs {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  font-size: 0.78rem;
-  color: var(--text-dim);
-}
-
-.liste-pouvoirs li {
-  padding: 3px 0;
-  border-top: 1px dashed var(--border);
-}
-
-.liste-pouvoirs li:first-child { border-top: none; }
-
-.liste-pouvoirs .num {
-  color: var(--accent-2);
-  font-weight: 700;
-  margin-right: 4px;
-}
-
-.liste-pouvoirs .num .rond-energie {
-  vertical-align: middle;
-  margin-right: 2px;
-}
-
-.rond-energie.rond-energie-vide {
-  background: #eceef2;
-  box-shadow: none;
-}
 
 .badge-utilise {
   position: absolute;
@@ -273,63 +240,6 @@ button:disabled {
   white-space: nowrap;
 }
 
-/* ---------- Compteur de Glyphes restants ---------- */
-.glyphes-restants {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
-}
-
-.glyphes-restants-libelle {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-dim);
-}
-
-.glyphes-restants-liste {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.mini-glyphe {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 4px 10px;
-  font-size: 0.8rem;
-}
-
-.mini-glyphe.epuise {
-  opacity: 0.4;
-}
-
-.mini-glyphe-puissance {
-  font-weight: 900;
-}
-
-.mini-glyphe-energie {
-  display: flex;
-  gap: 2px;
-  min-width: 18px;
-}
-
-.mini-glyphe-energie .rond-energie {
-  width: 6px;
-  height: 6px;
-}
-
-.mini-glyphe-compte {
-  color: var(--text-dim);
-}
-
 /* ---------- Zone de duel ---------- */
 .zone-duel {
   display: grid;
@@ -365,75 +275,6 @@ button:disabled {
 }
 .message-attente.cache { display: none; }
 
-/* ---------- Glyphes ---------- */
-.grille-glyphes {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.carte-glyphe {
-  background: var(--bg-card);
-  border: 2px solid var(--border);
-  border-radius: 10px;
-  width: 84px;
-  padding: 10px 6px;
-  text-align: center;
-  cursor: pointer;
-  transition: transform 0.12s ease, border-color 0.12s ease;
-}
-
-.carte-glyphe:hover {
-  transform: translateY(-3px);
-  border-color: var(--accent-2);
-}
-
-.carte-glyphe.selectionnee {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent), var(--shadow);
-}
-
-.glyphe-puissance {
-  font-size: 1.5rem;
-  font-weight: 900;
-}
-
-.glyphe-energie {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 4px;
-  min-height: 10px;
-  margin-top: 6px;
-}
-
-.rond-energie {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--or);
-  box-shadow: 0 0 4px rgba(224, 182, 76, 0.8);
-}
-
-.grille-glyphes.inactif .carte-glyphe {
-  cursor: default;
-  opacity: 0.8;
-}
-
-.grille-glyphes.inactif .carte-glyphe:hover {
-  transform: none;
-  border-color: var(--border);
-}
-
-.carte-glyphe.dos {
-  background: repeating-linear-gradient(45deg, var(--bg-card), var(--bg-card) 6px, #2c2f3a 6px, #2c2f3a 12px);
-  cursor: default;
-}
-
-.zone-glyphes.cache { display: none; }
-
 /* ---------- Duel : cartes en presence ---------- */
 .carte-duel {
   background: var(--bg-card);
@@ -453,31 +294,6 @@ button:disabled {
 }
 
 .carte-duel h3 { margin: 6px 0; }
-
-.carte-duel .glyphe-joue {
-  margin-top: 8px;
-  font-weight: 800;
-  color: var(--accent);
-}
-
-.carte-duel .glyphe-joue-puissance {
-  font-size: 1.4rem;
-}
-
-.carte-duel .glyphe-joue-energie {
-  display: flex;
-  justify-content: center;
-  gap: 4px;
-  margin-top: 4px;
-}
-
-.carte-duel .pouvoir-actif {
-  margin-top: 4px;
-  font-size: 0.72rem;
-  font-style: italic;
-  color: var(--accent-2);
-  line-height: 1.3;
-}
 
 .carte-duel .bloc-stat {
   margin-top: 12px;
@@ -503,27 +319,6 @@ button:disabled {
   color: var(--text-dim);
   text-transform: uppercase;
   letter-spacing: 1px;
-}
-
-.carte-duel .detail-liste {
-  list-style: none;
-  margin: 6px 0 0;
-  padding: 0;
-  font-size: 0.74rem;
-  color: var(--text);
-  text-align: left;
-}
-
-.carte-duel .detail-liste li {
-  padding: 1px 0;
-}
-
-.carte-duel .detail-liste .detail-label {
-  color: var(--text-dim);
-}
-
-.carte-duel .detail-liste.degats {
-  color: var(--ok);
 }
 
 .carte-duel.gagnant {
@@ -570,3 +365,234 @@ button:disabled {
   .tableau-bord { grid-template-columns: 1fr; text-align: center; }
   .joueur-ia { text-align: center; }
 }
+
+/* ---------- Caracteristiques (Force / Dexterite / Sagesse) ---------- */
+.txt-rouge { color: var(--rouge); }
+.txt-vert { color: var(--vert); }
+.txt-bleu { color: var(--bleu); }
+
+.caracs-combattant {
+  display: flex;
+  gap: 6px;
+  margin: 8px 0 6px;
+}
+
+.carac {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 4px 0;
+  border-radius: 6px;
+  border: 1px solid;
+  font-size: 0.95rem;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.carac b { font-size: 1.05rem; }
+.carac-initiale { font-size: 0.7rem; letter-spacing: 1px; opacity: 0.8; }
+.carac-rouge { border-color: var(--rouge); color: var(--rouge); }
+.carac-vert { border-color: var(--vert); color: var(--vert); }
+.carac-bleu { border-color: var(--bleu); color: var(--bleu); }
+
+.caracs-combattant.grand .carac { padding: 8px 0; font-size: 1.2rem; }
+.caracs-combattant.grand .carac b { font-size: 1.5rem; }
+
+/* ---------- Suivi des cartes Bataille encore en pioche ---------- */
+.cartes-deck {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 14px;
+}
+
+.cartes-deck-libelle {
+  color: var(--text-dim);
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  letter-spacing: 1px;
+}
+
+.cartes-deck-liste { display: flex; flex-wrap: wrap; gap: 5px; }
+
+.mini-bataille {
+  font-size: 0.68rem;
+  padding: 2px 7px 2px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  position: relative;
+  cursor: help;
+}
+
+.mini-bataille.sortie { opacity: 0.28; text-decoration: line-through; }
+
+.puce-rouge::before, .puce-vert::before, .puce-bleu::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.puce-rouge::before { background: var(--rouge); }
+.puce-vert::before { background: var(--vert); }
+.puce-bleu::before { background: var(--bleu); }
+
+/* ---------- Pioches de cartes Bataille ---------- */
+.zone-pioches { width: 100%; text-align: center; }
+.zone-pioches.cache { display: none; }
+
+.libelle-pioches { color: var(--text-dim); margin: 4px 0 10px; }
+
+.pioches { display: flex; justify-content: center; gap: 24px; }
+
+.carte-bataille {
+  width: 132px;
+  min-height: 168px;
+  border-radius: 10px;
+  border: 2px solid var(--border);
+  background: var(--bg-card);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px;
+  box-shadow: var(--shadow);
+}
+
+.carte-bataille.dos { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.04) 0 6px, transparent 6px 12px); }
+.carte-bataille.dos-rouge { border-color: var(--rouge); box-shadow: 0 0 16px rgba(255, 82, 82, 0.35); }
+.carte-bataille.dos-vert { border-color: var(--vert); box-shadow: 0 0 16px rgba(70, 209, 107, 0.35); }
+.carte-bataille.dos-bleu { border-color: var(--bleu); box-shadow: 0 0 16px rgba(77, 148, 255, 0.35); }
+
+.carte-bataille.cliquable { cursor: pointer; transition: transform 0.12s ease; }
+.carte-bataille.cliquable:hover { transform: translateY(-4px); }
+
+.dos-marque { font-size: 2.4rem; font-weight: 900; color: var(--text-dim); }
+.dos-couleur { text-transform: uppercase; letter-spacing: 2px; font-size: 0.75rem; }
+.carte-bataille.dos-rouge .dos-couleur { color: var(--rouge); }
+.carte-bataille.dos-vert .dos-couleur { color: var(--vert); }
+.carte-bataille.dos-bleu .dos-couleur { color: var(--bleu); }
+.dos-restantes { color: var(--text-dim); font-size: 0.7rem; }
+
+.bord-rouge { border-left: 4px solid var(--rouge); }
+.bord-vert { border-left: 4px solid var(--vert); }
+.bord-bleu { border-left: 4px solid var(--bleu); }
+
+/* ---------- Marqueurs de batailles remportees ---------- */
+.marqueurs { display: flex; gap: 7px; justify-content: center; margin: 10px 0 4px; }
+
+.marqueur {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+}
+
+.marqueur.gagne { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 10px rgba(255, 90, 31, 0.6); }
+
+.compte-batailles { color: var(--text-dim); font-size: 0.75rem; }
+.degats-annonce { margin-top: 8px; color: var(--text-dim); font-size: 0.85rem; }
+.premier-joueur { display: block; color: var(--text-dim); font-size: 0.7rem; margin-top: 4px; }
+
+/* ---------- Journal des batailles du duel ---------- */
+.zone-journal { width: 100%; max-width: 660px; margin-top: 14px; }
+.zone-journal.cache { display: none; }
+
+.journal-batailles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #101218;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.78rem;
+}
+
+.ligne-bataille {
+  display: grid;
+  grid-template-columns: 18px 10px minmax(150px, 1.2fr) minmax(150px, 1.4fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.ligne-bataille:first-child { border-top: none; }
+.bataille-numero { color: var(--text-dim); text-align: center; }
+.ligne-bataille > .puce-rouge, .ligne-bataille > .puce-vert, .ligne-bataille > .puce-bleu {
+  position: relative;
+  width: 10px;
+  height: 10px;
+}
+.bataille-titre { display: flex; flex-direction: column; }
+.bataille-titre em { color: var(--text-dim); font-size: 0.72rem; font-style: normal; }
+.bataille-detail { display: flex; flex-wrap: wrap; gap: 4px; color: var(--text-dim); }
+.contre { opacity: 0.5; }
+.bataille-issue { font-weight: 600; }
+.ligne-bataille.gain .bataille-issue { color: var(--ok); }
+.ligne-bataille.perte .bataille-issue { color: var(--danger); }
+.ligne-bataille.nulle .bataille-issue { color: var(--text-dim); }
+.bataille-source { display: none; }
+
+/* ---------- Legende du deck (ecran de selection) ---------- */
+.legende-deck {
+  margin-top: 28px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+.legende-deck summary { cursor: pointer; color: var(--text-dim); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 1px; }
+
+.legende-deck-liste {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.legende-carte {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.legende-nom { font-weight: 600; font-size: 0.85rem; }
+.legende-condition { color: var(--text-dim); font-size: 0.75rem; }
+.legende-verso { position: relative; padding-left: 16px; font-size: 0.68rem; color: var(--text-dim); margin-top: 2px; }
+.bataille-valeurs { white-space: nowrap; }
+.carte-duel .bloc-stat.degats .valeur-grosse { color: var(--accent); }
+
+/* ---------- Carte Bataille revelee ---------- */
+.carte-bataille.recto {
+  justify-content: flex-start;
+  gap: 6px;
+  text-align: center;
+  background: var(--bg-panel);
+}
+
+.revelee-libelle { color: var(--text-dim); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 1px; }
+.bataille-nom { font-weight: 700; font-size: 0.95rem; }
+.bataille-condition { color: var(--text-dim); font-size: 0.72rem; }
+.revelee-issue { margin-top: auto; font-size: 0.78rem; font-weight: 600; }
+.revelee-issue.gain { color: var(--ok); }
+.revelee-issue.perte { color: var(--danger); }
+.revelee-issue.nulle { color: var(--text-dim); }

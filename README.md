@@ -1,16 +1,29 @@
-# Urban Eredan — Prototype
+# Urban Eredan — Prototype (version « cartes Bataille »)
 
-Prototype jouable en solo (vs IA) du jeu de societe Urban Eredan (`game.md`), avec un
-backend Python (moteur de regles + IA) et un frontend web (HTML/CSS/JS, jouable
+Prototype jouable en solo (vs IA) du jeu de societe Urban Eredan (`game.md`), dans la
+variante decrite par `versions/battles.md` : un duel ne se resout plus par une comparaison
+de Puissance, mais en remportant **3 batailles** revelees une par une depuis deux pioches
+communes. Backend Python (moteur de regles + IA), frontend web (HTML/CSS/JS, jouable
 uniquement au clic).
+
+## Ce qui change par rapport a la version de reference
+
+- Les cartes **Glyphes**, l'**Energie** et les **Pouvoirs** disparaissent.
+- Un Combattant n'a plus de Puissance : il porte trois caracteristiques, **Force**
+  (rouge), **Dexterite** (vert) et **Sagesse** (bleu), chacune de 0 a 5, plus ses Degats.
+- Un deck de **20 cartes Bataille**, coupe en **2 pioches de 10** au centre de la table,
+  sert a tous les duels de la partie. Le recto porte la condition qui designe le vainqueur
+  de la bataille ; le verso ne montre qu'**une couleur**, choisie parmi les
+  caracteristiques que la condition utilise.
+- Le premier Combattant a remporter **3 batailles** remporte le duel et inflige ses
+  Degats. Une bataille que la condition ne tranche pas est **nulle** : personne ne marque.
 
 ## Lancer le jeu
 
-Un environnement virtuel Python existe deja dans `venv/`. Depuis la racine du projet :
+Le projet est gere avec [uv](https://docs.astral.sh/uv/) :
 
 ```
-venv\Scripts\python.exe -m pip install -r backend\requirements.txt
-venv\Scripts\python.exe backend\app.py
+uv run python backend/app.py
 ```
 
 Puis ouvrir http://127.0.0.1:5000/ dans un navigateur.
@@ -26,195 +39,153 @@ data/combattants.json       Liste des Combattants jouables (editable a la main)
 backend/
   app.py                    Serveur Flask (API REST)
   engine/
-    models.py               Glyphes, Combattants, Joueurs
-    powers.py                Moteur generique de resolution des Pouvoirs
-    ia.py                    Heuristique de choix de l'IA (Combattant + Glyphe)
-    game.py                  Orchestration d'une Partie (mise en place, duels, IA)
+    batailles.py            Les 20 cartes Bataille, leur resolution et les 2 pioches
+    models.py               Combattants, Joueurs
+    ia.py                   Heuristique de l'IA (Combattant + choix de pioche)
+    game.py                 Orchestration d'une Partie (mise en place, duels, batailles)
 frontend/
   index.html / style.css / app.js   Interface (100% cliquable, sans framework)
+generate_metagame.py        Simulation IA contre IA : % de victoire par Combattant
 ```
+
+## Les 20 cartes Bataille
+
+Definies dans `backend/engine/batailles.py` (`MODELES`), avec leur nom, leur condition et
+la couleur de leur dos. Le deck est structure de facon symetrique : chaque caracteristique
+est la caracteristique principale de 6 cartes, et les 2 dernieres cartes lisent les trois
+caracteristiques.
+
+| Type de condition | Exemplaires | Exemple |
+| --- | --- | --- |
+| `max` : la caracteristique la plus haute l'emporte | 3 par caracteristique | Bras de fer — Force la plus haute |
+| `min` : la plus basse l'emporte | 1 par caracteristique | Passage etroit — Force la plus basse |
+| `somme` : la somme de deux caracteristiques la plus haute | 1 par caracteristique | Escalade sauvage — Force + Dexterite la plus haute |
+| `max_departage` : la plus haute, puis une seconde caracteristique en cas d'egalite | 1 par caracteristique | Poigne et sang-froid — Force la plus haute ; a egalite, Sagesse |
+| `total` : le total des trois le plus haut | 1 | Melee generale |
+| `meilleure` : la meilleure des trois la plus haute | 1 | Coup d'eclat |
+
+Les caracteristiques tournent en cycle (Force → Dexterite → Sagesse → Force) pour les
+sommes et les departages, de sorte que les trois groupes de 6 cartes soient rigoureusement
+equivalents : aucune caracteristique n'est structurellement meilleure qu'une autre.
+
+**Le dos** d'une carte est une des couleurs que sa condition lit, fixee une fois pour
+toutes (comme une carte imprimee). Les dos se repartissent en 6 rouges, 7 verts et
+7 bleus — 20 n'etant pas divisible par 3, les deux cartes globales rompent d'un cheveu la
+symetrie des dos, jamais celle des conditions. Un dos rouge cache ainsi 3 fois « Force la
+plus haute », mais aussi « Force la plus basse », « Sagesse + Force la plus haute » et
+« Dexterite la plus haute, a egalite Force » : l'indice oriente sans jamais garantir.
 
 ## Editer / ajouter des Combattants
 
-`data/combattants.json` peut etre modifie a la main puis rechargé automatiquement au
-lancement d'une nouvelle partie (pas besoin de redemarrer le serveur). Chaque Combattant
-ne possede plus qu'un seul Pouvoir :
+`data/combattants.json` peut etre modifie a la main puis est recharge automatiquement au
+lancement d'une nouvelle partie (pas besoin de redemarrer le serveur).
 
 ```json
 {
   "id": "identifiant_unique",
   "nom": "Nom affiche",
-  "puissance": 4,
+  "archetype": "texte narratif, ignore par le moteur",
+  "description": "texte narratif, ignore par le moteur",
+  "force": 5,
+  "dexterite": 1,
+  "sagesse": 3,
   "degats": 3,
-  "pouvoir": {
-    "description": "Texte affiche sur la carte",
-    "condition": null,
-    "modificateur": null,
-    "energie_min": 1,
-    "effets": [ { "type": "puissance", "cible": "soi", "valeur": 2 } ]
-  }
+  "pouvoir": { "...": "conserve en donnees, ignore par cette version" }
 }
 ```
 
-- `energie_min` (optionnel, defaut 0) : cout minimum en Energie pour activer le Pouvoir,
-  note "X+" — le Pouvoir s'active des lors que l'Energie du Glyphe joue est superieure ou
-  egale a `energie_min` (`0` ou absent = Pouvoir toujours actif, meme avec un Glyphe
-  d'Energie 0).
-- `condition` (optionnel) : un des mots-cles Condition de `pouvoirs.csv` —
-  `courage`, `riposte`, `vengeance`, `domination`, `victoire`, `defaite`, `surpuissance`.
-- `modificateur` (optionnel) : un des mots-cles Modificateur —
-  `patience`, `impatience`, `par_energie`, `par_energie_adverse`, `par_energie_en_jeu`,
-  `contrecoup`. `par_energie` multiplie la valeur de l'effet par l'Energie jouee par le
-  Combattant lui-meme (ex : "+1 Puissance / Energie") ; `par_energie_adverse` multiplie
-  par l'Energie jouee par l'adversaire ce duel-ci ; `par_energie_en_jeu` multiplie par la
-  somme des deux Energies jouees (soi + adversaire). Dans tous les cas, combine a
-  `energie_min`, cela permet un Pouvoir qui necessite un minimum d'Energie propre pour
-  s'activer tout en scalant sur une Energie differente (la sienne, celle de l'adversaire,
-  ou le total des deux).
-- `effets` : liste d'effets, chacun avec un `type` :
-  - `puissance` / `degats` / `vie` : necessitent `cible` (`soi` ou `adversaire`) et `valeur`
-    (entier signe). `vie` modifie les PV du joueur (pas une statistique du Combattant).
-  - `stop_pouvoir` : aucun champ supplementaire (generique, voir plus bas).
-  - `copie_pouvoir` : aucun champ supplementaire (generique, voir plus bas).
-  - `protection` : aucun champ supplementaire.
-  - `echange` : aucun champ supplementaire (echange Puissance/Degats entre les 2
-    Combattants du duel).
-  - `vampirisme` : `valeur` = X (reduit les PV adverses de X, gagne X PV).
+- `force` / `dexterite` / `sagesse` : entiers de 0 a 5 (le moteur refuse toute valeur hors
+  de cet intervalle au chargement).
+- `degats` : PV retires a l'adversaire quand le Combattant remporte son duel.
+- `pouvoir` : conserve tel quel pour une version ulterieure ; ni le moteur ni le frontend
+  ne le lisent.
 
-Un Pouvoir peut activer plusieurs `effets` (liste), mais un seul `condition` /
-`modificateur`.
+### Equilibrer un Combattant
 
-**L'Energie du Glyphe joue determine si l'unique Pouvoir du Combattant s'active**, en le
-comparant a son seuil `energie_min` : Energie jouee >= `energie_min` -> le Pouvoir
-s'active (avec, le cas echeant, une valeur multipliee par cette Energie via
-`par_energie`) ; sinon, il reste inactif. Un Combattant n'a donc jamais plus d'un Pouvoir
-actif par duel (hors effet de Copie pouvoir). Concevoir un personnage revient a choisir
-un seul Pouvoir, son cout minimum en Energie (0 = toujours disponible, 3 = ne
-s'active qu'en sacrifiant toute la Puissance du Glyphe 0/3) et, eventuellement, un
-scaling par Energie jouee au-dela de ce seuil.
+Le total des trois caracteristiques mesure la frequence a laquelle un Combattant gagne ses
+duels ; les **Degats** compensent cette frequence. Le roster fourni se tient entre 8 et 10 :
+en dessous, un Combattant perd trop souvent pour que ses Degats (plafonnes a 5) puissent
+compenser. Deux proprietes du deck guident la repartition :
 
-## Detail du calcul de Puissance / Degats
+- **Les valeurs extremes valent mieux que les valeurs moyennes** : un 5 remporte les
+  3 cartes « la plus haute » de sa couleur, et un 0 remporte celle « la plus basse ».
+  Une ligne 5/0/4 est nettement plus solide qu'une ligne 3/3/3 de meme total.
+- **Un total eleve doit se payer en Degats** : le roster fourni va de 2 Degats (pour les
+  profils qui gagnent ~65 % de leurs duels) a 5 Degats (pour ceux qui en gagnent ~38 %).
 
-A la resolution d'un duel, l'API renvoie pour chaque Combattant le detail complet du
-calcul (`puissance_txt`, `degats_txt`, affiches sur la carte du duel resolu), sous la
-forme `total = X (base) + Y (glyphe) + Z (Pouvoir N Nom) ...`. Chaque contribution
-(base, Glyphe, chaque Pouvoir ayant modifie la valeur, y compris un Echange ou une copie
-de pouvoir) apparait comme une ligne separee, dans l'ordre ou elle a ete appliquee. Cela
-permet de verifier precisement d'ou vient un nombre qui semblerait incoherent au premier
-abord (ex : un Combattant dont la Puissance ne semble pas inclure son Glyphe, alors
-qu'un Echange ulterieur la lui a simplement retiree).
-
-## Hypotheses et choix d'implementation
-
-Certaines regles de `game.md` / `pouvoirs.csv` laissaient place a interpretation ; les
-choix suivants ont ete valides ou tranches avec l'utilisateur avant developpement :
-
-- **Selection d'equipe** : avant chaque partie, le joueur choisit manuellement ses 4
-  Combattants parmi tous ceux disponibles (20 fournis) ; l'IA tire au hasard 4
-  Combattants distincts parmi ceux restants.
-- **Un seul Pouvoir par Combattant** : chaque Combattant ne possede plus qu'un unique
-  Pouvoir, actif des lors que l'Energie du Glyphe joue atteint son seuil `energie_min`
-  (note "X+"). **Ordre de resolution** : au sein d'un duel, J1 resout son Pouvoir (s'il
-  est actif) avant que J2 ne resolve le sien.
-- **Stop pouvoir et Copie pouvoir sont generiques** : ils visent toujours l'unique
-  Pouvoir de l'adversaire, s'il est actif (Energie jouee >= son seuil `energie_min`). Si
-  l'adversaire n'a pas atteint ce seuil (Pouvoir inactif), il n'y a rien a annuler ni a
-  copier.
-- **Stop pouvoir** : agit retroactivement si le Pouvoir cible a deja ete resolu (le cas
-  lorsque J2 vise le Pouvoir de J1, deja joue), ou par anticipation sinon (J1 vise le
-  Pouvoir de J2 qui n'a pas encore joue). Cela fonctionne aussi pour annuler
-  retroactivement un Echange deja resolu (le calcul du Pouvoir Echange est trace comme
-  n'importe quel autre effet, via des deltas Puissance/Degats plutot qu'une permutation
-  directe non tracable).
-- **Protection** : annule toutes les modifications deja subies de la part de
-  l'adversaire (retroactif) et bloque toute nouvelle modification adverse (puissance,
-  degats, vie, stop pouvoir, copie pouvoir) pour le reste de la resolution du duel. Ne
-  bloque pas les degats de fin de duel (rupture des PV du vaincu), qui ne sont pas une
-  "modification de Pouvoir" mais l'application de la regle de base.
-- **Victoire / Defaite / Surpuissance / Contrecoup** : ces Pouvoirs dependent de l'issue
-  du duel (qui n'est connue qu'apres comparaison des Puissances totales). Ils sont donc
-  resolus dans une seconde passe, apres determination du/des vainqueur(s), et n'influent
-  donc jamais sur la comparaison de Puissance du duel en cours (uniquement sur les
-  Degats/PV/Vie).
-- **Patience** : multiplie la valeur de l'effet par le numero du duel courant dans la
-  partie (1 a 4). **Impatience** : multiplie par le nombre de duels restants a jouer,
-  celui-ci compris (`duels_max - duel_numero + 1`, soit 4 au duel 1, 1 au duel 4).
-- **Par energie** : multiplie la valeur de l'effet par l'Energie du Glyphe joue par le
-  Combattant qui possede ce Pouvoir (ex : Echo, Cobra, Iron, Riff). Combine a
-  `energie_min`, cela permet un Pouvoir qui necessite un minimum d'Energie pour
-  s'activer, et dont l'effet croit ensuite avec l'Energie investie au-dela de ce seuil.
-- **Par energie adverse** : multiplie la valeur de l'effet par l'Energie jouee par
-  l'adversaire ce duel-ci, independamment de la propre Energie du Combattant (ex :
-  Mirage, qui retourne l'investissement en Energie de l'adversaire contre lui).
-- **Par energie en jeu** : multiplie la valeur de l'effet par la somme des deux Energies
-  jouees ce duel-ci (la sienne et celle de l'adversaire) (ex : Surge, qui se nourrit du
-  chaos total du duel, peu importe qui l'a genere).
-- **Contrecoup** : l'effet, normalement dirige vers l'adversaire, s'applique a
-  soi-meme uniquement si le Combattant remporte le duel (sinon il ne se produit pas).
-- **Copie pouvoir** : copie la definition du Pouvoir actuellement actif de l'adversaire
-  (effets, condition, modificateur) et l'execute du point de vue du copieur (`soi` =
-  copieur, `adversaire` = adversaire du copieur). Limitations POC : copier un Pouvoir
-  conditionne par l'issue du duel (Victoire/Defaite/Surpuissance) ou par Contrecoup n'est
-  pas supporte (ex : Nova copiant le Pouvoir de Vex, conditionne par Defaite) ; copier un
-  Pouvoir qui contient lui-meme une Copie de pouvoir n'est pas supporte non plus (ex :
-  Nova face a Mime), pour eviter une recursion infinie puisque l'adversaire cible ne
-  change jamais d'une copie a l'autre ; copier un Pouvoir deja annule par un Stop pouvoir
-  echoue egalement (rien a copier).
-- **Mot-cle "Attaque"** (`pouvoirs.csv`) : `game.md` ne definit que les statistiques
-  Puissance et Degats pour un Combattant (pas d'"Attaque" separee). Le mot-cle
-  "+/- Attaque" est donc traite comme un synonyme de "+/- Puissance".
-- **Double victoire** (egalite de Puissance) : les deux Combattants remportent le duel et
-  infligent chacun leurs Degats ; le joueur J2 du duel devient J1 du duel suivant (et
-  inversement), conformement a `game.md`.
-- **Equipe visible** : le roster complet (les 4 Combattants, utilises ou non) de chaque
-  joueur est visible par l'autre pendant toute la partie ; la main de Glyphes de l'IA
-  (valeurs et nombre de cartes) reste totalement masquee jusqu'a la resolution du duel.
-- **Main de 2 Glyphes par manche** : chaque joueur pioche un premier Glyphe a la mise en
-  place de la partie (main de depart), puis un Glyphe supplementaire au debut de chaque
-  manche (duel), dans le deck commun (16 cartes, 4 exemplaires de chacun des 4 types de
-  Glyphe, partage par les deux joueurs, jamais reconstitue en cours de partie). Il a
-  donc 2 Glyphes disponibles pour choisir lequel associer au Combattant qu'il joue ce
-  duel-ci ; l'autre reste en main pour la manche suivante. Le joueur humain voit sa
-  propre main avant de choisir son Combattant et son Glyphe ; celle de l'IA reste cachee
-  jusqu'a la resolution du duel.
-- **Compteur de Glyphes restants** : l'interface rappelle, pour chacun des 4 types de
-  Glyphe, combien d'exemplaires restent potentiellement disponibles (sur les 5 de
-  depart), en comptant uniquement ceux deja joues (reveles en resolution de duel) — les
-  Glyphes actuellement dans une main (y compris celle, cachee, de l'IA) sont donc
-  toujours comptes comme "restants", puisque leur type n'est pas encore connu de
-  l'autre joueur.
+Le roster fourni (22 Combattants) a ete regle de cette facon : chaque Combattant inflige
+en moyenne autant de PV qu'il en subit, a 0,31 PV par duel pres (mesure par simulation sur
+toutes les paires possibles).
 
 ## IA
 
-L'IA (`engine/ia.py`) choisit, parmi ses Combattants disponibles et ses Glyphes en main,
-la combinaison qui maximise une estimation de la Puissance totale du duel (en cas
-d'egalite : les Degats, puis la Vie), plutot qu'un tirage purement aleatoire. Cette
-estimation ne compte que ce qui est certain au moment du choix :
-- Courage / Riposte / Vengeance / Domination sont evalues immediatement (role du duel,
-  PV courants) ; Victoire / Defaite / Surpuissance / Contrecoup dependent de l'issue du
-  duel (inconnue au moment du choix) et ne sont donc jamais comptes.
-- Patience / Impatience / Par energie sont calcules directement ; Par energie adverse /
-  Par energie en jeu utilisent l'Energie moyenne d'un Glyphe pioche au hasard (1,5),
-  l'Energie reelle de l'adversaire etant inconnue avant la resolution.
-- Stop pouvoir / Copie pouvoir / Protection / Echange dependent trop du Combattant et du
-  Glyphe adverses (inconnus) pour etre estimes utilement : ils ne modifient pas le
-  score.
+`engine/ia.py` :
 
-Les egalites de score sont tranchees au hasard, pour eviter un jeu totalement
-previsible.
+- **Choix du Combattant** : tire au hasard parmi ceux qui n'ont pas encore combattu ;
+  l'IA ne contre-choisit pas le Combattant adverse.
+- **Choix de la pioche** : c'est la seule decision reellement informee du duel. L'IA ne
+  connait de chaque pioche que la couleur au dos de sa carte du dessus, mais elle connait
+  la composition du deck et voit les cartes deja revelees : elle sait donc exactement
+  quelles cartes dorment encore dans les deux pioches, sans savoir laquelle est ou. Pour
+  chaque pioche, elle resout toutes les cartes encore en jeu portant cette couleur contre
+  les caracteristiques des deux Combattants engages, et retient la pioche de meilleure
+  esperance (+1 bataille gagnee, -1 perdue, 0 nulle). Les egalites sont tranchees au
+  hasard.
+
+Le joueur humain dispose exactement de la meme information : l'interface rappelle en
+permanence quelles cartes du deck sont encore dans les pioches.
+
+## Hypotheses et choix d'implementation
+
+`versions/battles.md` laissait plusieurs points ouverts ; ils ont ete tranches avec
+l'utilisateur avant developpement :
+
+- **Bataille nulle** : si la condition ne separe pas les deux Combattants (memes valeurs),
+  la carte est defaussee et personne ne marque.
+- **Plafond de 7 cartes** : sans plafond, deux Combattants aux caracteristiques identiques
+  ne se separeraient jamais. Au-dela de 7 cartes revelees, le joueur ayant remporte le
+  plus de batailles remporte le duel ; a egalite, double victoire (les deux infligent
+  leurs Degats, conformement a `game.md`). En pratique, ~7 % des duels sont tranches par
+  ce plafond.
+- **Dos d'une carte multi-caracteristiques** : une couleur unique, choisie parmi celles que
+  la condition lit et **figee** par carte (fidele a un jeu physique imprime).
+- **2 pioches persistantes** : les 20 cartes sont melangees puis coupees en 2 pioches de 10
+  qui restent en place toute la partie. Les cartes d'un duel rejoignent la defausse a la
+  fin de ce duel ; si une pioche s'epuise, la defausse est melangee et repartie sous les
+  deux pioches.
+- **Ordre des batailles** : en commencant par J1, puis strictement a tour de role — celui
+  qui remporte une bataille ne rejoue pas.
+- **Choix des Combattants** : J1 engage face visible, J2 choisit ensuite en le connaissant
+  (comme `game.md`). J1 est compense par le fait de piocher la premiere carte Bataille.
+- **Degats fixes** : le vainqueur inflige exactement ses Degats, que le duel finisse 3-0 ou
+  3-2.
+- **Equipe visible** : le roster complet des deux joueurs est visible en permanence ; seuls
+  le contenu des pioches (hors couleur du dos) reste cache.
+- **Moteur de Pouvoirs retire** : `engine/powers.py` n'existe plus dans cette version (le
+  champ `pouvoir` des Combattants reste en donnees). `pouvoirs.csv` est conserve pour une
+  version ulterieure.
+
+## Verifier l'equilibre
+
+```
+uv run python generate_metagame.py -n 3000
+```
+
+Simule des parties completes IA contre IA (la meme heuristique des deux cotes, equipes
+tirees au hasard) et affiche le pourcentage de victoire par Combattant. Sur le roster
+fourni, les 22 Combattants tiennent dans une fourchette de 6 points (43,6 % a 49,9 %, le
+solde etant les parties nulles).
 
 ## Tests effectues
 
-- Simulation de 30 parties completes en choix aleatoires via le moteur Python (sans
-  crash).
-- Simulation d'une partie complete via l'API HTTP reelle (serveur Flask demarre),
-  verifiant le cycle pioche Glyphe -> choix Combattant (resolution automatique une fois
-  les deux choisis) -> duel suivant -> fin de partie, ainsi que le rejet propre
-  (HTTP 400) d'une action invalide.
-- Scenarios cibles verifiant individuellement : Protection (retroactive + blocage),
-  Stop pouvoir (retroactif), Contrecoup (redirection sur victoire), Surpuissance,
-  Patience/Impatience (base duel courant), regle "Energie = quel Pouvoir s'active" (et
-  non plus combien), genericite de Stop pouvoir et Copie pouvoir (y compris le cas
-  "l'adversaire n'a active aucun Pouvoir").
-- Verification manuelle du frontend (HTML/CSS/JS) par lecture de code ; a tester
-  visuellement dans un navigateur avant mise en usage reel.
+- 2 000 parties completes simulees via le moteur Python (sans crash), avec mesure du
+  rythme : duels de 3 a 7 cartes (4,8 en moyenne), 16,8 % de batailles nulles, 6,6 % de
+  duels tranches par le plafond, 32,5 % de parties finies par KO.
+- Equilibrage mesure sur les 231 paires de Combattants possibles (400 duels par paire) :
+  ecart maximal entre PV infliges et PV subis de 0,31 PV par duel.
+- Partie complete jouee via l'API HTTP reelle (serveur Flask demarre), verifiant le cycle
+  choix du Combattant → batailles alternees → fin de duel (par 3 batailles et par
+  plafond) → duel suivant → KO, ainsi que le reapprovisionnement des pioches depuis la
+  defausse.
+- Verification visuelle du frontend (ecran de selection et ecran de duel) par captures en
+  navigateur headless.

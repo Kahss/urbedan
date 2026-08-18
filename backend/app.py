@@ -3,6 +3,7 @@ import os
 
 from flask import Flask, jsonify, request, send_from_directory
 
+from engine.batailles import catalogue
 from engine.game import ErreurPartie, Partie, charger_combattants
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -25,6 +26,12 @@ def index():
 @app.get("/api/combattants")
 def api_combattants():
     return jsonify([t.to_dict() for t in TEMPLATES.values()])
+
+
+@app.get("/api/batailles")
+def api_batailles():
+    """Le catalogue des 20 cartes Bataille du deck, pour la legende du frontend."""
+    return jsonify(catalogue())
 
 
 @app.post("/api/partie")
@@ -55,7 +62,21 @@ def api_choix_combattant():
         return jsonify({"erreur": "Aucune partie en cours"}), 404
     body = request.get_json(force=True) or {}
     try:
-        etat = partie.soumettre_combattant(body.get("combattant_id"), body.get("glyphe_id"))
+        etat = partie.soumettre_combattant(body.get("combattant_id"))
+    except ErreurPartie as e:
+        return jsonify({"erreur": str(e)}), 400
+    return jsonify(etat)
+
+
+@app.post("/api/partie/bataille")
+def api_choix_pioche():
+    """Le joueur humain choisit l'une des 2 pioches de cartes Bataille (index 0 ou 1) :
+    la carte du dessus est revelee et sa condition immediatement resolue."""
+    if partie is None:
+        return jsonify({"erreur": "Aucune partie en cours"}), 404
+    body = request.get_json(force=True) or {}
+    try:
+        etat = partie.soumettre_pioche(body.get("pioche"))
     except ErreurPartie as e:
         return jsonify({"erreur": str(e)}), 400
     return jsonify(etat)

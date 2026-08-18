@@ -18,25 +18,38 @@ import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(BASE_DIR, "backend"))
 
-from engine.game import NB_DUELS_MAX, Partie, charger_combattants  # noqa: E402
-from engine.ia import choisir_combattant_et_glyphe  # noqa: E402
+from engine.game import Partie, charger_combattants  # noqa: E402
+from engine.ia import choisir_combattant, choisir_pioche  # noqa: E402
 
 DATA_PATH = os.path.join(BASE_DIR, "data", "combattants.json")
 
 
+def role_humain(partie):
+    return "j1" if partie.j1 is partie.joueur_humain else "j2"
+
+
 def jouer_choix_humain(partie):
-    """Fait choisir au joueur 'humain' de la partie son Combattant et son Glyphe pour
-    le duel en cours, via la meme heuristique que l'IA (cf. engine/ia.py), de maniere a
-    simuler un affrontement IA contre IA."""
-    role = "j1" if partie.j1 is partie.joueur_humain else "j2"
+    """Fait engager au joueur 'humain' de la partie son Combattant pour le duel en cours,
+    via la meme heuristique que l'IA (cf. engine/ia.py), de maniere a simuler un
+    affrontement IA contre IA."""
+    role = role_humain(partie)
     if getattr(partie, "combattant_" + role) is not None:
         return
-    adversaire = partie.joueur_ia
-    instance, glyphe = choisir_combattant_et_glyphe(
-        partie.joueur_humain, role, partie.duel_numero, NB_DUELS_MAX,
-        partie.joueur_humain.pv, adversaire.pv,
+    instance = choisir_combattant(partie.joueur_humain)
+    partie.soumettre_combattant(instance.template.id)
+
+
+def jouer_pioche_humaine(partie):
+    """Fait choisir au joueur 'humain' l'une des 2 pioches de cartes Bataille, avec la
+    meme heuristique que l'IA."""
+    role = role_humain(partie)
+    mien = getattr(partie, "combattant_" + role)
+    sien = partie.combattant_j2 if role == "j1" else partie.combattant_j1
+    index = choisir_pioche(
+        partie.pioches.sommets(), partie.pioches.cartes_en_pioche(),
+        mien.template.caracs, sien.template.caracs, role,
     )
-    partie.soumettre_combattant(instance.template.id, glyphe.id)
+    partie.soumettre_pioche(index)
 
 
 def jouer_partie(templates, tous_les_ids):
@@ -49,6 +62,8 @@ def jouer_partie(templates, tous_les_ids):
     while not partie.terminee:
         if partie.phase == "choix_combattant":
             jouer_choix_humain(partie)
+        elif partie.phase == "batailles" and partie.role_actif == role_humain(partie):
+            jouer_pioche_humaine(partie)
         elif partie.phase == "duel_resolu":
             partie.duel_suivant()
 
