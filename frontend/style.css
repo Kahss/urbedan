@@ -134,6 +134,12 @@ button {
 button:hover { filter: brightness(1.1); }
 button:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
 
+button.secondaire {
+  background: transparent; color: var(--text);
+  border: 1px solid var(--border);
+}
+button.secondaire:hover { border-color: var(--accent-2); filter: none; }
+
 /* ----------------------------------------------------------- tableau de bord */
 
 .tableau-bord {

@@ -149,11 +149,28 @@ function renderGrilleSelection() {
   document.getElementById("btn-lancer-partie").disabled = equipeSelectionnee.size !== 4;
 }
 
+/** Tirage sans remise de `nombre` elements de `liste` (melange de Fisher-Yates partiel). */
+function tirerAleatoirement(liste, nombre) {
+  const copie = liste.slice();
+  for (let i = copie.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copie[i], copie[j]] = [copie[j], copie[i]];
+  }
+  return copie.slice(0, nombre);
+}
+
 function toggleSelection(id) {
   if (equipeSelectionnee.has(id)) equipeSelectionnee.delete(id);
   else if (equipeSelectionnee.size < 4) equipeSelectionnee.add(id);
   renderGrilleSelection();
 }
+
+// Remplace la selection courante, et peut etre reclique pour retirer une autre equipe.
+document.getElementById("btn-equipe-aleatoire").addEventListener("click", () => {
+  equipeSelectionnee.clear();
+  tirerAleatoirement(combattantsDisponibles, 4).forEach((c) => equipeSelectionnee.add(c.id));
+  renderGrilleSelection();
+});
 
 document.getElementById("btn-lancer-partie").addEventListener("click", async () => {
   const etat = await api("/partie", {
