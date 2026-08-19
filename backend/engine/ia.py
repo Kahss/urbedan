@@ -1,105 +1,222 @@
-"""Heuristique de choix de l'IA : quel Combattant jouer, et quel Glyphe de sa main lui
-associer, pour la manche en cours.
+"""Heuristique de l'IA, version duo : quel duo engager, et quel Combattant adverse
+designer comme cible de ses effets a cible unique.
 
-Remplace un tirage purement aleatoire par une estimation simple de la Puissance totale
-(puis, en cas d'egalite, des Degats, puis de la Vie) que produirait chaque combinaison
-Combattant disponible / Glyphe en main, en ne comptant que ce qui est certain au moment
-du choix :
-- Courage / Riposte / Vengeance / Domination sont verifiables immediatement (role du
-  duel, PV courants). Victoire / Defaite / Surpuissance / Contrecoup dependent de
-  l'issue du duel, inconnue au moment du choix : ils ne sont jamais comptes.
-- Patience / Impatience / Par energie sont calculables directement. Par energie
-  adverse / Par energie en jeu utilisent l'Energie moyenne d'un Glyphe pioche au hasard
-  (l'Energie reellement jouee par l'adversaire n'est pas connue avant la resolution).
-- Stop pouvoir / Copie pouvoir / Protection / Echange dependent trop du Combattant et
-  du Glyphe adverses (inconnus) pour etre estimes utilement : ils ne modifient pas le
-  score (l'IA ne les recherche ni ne les evite specifiquement).
+Le choix du duo se fait sur une estimation de la Puissance totale du duo, en ne comptant
+que ce qui est certain au moment du choix :
+- `courage` / `riposte` (role du camp, connu avant le choix puisque J1 est le vainqueur de
+  la bataille precedente), `vengeance` / `domination` (PV courants) et `premiere_fois` /
+  `seconde_fois` (compteur d'utilisations) sont verifiables immediatement.
+- `victoire` / `defaite` / `surpuissance` et le modificateur `contrecoup` dependent de
+  l'issue de la bataille, inconnue au moment du choix : ils ne sont jamais comptes.
+- `patience` / `impatience` sont calculables directement.
+- `stop_pouvoir` / `copie_pouvoir` / `protection` / `echange` dependent du duo adverse
+  (inconnu au moment du choix) : ils ne modifient pas le score.
 
-L'IA choisit la combinaison de meilleur score ; les egalites sont tranchees au hasard
-pour eviter un jeu totalement previsible.
+Quand une carte bataille Reperage ou Intimidation a revele tout ou partie du duo adverse,
+l'IA ne cherche plus a maximiser sa Puissance mais a gagner au meilleur prix : elle engage
+le duo legal le moins fort qui batte encore l'estimation adverse, et si aucun ne le peut,
+elle sacrifie la bataille avec son duo le plus faible pour preserver ses Combattants
+forts. C'est aussi ce qui donne sa valeur a un Pouvoir conditionne par `defaite`.
 """
 import random
 
-from .models import GLYPH_DISTRIBUTION
+from .powers import TYPES_CIBLE_UNIQUE, pouvoir_requiert_cible
 
-_TOTAL_CARTES = sum(quantite for _, _, quantite in GLYPH_DISTRIBUTION)
-ENERGIE_MOYENNE_GLYPHE = sum(energie * quantite for _, energie, quantite in GLYPH_DISTRIBUTION) / _TOTAL_CARTES
+CONDITIONS_INCERTAINES = ("victoire", "defaite", "surpuissance")
 
 
-def _condition_certaine(condition, role, pv_soi, pv_adv):
+def _condition_certaine(condition, role, n_utilisation, pv_soi, pv_adv):
     """True/False si la condition est verifiable des maintenant, None si elle depend de
-    l'issue du duel (inconnue au moment du choix)."""
+    l'issue de la bataille (inconnue au moment du choix)."""
     if condition is None:
         return True
     if condition == "courage":
-        return role == "j1"
+        return role == "J1"
     if condition == "riposte":
-        return role == "j2"
+        return role == "J2"
     if condition == "vengeance":
         return pv_adv > pv_soi
     if condition == "domination":
         return pv_adv < pv_soi
+    if condition == "premiere_fois":
+        return n_utilisation == 1
+    if condition == "seconde_fois":
+        return n_utilisation == 2
     return None  # victoire / defaite / surpuissance
 
 
-def _estimer_gain(pouvoir, energie_jouee, role, duel_numero, duels_max, pv_soi, pv_adv):
-    """Estime (gain_puissance, gain_degats, gain_vie) si `pouvoir` est joue avec
-    `energie_jouee`, a partir des seules informations connues avant la resolution."""
-    if pouvoir is None or energie_jouee < pouvoir.get("energie_min", 0):
-        return 0, 0, 0
+def _valeur_effective(valeur, modificateur, tour, tours_max):
+    if modificateur == "patience":
+        return valeur * tour
+    if modificateur == "impatience":
+        return valeur * (tours_max - tour + 1)
+    return valeur
 
-    if _condition_certaine(pouvoir.get("condition"), role, pv_soi, pv_adv) is not True:
+
+def estimer_gain(pouvoir, role, n_utilisation, tour, tours_max, pv_soi, pv_adv):
+    """Estime (gain_puissance, gain_degats, gain_vie) apporte par `pouvoir`, a partir des
+    seules informations connues avant la resolution. Un malus infligé a l'adversaire
+    compte comme un gain equivalent, le score etant un score d'avantage relatif."""
+    if pouvoir is None:
+        return 0, 0, 0
+    if _condition_certaine(pouvoir.get("condition"), role, n_utilisation, pv_soi, pv_adv) is not True:
         return 0, 0, 0
 
     modificateur = pouvoir.get("modificateur")
     if modificateur == "contrecoup":
         return 0, 0, 0  # ne se declenche qu'en cas de victoire, inconnue au moment du choix
 
-    def valeur_effective(valeur):
-        if modificateur == "par_energie":
-            return valeur * energie_jouee
-        if modificateur == "par_energie_adverse":
-            return valeur * ENERGIE_MOYENNE_GLYPHE
-        if modificateur == "par_energie_en_jeu":
-            return valeur * (energie_jouee + ENERGIE_MOYENNE_GLYPHE)
-        if modificateur == "patience":
-            return valeur * duel_numero
-        if modificateur == "impatience":
-            return valeur * (duels_max - duel_numero + 1)
-        return valeur
-
     gain_puissance = gain_degats = gain_vie = 0.0
     for effet in pouvoir.get("effets", []):
-        cible_soi = effet.get("cible", "soi") == "soi"
+        vers_soi = effet.get("cible", "soi") == "soi"
+        valeur = _valeur_effective(effet.get("valeur", 0), modificateur, tour, tours_max)
         if effet["type"] == "puissance":
-            valeur = valeur_effective(effet.get("valeur", 0))
-            gain_puissance += valeur if cible_soi else -valeur
+            gain_puissance += valeur if vers_soi else -valeur
         elif effet["type"] == "degats":
-            if cible_soi:
-                gain_degats += valeur_effective(effet.get("valeur", 0))
+            if vers_soi:
+                gain_degats += valeur
+        elif effet["type"] == "vie":
+            gain_vie += valeur if vers_soi else -valeur
         elif effet["type"] == "vampirisme":
-            x = valeur_effective(effet.get("valeur", 0))
-            gain_vie += 2 * x  # -x cote adverse, +x cote soi : ecart net de 2x
+            gain_vie += 2 * valeur  # -x cote adverse, +x cote soi : ecart net de 2x
 
     return gain_puissance, gain_degats, gain_vie
 
 
-def choisir_combattant_et_glyphe(joueur, role, duel_numero, duels_max, pv_soi, pv_adv):
-    """Choisit, parmi les Combattants disponibles et les Glyphes en main du joueur, la
-    combinaison qui maximise la Puissance totale estimee pour ce duel (puis les Degats,
-    puis la Vie, en cas d'egalite). Retourne (instance_combattant, glyphe)."""
-    combinaisons = []
-    for instance in joueur.combattants_disponibles():
-        for glyphe in joueur.main_glyphes:
-            gain_puissance, gain_degats, gain_vie = _estimer_gain(
-                instance.template.pouvoir, glyphe.energie, role, duel_numero, duels_max, pv_soi, pv_adv
-            )
-            puissance_totale = instance.template.puissance + glyphe.puissance + gain_puissance
-            degats_totaux = instance.template.degats + gain_degats
-            score = (puissance_totale, degats_totaux, gain_vie)
-            combinaisons.append((score, instance, glyphe))
+def _score_combattant(instance, role, tour, tours_max, pv_soi, pv_adv):
+    n_utilisation = instance.utilisations + 1
+    gain_puissance, gain_degats, gain_vie = estimer_gain(
+        instance.template.pouvoir, role, n_utilisation, tour, tours_max, pv_soi, pv_adv
+    )
+    return (
+        instance.template.puissance + gain_puissance,
+        instance.template.degats + gain_degats,
+        gain_vie,
+    )
 
-    meilleur_score = max(score for score, _, _ in combinaisons)
-    meilleures = [c for c in combinaisons if c[0] == meilleur_score]
-    _, instance, glyphe = random.choice(meilleures)
-    return instance, glyphe
+
+def _score_duo(duo, role, tour, tours_max, pv_soi, pv_adv):
+    puissance = degats = vie = 0.0
+    for instance in duo:
+        p, d, v = _score_combattant(instance, role, tour, tours_max, pv_soi, pv_adv)
+        puissance += p
+        degats += d
+        vie += v
+    return puissance, degats, vie
+
+
+def estimer_puissance_duo_adverse(joueur_adverse, instances_revelees):
+    """Puissance totale probable du duo adverse, connaissant `instances_revelees` (0, 1 ou
+    2 des Combattants qu'il engage). Les Combattants non reveles sont estimes a la
+    Puissance moyenne de ceux qu'il peut encore engager."""
+    connue = sum(inst.template.puissance for inst in instances_revelees)
+    manquants = 2 - len(instances_revelees)
+    if manquants <= 0:
+        return connue
+    candidats = [
+        c for c in joueur_adverse.combattants_disponibles() if c not in instances_revelees
+    ]
+    if not candidats:
+        return connue
+    moyenne = sum(c.template.puissance for c in candidats) / len(candidats)
+    return connue + manquants * moyenne
+
+
+def choisir_duo(
+    joueur, role, tour, tours_max, pv_soi, pv_adv, batailles_restantes,
+    puissance_adverse_estimee=None,
+):
+    """Choisit le duo a engager parmi les duos legaux du joueur (cf.
+    Joueur.duos_legaux, qui exclut ceux rendant les batailles suivantes injouables).
+    Retourne un tuple de 2 CombattantEnEquipe."""
+    duos = joueur.duos_legaux(batailles_restantes)
+    evalues = [
+        (_score_duo(duo, role, tour, tours_max, pv_soi, pv_adv), duo) for duo in duos
+    ]
+
+    if puissance_adverse_estimee is None:
+        meilleur = max(score for score, _ in evalues)
+        return random.choice([duo for score, duo in evalues if score == meilleur])
+
+    # Duo adverse (partiellement) connu : gagner au meilleur prix plutot qu'au maximum.
+    gagnants = [(score, duo) for score, duo in evalues if score[0] > puissance_adverse_estimee]
+    if gagnants:
+        cible = min(score for score, _ in gagnants)
+        candidats = [duo for score, duo in gagnants if score == cible]
+    else:
+        cible = min(score for score, _ in evalues)
+        candidats = [duo for score, duo in evalues if score == cible]
+    return random.choice(candidats)
+
+
+def _menace(combattant_adverse, tour, tours_max):
+    """Poids heuristique du Pouvoir d'un Combattant adverse deja engage : de combien il
+    fait bouger la Puissance et les Degats de sa bataille."""
+    pouvoir = combattant_adverse.pouvoir()
+    if pouvoir is None:
+        return 0.0
+    camp = combattant_adverse.camp
+    gain_puissance, gain_degats, gain_vie = estimer_gain(
+        pouvoir, camp.role, combattant_adverse.n_utilisation, tour, tours_max,
+        camp.joueur.pv, camp.adversaire.joueur.pv,
+    )
+    if (gain_puissance, gain_degats, gain_vie) == (0, 0, 0) and pouvoir.get("condition") in CONDITIONS_INCERTAINES:
+        # Pouvoir conditionne par l'issue de la bataille : non estimable, mais pas inoffensif.
+        return 1.0
+    return abs(gain_puissance) + abs(gain_degats) + abs(gain_vie)
+
+
+def _copiable(combattant_adverse):
+    """Le Pouvoir de ce Combattant peut-il reellement etre copie ? (memes limitations que
+    l'effet copie_pouvoir dans powers.py)"""
+    from .powers import _contient_copie_pouvoir, _est_differee
+
+    pouvoir = combattant_adverse.pouvoir()
+    if pouvoir is None or combattant_adverse.stoppe:
+        return False
+    return not _est_differee(pouvoir) and not _contient_copie_pouvoir(pouvoir)
+
+
+def choisir_cible(source, candidats, tour, tours_max):
+    """Designe, parmi les 2 Combattants du camp adverse, celui que visent les effets a
+    cible unique du Pouvoir de `source`.
+
+    La regle depend de l'effet dominant du Pouvoir :
+    - Echange : viser le plus fort (Puissance + Degats), c'est ce qu'on recupere.
+    - Copie pouvoir : viser le Pouvoir copiable le plus utile.
+    - Stop pouvoir : viser le Pouvoir le plus menacant.
+    - Malus de Puissance / Degats : viser le Combattant de plus forte Puissance.
+    """
+    types = {effet["type"] for effet in (source.pouvoir() or {}).get("effets", [])}
+
+    if "echange" in types:
+        return max(candidats, key=lambda c: (c.puissance + c.degats, c.puissance))
+    if "copie_pouvoir" in types:
+        copiables = [c for c in candidats if _copiable(c)]
+        if copiables:
+            return max(copiables, key=lambda c: _menace(c, tour, tours_max))
+    if "stop_pouvoir" in types:
+        return max(candidats, key=lambda c: (_menace(c, tour, tours_max), c.puissance))
+    return max(candidats, key=lambda c: (c.puissance, c.degats))
+
+
+def choisir_ciblages(camp, tour, tours_max):
+    """Designe les cibles de tous les Combattants du camp dont le Pouvoir en requiert une.
+    Retourne {id du Combattant: id de la cible}."""
+    ciblages = {}
+    for combattant in camp.combattants:
+        if not pouvoir_requiert_cible(combattant.pouvoir()):
+            continue
+        cible = choisir_cible(combattant, camp.adversaire.combattants, tour, tours_max)
+        ciblages[combattant.template.id] = cible.template.id
+    return ciblages
+
+
+__all__ = [
+    "TYPES_CIBLE_UNIQUE",
+    "choisir_ciblages",
+    "choisir_cible",
+    "choisir_duo",
+    "estimer_gain",
+    "estimer_puissance_duo_adverse",
+]

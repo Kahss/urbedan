@@ -1,4 +1,4 @@
-// Urban Eredan - logique frontend (vanilla JS, jeu jouable uniquement au clic)
+// Urban Eredan, version duo - logique frontend (vanilla JS, jouable uniquement au clic)
 
 const API = "/api";
 
@@ -9,22 +9,24 @@ const ecranFin = document.getElementById("ecran-fin");
 let combattantsDisponibles = [];
 const equipeSelectionnee = new Set();
 let etatCourant = null;
-let glypheSelectionneId = null;
-let combattantSelectionneId = null;
+let duoSelectionne = [];
+let ciblagesEnCours = {};
 
 // -------------------------------------------------------------- utilitaires
 
 async function api(path, options) {
   const reponse = await fetch(API + path, options);
   const data = await reponse.json();
-  if (!reponse.ok) {
-    throw new Error(data.erreur || "Erreur inconnue");
-  }
+  if (!reponse.ok) throw new Error(data.erreur || "Erreur inconnue");
   return data;
 }
 
 function vider(el) {
   while (el.firstChild) el.removeChild(el.firstChild);
+}
+
+function equipeDe(etat, camp) {
+  return camp === "humain" ? etat.joueur_humain.equipe : etat.joueur_ia.equipe;
 }
 
 function trouverCombattant(etat, id) {
@@ -34,30 +36,57 @@ function trouverCombattant(etat, id) {
   );
 }
 
-function conditionEstValidee(pouvoir, role, pvSoi, pvAdv) {
+function roleDe(etat, camp) {
+  return etat.j1 === camp ? "J1" : "J2";
+}
+
+/** Conditions verifiables avant la resolution. Victoire / Defaite / Surpuissance dependent
+ *  de l'issue de la bataille : elles ne sont jamais affichees comme validees. */
+function conditionEstValidee(pouvoir, role, pvSoi, pvAdv, prochaineUtilisation) {
   if (!pouvoir) return false;
   switch (pouvoir.condition) {
     case "courage":
-      return role === "j1";
+      return role === "J1";
     case "riposte":
-      return role === "j2";
+      return role === "J2";
     case "vengeance":
       return pvAdv > pvSoi;
     case "domination":
       return pvAdv < pvSoi;
+    case "premiere_fois":
+      return prochaineUtilisation === 1;
+    case "seconde_fois":
+      return prochaineUtilisation === 2;
     default:
       return false;
   }
 }
 
-function creerCarteCombattant(data, { selectionnable = false, selectionnee = false, active = false, conditionValidee = false, onClick = null } = {}) {
+/** Les ronds sous la carte materialisent les 2 utilisations du Combattant sur la partie
+ *  (equivalent de la carte inclinee du jeu physique). */
+function rondsUtilisation(data) {
+  const total = data.utilisations_max || 2;
+  let html = "";
+  for (let i = 0; i < total; i += 1) {
+    html += `<span class="rond-utilisation ${i < data.utilisations ? "consomme" : ""}"></span>`;
+  }
+  return html;
+}
+
+function creerCarteCombattant(data, options = {}) {
+  const {
+    selectionnable = false, selectionnee = false, indisponible = false,
+    engage = false, revele = false, conditionValidee = false, onClick = null,
+  } = options;
+
   const carte = document.createElement("div");
   carte.className = "carte-combattant";
   if (selectionnable) carte.classList.add("selectionnable");
   if (selectionnee) carte.classList.add("selectionnee");
-  if (active) carte.classList.add("active-duel");
+  if (indisponible) carte.classList.add("indisponible");
+  if (engage) carte.classList.add("engage");
+  if (revele) carte.classList.add("revele");
   if (conditionValidee) carte.classList.add("condition-validee");
-  if (data.utilise) carte.classList.add("utilisee");
 
   const titre = document.createElement("h4");
   titre.textContent = data.nom;
@@ -65,55 +94,32 @@ function creerCarteCombattant(data, { selectionnable = false, selectionnee = fal
 
   const stats = document.createElement("div");
   stats.className = "stats-combattant";
-  stats.innerHTML = `<span>Puissance <b>${data.puissance}</b></span><span>Degats <b>${data.degats}</b></span>`;
+  stats.innerHTML =
+    `<span>Puissance <b>${data.puissance}</b></span><span>Degats <b>${data.degats}</b></span>`;
   carte.appendChild(stats);
 
-  const liste = document.createElement("ul");
-  liste.className = "liste-pouvoirs";
   if (data.pouvoir) {
-    const li = document.createElement("li");
-    const seuil = seuilEnergieInfo(data.pouvoir.energie_min);
-    li.innerHTML = `<span class="num" title="${seuil.titre}">${seuil.html}</span>${data.pouvoir.description}`;
-    liste.appendChild(li);
+    const pouvoir = document.createElement("p");
+    pouvoir.className = "pouvoir-combattant";
+    pouvoir.textContent = data.pouvoir.description;
+    carte.appendChild(pouvoir);
   }
-  carte.appendChild(liste);
 
-  if (data.utilise) {
+  if (data.utilisations !== undefined) {
+    const ronds = document.createElement("div");
+    ronds.className = "ronds-utilisation";
+    ronds.innerHTML = rondsUtilisation(data);
+    ronds.title = `${data.utilisations} / ${data.utilisations_max || 2} utilisations`;
+    carte.appendChild(ronds);
+  }
+
+  if (revele) {
     const badge = document.createElement("span");
-    badge.className = "badge-utilise";
-    badge.textContent = "Utilise";
+    badge.className = "badge-revele";
+    badge.textContent = "Revele";
     carte.appendChild(badge);
   }
 
-  if (onClick) carte.addEventListener("click", onClick);
-  return carte;
-}
-
-function formaterDetailListe(detail) {
-  return detail
-    .map(([label, valeur], i) => {
-      const texte = i === 0 ? `${valeur}` : `${valeur >= 0 ? "+" : "-"} ${Math.abs(valeur)}`;
-      return `<li>${texte} <span class="detail-label">(${label})</span></li>`;
-    })
-    .join("");
-}
-
-function rondsEnergie(energie) {
-  return Array.from({ length: energie }, () => `<span class="rond-energie"></span>`).join("");
-}
-
-function seuilEnergieInfo(energieMin) {
-  if (energieMin > 0) {
-    return { html: rondsEnergie(energieMin), titre: `Energie ${energieMin} ou plus` };
-  }
-  return { html: `<span class="rond-energie rond-energie-vide"></span>`, titre: "Toujours actif" };
-}
-
-function creerCarteGlyphe(glyphe, onClick, { selectionnee = false } = {}) {
-  const carte = document.createElement("div");
-  carte.className = "carte-glyphe";
-  if (selectionnee) carte.classList.add("selectionnee");
-  carte.innerHTML = `<div class="glyphe-puissance">${glyphe.puissance}</div><div class="glyphe-energie">${rondsEnergie(glyphe.energie)}</div>`;
   if (onClick) carte.addEventListener("click", onClick);
   return carte;
 }
@@ -130,27 +136,22 @@ function renderGrilleSelection() {
   const grille = document.getElementById("grille-selection");
   vider(grille);
   combattantsDisponibles.forEach((c) => {
-    const carte = creerCarteCombattant(
-      { ...c, utilise: false },
-      {
+    grille.appendChild(
+      creerCarteCombattant(c, {
         selectionnable: true,
         selectionnee: equipeSelectionnee.has(c.id),
         onClick: () => toggleSelection(c.id),
-      }
+      })
     );
-    grille.appendChild(carte);
   });
-  const compteur = document.getElementById("compteur-selection");
-  compteur.textContent = `${equipeSelectionnee.size} / 4 selectionnes`;
+  document.getElementById("compteur-selection").textContent =
+    `${equipeSelectionnee.size} / 4 selectionnes`;
   document.getElementById("btn-lancer-partie").disabled = equipeSelectionnee.size !== 4;
 }
 
 function toggleSelection(id) {
-  if (equipeSelectionnee.has(id)) {
-    equipeSelectionnee.delete(id);
-  } else if (equipeSelectionnee.size < 4) {
-    equipeSelectionnee.add(id);
-  }
+  if (equipeSelectionnee.has(id)) equipeSelectionnee.delete(id);
+  else if (equipeSelectionnee.size < 4) equipeSelectionnee.add(id);
   renderGrilleSelection();
 }
 
@@ -173,93 +174,74 @@ document.getElementById("btn-nouvelle-partie").addEventListener("click", async (
 
 // ------------------------------------------------------------- ecran partie
 
-function peutChoisirMaintenant(etat) {
-  const humainSlot = humanRole(etat);
-  const humainChoisiId = etat["combattant_" + humainSlot];
-  return etat.phase === "choix_combattant" && humainChoisiId === null;
-}
-
 function render(etat) {
   etatCourant = etat;
-  if (etat.terminee && etat.phase !== "duel_resolu") {
+  if (etat.terminee && etat.phase !== "bataille_resolue") {
     renderFin(etat);
     return;
   }
-  // Si les selections en cours ne correspondent plus a l'etat actuel (nouvelle manche,
-  // ou plus qu'un seul choix possible), on les reinitialise / auto-selectionne.
-  const peutChoisir = peutChoisirMaintenant(etat);
-  const main = (peutChoisir && etat.joueur_humain.main_glyphes) || [];
-  if (!main.some((g) => g.id === glypheSelectionneId)) {
-    glypheSelectionneId = main.length === 1 ? main[0].id : null;
-  }
-  const dispo = (peutChoisir && etat.joueur_humain.equipe.filter((c) => !c.utilise)) || [];
-  if (!dispo.some((c) => c.id === combattantSelectionneId)) {
-    combattantSelectionneId = dispo.length === 1 ? dispo[0].id : null;
-  }
+  if (etat.phase !== "choix_duo") duoSelectionne = [];
+  if (etat.phase !== "ciblage") ciblagesEnCours = {};
   renderTableauBord(etat);
-  renderGlyphesRestants(etat);
+  renderCarteBataille(etat);
   renderEquipes(etat);
-  renderZoneCentrale(etat);
+  renderCentre(etat);
 }
 
-function pvRonds(pv) {
-  const total = 10;
-  const pvSecur = Math.max(0, pv);
-  const orangeCount = pvSecur > total ? Math.min(pvSecur - total, total) : 0;
-  const pleinCount = pvSecur > total ? total - orangeCount : pvSecur;
+function pvRonds(pv, max) {
+  const surplus = Math.max(0, pv - max);
+  const pleins = Math.max(0, Math.min(pv, max));
   let html = "";
-  for (let i = 0; i < total; i++) {
-    const classe = i < orangeCount ? "orange" : i < orangeCount + pleinCount ? "plein" : "";
-    html += `<span class="pv-rond ${classe}"></span>`;
+  for (let i = 0; i < max; i += 1) {
+    html += `<span class="pv-rond ${i < pleins ? "plein" : ""}"></span>`;
   }
+  for (let i = 0; i < surplus; i += 1) html += `<span class="pv-rond surplus"></span>`;
   return html;
 }
 
 function renderTableauBord(etat) {
-  const pvH = etat.joueur_humain.pv;
-  const pvI = etat.joueur_ia.pv;
-  document.getElementById("pv-humain-texte").textContent = `${pvH} PV`;
-  document.getElementById("pv-ia-texte").textContent = `${pvI} PV`;
-  document.getElementById("pv-humain-ronds").innerHTML = pvRonds(pvH);
-  document.getElementById("pv-ia-ronds").innerHTML = pvRonds(pvI);
-  document.getElementById("duel-numero-texte").textContent = `Duel ${Math.min(etat.duel_numero, etat.duels_max)} / ${etat.duels_max}`;
+  const max = etat.pv_depart;
+  document.getElementById("pv-humain-texte").textContent = `${etat.joueur_humain.pv} PV`;
+  document.getElementById("pv-ia-texte").textContent = `${etat.joueur_ia.pv} PV`;
+  document.getElementById("pv-humain-ronds").innerHTML = pvRonds(etat.joueur_humain.pv, max);
+  document.getElementById("pv-ia-ronds").innerHTML = pvRonds(etat.joueur_ia.pv, max);
+  document.getElementById("tour-texte").textContent =
+    `Bataille ${Math.min(etat.tour, etat.tours_max)} / ${etat.tours_max}`;
+  document.getElementById("role-texte").textContent =
+    etat.j1 === "humain" ? "Tu resous tes Pouvoirs en premier (J1)" : "L'IA resout ses Pouvoirs en premier (J1)";
 }
 
-function humanRole(etat) {
-  return etat.j1 === "humain" ? "j1" : "j2";
-}
-
-function renderGlyphesRestants(etat) {
-  const conteneur = document.getElementById("glyphes-restants-liste");
-  vider(conteneur);
-  (etat.glyphes_restants || []).forEach((g) => {
-    const el = document.createElement("div");
-    el.className = "mini-glyphe";
-    if (g.restants === 0) el.classList.add("epuise");
-    el.innerHTML = `<span class="mini-glyphe-puissance">${g.puissance}</span><span class="mini-glyphe-energie">${rondsEnergie(g.energie)}</span><span class="mini-glyphe-compte">${g.restants}/${g.total}</span>`;
-    conteneur.appendChild(el);
-  });
+function renderCarteBataille(etat) {
+  const bloc = document.getElementById("carte-bataille");
+  const carte = etat.carte_bataille;
+  bloc.innerHTML =
+    `<span class="carte-bataille-libelle">Carte bataille de ce tour</span>` +
+    `<span class="carte-bataille-nom">${carte.nom}</span>` +
+    `<span class="carte-bataille-desc">${carte.description}</span>` +
+    `<span class="carte-bataille-note">Effet applique par le vainqueur de la bataille</span>`;
 }
 
 function renderEquipes(etat) {
-  const peutChoisir = peutChoisirMaintenant(etat);
-  const roleHumain = humanRole(etat);
-  const roleIa = roleHumain === "j1" ? "j2" : "j1";
+  const choixOuvert = etat.phase === "choix_duo" && etat.duo_humain === null;
+  const engagesHumain = etat.duo_humain || [];
+  const engagesIa = etat.duo_ia || [];
+  const reveles = etat.duo_ia_revele || [];
 
   const grilleHumain = document.getElementById("equipe-humain");
   vider(grilleHumain);
   etat.joueur_humain.equipe.forEach((c) => {
-    const active = c.id === etat.combattant_j1 || c.id === etat.combattant_j2;
+    const selectionnable = choixOuvert && peutEtreClique(etat, c);
     grilleHumain.appendChild(
       creerCarteCombattant(c, {
-        selectionnable: peutChoisir && !c.utilise,
-        selectionnee: c.id === combattantSelectionneId,
-        active,
-        conditionValidee: conditionEstValidee(c.pouvoir, roleHumain, etat.joueur_humain.pv, etat.joueur_ia.pv),
-        onClick:
-          peutChoisir && !c.utilise
-            ? () => armerCombattant(c.id)
-            : null,
+        selectionnable,
+        selectionnee: duoSelectionne.includes(c.id),
+        indisponible: choixOuvert && !selectionnable,
+        engage: engagesHumain.includes(c.id),
+        conditionValidee: conditionEstValidee(
+          c.pouvoir, roleDe(etat, "humain"), etat.joueur_humain.pv, etat.joueur_ia.pv,
+          c.utilisations + 1
+        ),
+        onClick: selectionnable ? () => basculerDuo(c.id) : null,
       })
     );
   });
@@ -267,158 +249,256 @@ function renderEquipes(etat) {
   const grilleIa = document.getElementById("equipe-ia");
   vider(grilleIa);
   etat.joueur_ia.equipe.forEach((c) => {
-    const active = c.id === etat.combattant_j1 || c.id === etat.combattant_j2;
     grilleIa.appendChild(
       creerCarteCombattant(c, {
-        active,
-        conditionValidee: conditionEstValidee(c.pouvoir, roleIa, etat.joueur_ia.pv, etat.joueur_humain.pv),
+        engage: engagesIa.includes(c.id),
+        revele: engagesIa.length === 0 && reveles.includes(c.id),
+        indisponible: !c.disponible,
+        conditionValidee: conditionEstValidee(
+          c.pouvoir, roleDe(etat, "ia"), etat.joueur_ia.pv, etat.joueur_humain.pv,
+          c.utilisations + 1
+        ),
       })
     );
   });
 }
 
-function armerCombattant(id) {
-  combattantSelectionneId = id;
-  if (glypheSelectionneId !== null) {
-    soumettreChoix();
-  } else {
-    renderEquipes(etatCourant);
-    renderZoneCentrale(etatCourant);
+/** Un Combattant est cliquable s'il peut completer un duo legal avec la selection en cours.
+ *  Les duos legaux sont calcules par le backend : ils excluent ceux qui rendraient une
+ *  bataille suivante injouable, faute de 2 Combattants distincts encore disponibles. */
+function peutEtreClique(etat, combattant) {
+  if (duoSelectionne.includes(combattant.id)) return true;
+  if (duoSelectionne.length >= 2 || !combattant.disponible) return false;
+  const legaux = etat.duos_legaux || [];
+  if (duoSelectionne.length === 0) return legaux.some((duo) => duo.includes(combattant.id));
+  return legaux.some((duo) => duo.includes(duoSelectionne[0]) && duo.includes(combattant.id));
+}
+
+function basculerDuo(id) {
+  const index = duoSelectionne.indexOf(id);
+  if (index >= 0) duoSelectionne.splice(index, 1);
+  else duoSelectionne.push(id);
+  if (duoSelectionne.length === 2) soumettreDuo();
+  else render(etatCourant);
+}
+
+async function soumettreDuo() {
+  const ids = duoSelectionne.slice();
+  duoSelectionne = [];
+  await appelerApi("/partie/duo", { combattant_ids: ids });
+}
+
+async function soumettreCiblages() {
+  const ciblages = { ...ciblagesEnCours };
+  ciblagesEnCours = {};
+  await appelerApi("/partie/ciblage", { ciblages });
+}
+
+async function appelerApi(chemin, corps) {
+  try {
+    const etat = await api(chemin, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(corps),
+    });
+    render(etat);
+  } catch (erreur) {
+    const message = document.getElementById("message-attente");
+    message.textContent = erreur.message;
+    message.classList.remove("cache");
+    message.classList.add("erreur");
   }
 }
 
-function armerGlyphe(id) {
-  glypheSelectionneId = id;
-  if (combattantSelectionneId !== null) {
-    soumettreChoix();
-  } else {
-    renderEquipes(etatCourant);
-    renderZoneCentrale(etatCourant);
-  }
-}
+// ------------------------------------------------------------- zone centrale
 
-async function soumettreChoix() {
-  const combattantId = combattantSelectionneId;
-  const glypheId = glypheSelectionneId;
-  combattantSelectionneId = null;
-  glypheSelectionneId = null;
-  const etat = await api("/partie/combattant", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ combattant_id: combattantId, glyphe_id: glypheId }),
-  });
-  render(etat);
-}
-
-function renderZoneCentrale(etat) {
-  const zoneGlyphes = document.getElementById("zone-glyphes");
+function renderCentre(etat) {
+  const message = document.getElementById("message-attente");
+  const zoneCiblage = document.getElementById("zone-ciblage");
   const zoneResultat = document.getElementById("zone-resultat");
-  const messageAttente = document.getElementById("message-attente");
-  const conteneurDuel = document.getElementById("combattants-en-duel");
-
-  zoneGlyphes.classList.add("cache");
+  message.classList.add("cache");
+  message.classList.remove("erreur");
+  zoneCiblage.classList.add("cache");
   zoneResultat.classList.add("cache");
-  messageAttente.classList.add("cache");
-  vider(conteneurDuel);
 
-  const humainSlot = humanRole(etat);
-  const iaSlot = humainSlot === "j1" ? "j2" : "j1";
-  const humainId = etat["combattant_" + humainSlot];
-  const iaId = etat["combattant_" + iaSlot];
+  renderDuosEnJeu(etat);
 
+  if (etat.phase === "choix_duo") {
+    const reveles = (etat.duo_ia_revele || []).map((id) => trouverCombattant(etat, id).nom);
+    const restantes = etat.batailles_restantes;
+    let texte = duoSelectionne.length === 1
+      ? "Choisis le second Combattant de ton duo."
+      : "Choisis les 2 Combattants que tu engages dans cette bataille.";
+    if (reveles.length) {
+      texte += ` L'IA a deja verrouille son duo et revele ${reveles.join(" et ")}.`;
+    }
+    if (restantes === 1) texte += " Derniere bataille.";
+    message.textContent = texte;
+    message.classList.remove("cache");
+  } else if (etat.phase === "ciblage") {
+    renderCiblage(etat);
+    zoneCiblage.classList.remove("cache");
+  } else if (etat.phase === "bataille_resolue") {
+    renderResultat(etat);
+    zoneResultat.classList.remove("cache");
+  }
+}
+
+function renderDuosEnJeu(etat) {
+  const conteneur = document.getElementById("duos-en-jeu");
+  vider(conteneur);
   const resultat = etat.dernier_resultat;
 
   [
-    { id: humainId, role: "Toi", slot: humainSlot },
-    { id: iaId, role: "IA", slot: iaSlot },
-  ].forEach(({ id, role, slot }) => {
-    const labelRole = `${role} (${slot.toUpperCase()})`;
-    if (id === null) {
-      const placeholder = document.createElement("div");
-      placeholder.className = "carte-duel";
-      placeholder.innerHTML = `<div class="role">${labelRole}</div><h3>En attente...</h3>`;
-      conteneurDuel.appendChild(placeholder);
-      return;
-    }
-    const data = trouverCombattant(etat, id);
-    const carte = document.createElement("div");
-    carte.className = "carte-duel";
-    let contenu = `<div class="role">${labelRole}</div><h3>${data.nom}</h3>`;
-    if (resultat) {
-      const infoCote = resultat.combattant_j1.nom === data.nom ? resultat.combattant_j1 : resultat.combattant_j2;
-      contenu += `<div class="glyphe-joue"><span class="glyphe-joue-puissance">${infoCote.puissance_glyphe}</span><span class="glyphe-joue-energie">${rondsEnergie(infoCote.energie)}</span></div>`;
-      const pouvoirActif = data.pouvoir && infoCote.energie >= data.pouvoir.energie_min ? data.pouvoir : null;
-      contenu += `<div class="pouvoir-actif">${
-        pouvoirActif
-          ? `Pouvoir actif : ${pouvoirActif.description}`
-          : "Pouvoir non active (Energie insuffisante)"
-      }</div>`;
-      contenu += `<div class="bloc-stat">
-        <span class="valeur-grosse">${resultat.puissance_finale[data.nom]}</span>
-        <span class="libelle-stat">Puissance totale</span>
-      </div>`;
-      contenu += `<ul class="detail-liste">${formaterDetailListe(resultat.detail_puissance[data.nom])}</ul>`;
-      if (resultat.gagnants.includes(data.nom)) {
-        carte.classList.add("gagnant");
-        contenu += `<div class="bloc-stat degats">
-          <span class="valeur-grosse petite">${resultat.degats_finale[data.nom]}</span>
-          <span class="libelle-stat">Degats infliges</span>
-        </div>`;
-        contenu += `<ul class="detail-liste degats">${formaterDetailListe(resultat.detail_degats[data.nom])}</ul>`;
-      }
+    { camp: "humain", libelle: "Ton duo", ids: etat.duo_humain },
+    { camp: "ia", libelle: "Duo de l'IA", ids: etat.duo_ia },
+  ].forEach(({ camp, libelle, ids }) => {
+    const panneau = document.createElement("div");
+    panneau.className = "panneau-duo";
+    const infoCamp = resultat ? resultat.camps[camp] : null;
+    if (infoCamp && infoCamp.gagnant) panneau.classList.add("gagnant");
+
+    const entete = document.createElement("div");
+    entete.className = "panneau-duo-entete";
+    const role = resultat ? infoCamp.role : roleDe(etat, camp);
+    entete.innerHTML = `<span class="panneau-duo-titre">${libelle}</span>` +
+      `<span class="panneau-duo-role">${role}</span>`;
+    panneau.appendChild(entete);
+
+    if (!ids || ids.length === 0) {
+      const attente = document.createElement("p");
+      attente.className = "panneau-duo-attente";
+      attente.textContent = camp === "ia" ? "Duo verrouille, face cachee" : "Duo a choisir";
+      panneau.appendChild(attente);
+    } else if (infoCamp) {
+      infoCamp.combattants.forEach((c) => panneau.appendChild(carteResolution(c, infoCamp)));
+      panneau.appendChild(totalCamp(infoCamp));
     } else {
-      contenu += `<div class="glyphe-joue">Puissance ${data.puissance} / Degats ${data.degats}</div>`;
+      ids.forEach((id) => {
+        const data = trouverCombattant(etat, id);
+        const carte = document.createElement("div");
+        carte.className = "carte-engagee";
+        carte.innerHTML = `<h5>${data.nom}</h5>` +
+          `<span class="carte-engagee-stats">Puissance ${data.puissance} / Degats ${data.degats}</span>` +
+          `<span class="carte-engagee-utilisation">${
+            data.utilisations >= 2 ? "Seconde fois" : "Premiere fois"
+          }</span>`;
+        panneau.appendChild(carte);
+      });
     }
-    carte.innerHTML = contenu;
-    conteneurDuel.appendChild(carte);
+    conteneur.appendChild(panneau);
   });
-
-  const libelleGlyphes = document.getElementById("libelle-glyphes");
-  const mainGlyphes = document.getElementById("main-glyphes");
-
-  if (etat.phase === "choix_combattant") {
-    zoneGlyphes.classList.remove("cache");
-    vider(mainGlyphes);
-
-    if (humainId === null) {
-      const main = etat.joueur_humain.main_glyphes || [];
-      messageAttente.textContent =
-        main.length > 1
-          ? "Choisis ton Combattant et le Glyphe a lui associer, dans l'ordre de ton choix."
-          : "Choisis ton Combattant : ton unique Glyphe en main lui sera associe.";
-      libelleGlyphes.textContent = "Ta main de Glyphes pour cette manche :";
-      mainGlyphes.classList.remove("inactif");
-      main.forEach((g) => {
-        mainGlyphes.appendChild(
-          creerCarteGlyphe(g, () => armerGlyphe(g.id), { selectionnee: g.id === glypheSelectionneId })
-        );
-      });
-    } else {
-      messageAttente.textContent = "En attente du choix de l'IA...";
-      libelleGlyphes.textContent = "Glyphe restant en main pour la prochaine manche :";
-      mainGlyphes.classList.add("inactif");
-      (etat.joueur_humain.main_glyphes || []).forEach((g) => {
-        mainGlyphes.appendChild(creerCarteGlyphe(g, null));
-      });
-    }
-    messageAttente.classList.remove("cache");
-  } else if (etat.phase === "duel_resolu") {
-    zoneResultat.classList.remove("cache");
-    const journal = document.getElementById("journal-resolution");
-    vider(journal);
-    resultat.log.forEach((ligne) => {
-      const p = document.createElement("p");
-      if (ligne.includes("remporte le duel")) p.className = "gain";
-      p.textContent = ligne;
-      journal.appendChild(p);
-    });
-    const btn = document.getElementById("btn-duel-suivant");
-    btn.textContent = etat.terminee ? "Voir le resultat final" : "Duel suivant";
-    btn.onclick = etat.terminee ? () => renderFin(etat) : duelSuivant;
-  }
 }
 
-async function duelSuivant() {
+function formaterDetail(detail) {
+  return detail
+    .map(([label, valeur], i) => {
+      const texte = i === 0 ? `${valeur}` : `${valeur >= 0 ? "+" : "-"} ${Math.abs(valeur)}`;
+      return `<li>${texte} <span class="detail-label">(${label})</span></li>`;
+    })
+    .join("");
+}
+
+function carteResolution(combattant, infoCamp) {
+  const carte = document.createElement("div");
+  carte.className = "carte-engagee";
+  if (combattant.stoppe) carte.classList.add("stoppee");
+  let html = `<h5>${combattant.nom}</h5>` +
+    `<span class="carte-engagee-utilisation">${
+      combattant.n_utilisation === 1 ? "Premiere fois" : "Seconde fois"
+    }</span>` +
+    `<div class="bloc-stat"><span class="valeur-grosse">${combattant.puissance}</span>` +
+    `<span class="libelle-stat">Puissance</span></div>` +
+    `<ul class="detail-liste">${formaterDetail(combattant.detail_puissance)}</ul>`;
+  if (combattant.cible_nom) {
+    html += `<span class="carte-engagee-cible">Cible : ${combattant.cible_nom}</span>`;
+  }
+  if (infoCamp.gagnant) {
+    html += `<div class="bloc-stat degats"><span class="valeur-grosse petite">${combattant.degats}</span>` +
+      `<span class="libelle-stat">Degats</span></div>` +
+      `<ul class="detail-liste degats">${formaterDetail(combattant.detail_degats)}</ul>`;
+  }
+  carte.innerHTML = html;
+  return carte;
+}
+
+function totalCamp(infoCamp) {
+  const bloc = document.createElement("div");
+  bloc.className = "total-camp";
+  let html = `<span class="total-camp-libelle">Puissance du duo</span>` +
+    `<span class="total-camp-valeur">${infoCamp.puissance_totale}</span>`;
+  if (infoCamp.gagnant) {
+    const detail = infoCamp.detail_degats_camp.length
+      ? ` (dont ${infoCamp.detail_degats_camp.map(([l, v]) => `+${v} ${l}`).join(", ")})`
+      : "";
+    html += `<span class="total-camp-degats">Degats infliges : ${infoCamp.degats_totaux}${detail}</span>`;
+  }
+  bloc.innerHTML = html;
+  return bloc;
+}
+
+// ---------------------------------------------------------------- ciblage
+
+function renderCiblage(etat) {
+  const zone = document.getElementById("zone-ciblage");
+  vider(zone);
+  const titre = document.createElement("p");
+  titre.className = "zone-ciblage-titre";
+  titre.textContent =
+    "Les deux duos sont reveles. Designe la cible des Pouvoirs a cible unique :";
+  zone.appendChild(titre);
+
+  etat.ciblages_requis.forEach((requis) => {
+    const ligne = document.createElement("div");
+    ligne.className = "ligne-ciblage";
+    const source = document.createElement("div");
+    source.className = "ciblage-source";
+    source.innerHTML = `<b>${requis.nom}</b><span>${requis.pouvoir}</span>`;
+    ligne.appendChild(source);
+
+    const cibles = document.createElement("div");
+    cibles.className = "ciblage-cibles";
+    requis.cibles.forEach((cible) => {
+      const bouton = document.createElement("button");
+      bouton.className = "bouton-cible";
+      if (ciblagesEnCours[requis.combattant_id] === cible.id) {
+        bouton.classList.add("choisie");
+      }
+      bouton.textContent = cible.nom;
+      bouton.addEventListener("click", () => {
+        ciblagesEnCours[requis.combattant_id] = cible.id;
+        if (etat.ciblages_requis.every((r) => ciblagesEnCours[r.combattant_id])) {
+          soumettreCiblages();
+        } else {
+          renderCiblage(etat);
+        }
+      });
+      cibles.appendChild(bouton);
+    });
+    ligne.appendChild(cibles);
+    zone.appendChild(ligne);
+  });
+}
+
+// --------------------------------------------------------------- resultat
+
+function renderResultat(etat) {
+  const resultat = etat.dernier_resultat;
+  const journal = document.getElementById("journal-resolution");
+  vider(journal);
+  resultat.log.forEach((ligne) => {
+    const p = document.createElement("p");
+    if (ligne.includes("remporte la bataille")) p.className = "gain";
+    else if (ligne.startsWith(resultat.carte_bataille.nom)) p.className = "carte";
+    p.textContent = ligne;
+    journal.appendChild(p);
+  });
+  const bouton = document.getElementById("btn-bataille-suivante");
+  bouton.textContent = etat.terminee ? "Voir le resultat final" : "Bataille suivante";
+  bouton.onclick = etat.terminee ? () => renderFin(etat) : batailleSuivante;
+}
+
+async function batailleSuivante() {
   const etat = await api("/partie/suivant", { method: "POST" });
   render(etat);
 }
@@ -427,11 +507,11 @@ function renderFin(etat) {
   ecranPartie.classList.add("cache");
   ecranFin.classList.remove("cache");
   const titre = document.getElementById("titre-fin");
-  const detail = document.getElementById("detail-fin");
   if (etat.vainqueur === "humain") titre.textContent = "Victoire !";
   else if (etat.vainqueur === "ia") titre.textContent = "Defaite...";
   else titre.textContent = "Egalite";
-  detail.textContent = `Toi : ${etat.joueur_humain.pv} PV — IA : ${etat.joueur_ia.pv} PV`;
+  document.getElementById("detail-fin").textContent =
+    `Toi : ${etat.joueur_humain.pv} PV — IA : ${etat.joueur_ia.pv} PV`;
 }
 
 // ------------------------------------------------------------------- start

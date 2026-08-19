@@ -1,4 +1,4 @@
-"""Serveur Flask : sert le frontend statique et expose l'API REST du jeu."""
+"""Serveur Flask : sert le frontend statique et expose l'API REST du jeu (version duo)."""
 import os
 
 from flask import Flask, jsonify, request, send_from_directory
@@ -49,24 +49,36 @@ def api_etat_partie():
     return jsonify(partie.etat_dict())
 
 
-@app.post("/api/partie/combattant")
-def api_choix_combattant():
+@app.post("/api/partie/duo")
+def api_choix_duo():
     if partie is None:
         return jsonify({"erreur": "Aucune partie en cours"}), 404
     body = request.get_json(force=True) or {}
     try:
-        etat = partie.soumettre_combattant(body.get("combattant_id"), body.get("glyphe_id"))
+        etat = partie.soumettre_duo(body.get("combattant_ids"))
+    except ErreurPartie as e:
+        return jsonify({"erreur": str(e)}), 400
+    return jsonify(etat)
+
+
+@app.post("/api/partie/ciblage")
+def api_ciblage():
+    if partie is None:
+        return jsonify({"erreur": "Aucune partie en cours"}), 404
+    body = request.get_json(force=True) or {}
+    try:
+        etat = partie.soumettre_ciblages(body.get("ciblages"))
     except ErreurPartie as e:
         return jsonify({"erreur": str(e)}), 400
     return jsonify(etat)
 
 
 @app.post("/api/partie/suivant")
-def api_duel_suivant():
+def api_bataille_suivante():
     if partie is None:
         return jsonify({"erreur": "Aucune partie en cours"}), 404
     try:
-        etat = partie.duel_suivant()
+        etat = partie.bataille_suivante()
     except ErreurPartie as e:
         return jsonify({"erreur": str(e)}), 400
     return jsonify(etat)

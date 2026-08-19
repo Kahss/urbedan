@@ -23,550 +23,290 @@ body {
   min-height: 100vh;
 }
 
-.entete {
-  text-align: center;
-  padding: 28px 16px 12px;
-}
+.entete { text-align: center; padding: 24px 16px 8px; }
 
 .entete h1 {
   margin: 0;
-  font-size: 2.6rem;
-  letter-spacing: 4px;
-  font-weight: 900;
+  font-size: 2.1rem;
+  letter-spacing: 5px;
   text-transform: uppercase;
 }
 
-.entete h1 span {
-  color: var(--accent);
-  text-shadow: 0 0 18px rgba(255, 90, 31, 0.6);
-}
+.entete h1 span { color: var(--accent); }
 
-.sous-titre {
-  color: var(--text-dim);
-  margin: 4px 0 0;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  font-size: 0.8rem;
-}
+.sous-titre { margin: 6px 0 0; color: var(--text-dim); font-size: 0.9rem; }
 
-main {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 16px 20px 60px;
-}
+main { max-width: 1360px; margin: 0 auto; padding: 12px 16px 48px; }
 
 .ecran.cache { display: none; }
-
 h2 { text-align: center; }
-.aide { text-align: center; color: var(--text-dim); margin-bottom: 20px; }
+.aide {
+  text-align: center; color: var(--text-dim); margin: 0 auto 20px;
+  max-width: 640px; line-height: 1.5;
+}
 
-/* ---------- Cartes Combattant ---------- */
+/* ------------------------------------------------------------ Combattants */
+
 .grille-combattants {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
 }
 
-.grille-combattants.petite {
-  grid-template-columns: 1fr;
-  gap: 8px;
-}
+.grille-combattants.petite { grid-template-columns: 1fr; gap: 10px; }
 
 .carte-combattant {
-  background: var(--bg-card);
-  border: 2px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 14px;
-  box-shadow: var(--shadow);
-  transition: transform 0.12s ease, border-color 0.12s ease;
   position: relative;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 12px 10px;
+  box-shadow: var(--shadow);
+  transition: border-color 0.15s, transform 0.15s, opacity 0.15s;
 }
 
-.carte-combattant.selectionnable {
-  cursor: pointer;
-}
-
+.carte-combattant.selectionnable { cursor: pointer; }
 .carte-combattant.selectionnable:hover {
-  transform: translateY(-3px);
   border-color: var(--accent-2);
+  transform: translateY(-2px);
 }
-
 .carte-combattant.selectionnee {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent), var(--shadow);
+  box-shadow: 0 0 0 2px rgba(255, 90, 31, 0.35), var(--shadow);
 }
-
-.carte-combattant.utilisee {
-  opacity: 0.4;
-  filter: grayscale(0.6);
+.carte-combattant.indisponible { opacity: 0.4; cursor: default; }
+.carte-combattant.engage {
+  border-color: var(--accent-2);
+  box-shadow: 0 0 0 2px rgba(23, 212, 212, 0.3), var(--shadow);
 }
-
-.carte-combattant.active-duel {
-  border-color: var(--accent);
-  box-shadow: 0 0 20px rgba(255, 90, 31, 0.35);
-}
-
-.carte-combattant.condition-validee {
-  outline: 2px solid var(--or);
-  outline-offset: 2px;
-}
+.carte-combattant.revele { border-color: var(--or); }
+.carte-combattant.condition-validee { background: linear-gradient(180deg, #2b2a24, var(--bg-card)); }
 
 .carte-combattant h4 {
-  margin: 0 0 6px;
-  font-size: 1.05rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+  margin: 0 0 8px;
+  font-size: 1rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
 }
 
 .stats-combattant {
-  display: flex;
-  gap: 12px;
-  font-size: 0.85rem;
-  color: var(--text-dim);
-  margin-bottom: 8px;
+  display: flex; justify-content: space-between;
+  font-size: 0.78rem; color: var(--text-dim); margin-bottom: 8px;
+}
+.stats-combattant b { color: var(--text); font-size: 0.95rem; }
+
+.pouvoir-combattant {
+  margin: 0; padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 0.78rem; line-height: 1.4; color: var(--text);
 }
 
-.stats-combattant b { color: var(--text); }
+/* Les ronds sous la carte comptent les 2 utilisations autorisees sur la partie. */
+.ronds-utilisation { display: flex; gap: 5px; margin-top: 10px; }
+.rond-utilisation {
+  width: 11px; height: 11px; border-radius: 50%;
+  border: 1px solid var(--border); background: transparent;
+}
+.rond-utilisation.consomme { background: var(--accent); border-color: var(--accent); }
 
-.liste-pouvoirs {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  font-size: 0.78rem;
-  color: var(--text-dim);
+.badge-revele {
+  position: absolute; top: 8px; right: 8px;
+  background: var(--or); color: #1b1a16;
+  font-size: 0.62rem; font-weight: 700; text-transform: uppercase;
+  padding: 2px 6px; border-radius: 4px;
 }
 
-.liste-pouvoirs li {
-  padding: 3px 0;
-  border-top: 1px dashed var(--border);
-}
+/* ---------------------------------------------------------------- boutons */
 
-.liste-pouvoirs li:first-child { border-top: none; }
-
-.liste-pouvoirs .num {
-  color: var(--accent-2);
-  font-weight: 700;
-  margin-right: 4px;
-}
-
-.liste-pouvoirs .num .rond-energie {
-  vertical-align: middle;
-  margin-right: 2px;
-}
-
-.rond-energie.rond-energie-vide {
-  background: #eceef2;
-  box-shadow: none;
-}
-
-.badge-utilise {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: var(--danger);
-  color: #fff;
-  font-size: 0.65rem;
-  padding: 2px 6px;
-  border-radius: 4px;
-  text-transform: uppercase;
-}
-
-/* ---------- Barre d'action / selection equipe ---------- */
 .barre-action {
-  position: sticky;
-  bottom: 0;
-  margin-top: 20px;
-  padding: 14px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+  display: flex; align-items: center; justify-content: center;
+  gap: 18px; margin-top: 24px;
 }
 
 button {
-  background: var(--accent);
-  color: #fff;
-  border: none;
-  padding: 10px 22px;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  font-weight: 700;
+  background: var(--accent); color: #14151a;
+  border: none; border-radius: 8px;
+  padding: 11px 22px;
+  font-size: 0.92rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 1px;
   cursor: pointer;
-  letter-spacing: 0.5px;
-  transition: background 0.15s ease, transform 0.1s ease;
 }
+button:hover { filter: brightness(1.1); }
+button:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
 
-button:hover:not(:disabled) { background: #ff7440; transform: translateY(-1px); }
+/* ----------------------------------------------------------- tableau de bord */
 
-button:disabled {
-  background: var(--border);
-  color: var(--text-dim);
-  cursor: not-allowed;
-}
-
-/* ---------- Tableau de bord (PV) ---------- */
 .tableau-bord {
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  gap: 16px;
-  align-items: center;
+  display: grid; grid-template-columns: 1fr auto 1fr;
+  gap: 16px; align-items: center;
   background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px 20px;
-  margin-bottom: 20px;
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 18px; margin-bottom: 14px;
 }
 
-.joueur-info h3 {
-  margin: 0 0 6px;
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-dim);
-}
-
+.joueur-info h3 { margin: 0 0 6px; font-size: 0.95rem; letter-spacing: 2px; text-transform: uppercase; }
 .joueur-ia { text-align: right; }
 
-.pv-ronds {
-  display: flex;
-  gap: 4px;
-}
-
-.joueur-ia .pv-ronds {
-  justify-content: flex-end;
-}
+.pv-ronds { display: flex; flex-wrap: wrap; gap: 4px; max-width: 280px; }
+.joueur-ia .pv-ronds { justify-content: flex-end; margin-left: auto; }
 
 .pv-rond {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #0d0e12;
-  border: 1px solid var(--border);
-  transition: background 0.3s ease, border-color 0.3s ease;
+  width: 10px; height: 10px; border-radius: 50%;
+  border: 1px solid var(--border); background: transparent;
+}
+.pv-rond.plein { background: var(--ok); border-color: var(--ok); }
+.pv-rond.surplus { background: var(--or); border-color: var(--or); }
+
+.pv-texte { display: block; margin-top: 6px; font-size: 0.8rem; color: var(--text-dim); }
+
+.bataille-compteur { text-align: center; }
+.bataille-compteur > span:first-child {
+  display: block; font-size: 1.05rem; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase;
+}
+.role-texte { display: block; margin-top: 4px; font-size: 0.72rem; color: var(--text-dim); }
+
+/* ------------------------------------------------------- carte bataille */
+
+.carte-bataille {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  background: linear-gradient(180deg, #2a2333, var(--bg-panel));
+  border: 1px solid var(--accent-2); border-radius: 12px;
+  padding: 12px 18px; margin-bottom: 16px; text-align: center;
+}
+.carte-bataille-libelle {
+  font-size: 0.66rem; letter-spacing: 2px; text-transform: uppercase; color: var(--accent-2);
+}
+.carte-bataille-nom { font-size: 1.2rem; font-weight: 700; letter-spacing: 1px; }
+.carte-bataille-desc { font-size: 0.85rem; color: var(--text); max-width: 620px; line-height: 1.4; }
+.carte-bataille-note { font-size: 0.7rem; color: var(--text-dim); font-style: italic; }
+
+/* ------------------------------------------------------------- zone duo */
+
+.zone-duo { display: grid; grid-template-columns: 220px 1fr 220px; gap: 18px; align-items: start; }
+
+.cote-duo h4 {
+  margin: 0 0 10px; text-align: center;
+  font-size: 0.8rem; letter-spacing: 2px; text-transform: uppercase; color: var(--text-dim);
 }
 
-.pv-rond.plein {
-  background: var(--ok);
-  border-color: var(--ok);
-  box-shadow: 0 0 4px rgba(62, 207, 106, 0.7);
-}
+.centre-duo { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 
-.pv-rond.orange {
-  background: var(--accent);
-  border-color: var(--accent);
-  box-shadow: 0 0 4px rgba(255, 90, 31, 0.7);
-}
+.duos-en-jeu { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; width: 100%; }
 
-.pv-texte {
-  font-size: 0.8rem;
-  color: var(--text-dim);
+.panneau-duo {
+  background: var(--bg-panel);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px; display: flex; flex-direction: column; gap: 10px;
 }
+.panneau-duo.gagnant { border-color: var(--ok); box-shadow: 0 0 0 2px rgba(62, 207, 106, 0.25); }
 
-.duel-compteur {
-  text-align: center;
-  font-weight: 800;
-  letter-spacing: 1px;
-  color: var(--accent-2);
-  white-space: nowrap;
+.panneau-duo-entete { display: flex; justify-content: space-between; align-items: baseline; }
+.panneau-duo-titre { font-size: 0.8rem; letter-spacing: 1px; text-transform: uppercase; }
+.panneau-duo-role {
+  font-size: 0.66rem; color: var(--accent-2);
+  border: 1px solid var(--accent-2); border-radius: 4px; padding: 1px 5px;
 }
+.panneau-duo-attente { margin: 12px 0; text-align: center; color: var(--text-dim); font-size: 0.82rem; }
 
-/* ---------- Compteur de Glyphes restants ---------- */
-.glyphes-restants {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
+.carte-engagee {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px;
 }
+.carte-engagee.stoppee { opacity: 0.6; border-style: dashed; }
+.carte-engagee h5 {
+  margin: 0 0 4px; font-size: 0.92rem; letter-spacing: 1px; text-transform: uppercase;
+}
+.carte-engagee-stats { display: block; font-size: 0.76rem; color: var(--text-dim); }
+.carte-engagee-utilisation {
+  display: inline-block; margin-bottom: 6px;
+  font-size: 0.64rem; letter-spacing: 1px; text-transform: uppercase; color: var(--or);
+}
+.carte-engagee-cible { display: block; margin-top: 4px; font-size: 0.72rem; color: var(--accent); }
 
-.glyphes-restants-libelle {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-dim);
-}
+.bloc-stat { display: flex; align-items: baseline; gap: 6px; margin-top: 4px; }
+.valeur-grosse { font-size: 1.5rem; font-weight: 700; color: var(--accent-2); }
+.valeur-grosse.petite { font-size: 1.15rem; color: var(--accent); }
+.libelle-stat { font-size: 0.68rem; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); }
 
-.glyphes-restants-liste {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
+.detail-liste { list-style: none; margin: 2px 0 0; padding: 0; font-size: 0.72rem; color: var(--text-dim); }
+.detail-liste li { line-height: 1.35; }
+.detail-label { opacity: 0.75; }
+.detail-liste.degats { color: #d9a48a; }
 
-.mini-glyphe {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 4px 10px;
-  font-size: 0.8rem;
+.total-camp {
+  border-top: 1px solid var(--border); padding-top: 8px;
+  display: flex; flex-direction: column; gap: 2px;
 }
+.total-camp-libelle { font-size: 0.66rem; letter-spacing: 1px; text-transform: uppercase; color: var(--text-dim); }
+.total-camp-valeur { font-size: 1.6rem; font-weight: 700; }
+.total-camp-degats { font-size: 0.76rem; color: var(--accent); }
 
-.mini-glyphe.epuise {
-  opacity: 0.4;
-}
-
-.mini-glyphe-puissance {
-  font-weight: 900;
-}
-
-.mini-glyphe-energie {
-  display: flex;
-  gap: 2px;
-  min-width: 18px;
-}
-
-.mini-glyphe-energie .rond-energie {
-  width: 6px;
-  height: 6px;
-}
-
-.mini-glyphe-compte {
-  color: var(--text-dim);
-}
-
-/* ---------- Zone de duel ---------- */
-.zone-duel {
-  display: grid;
-  grid-template-columns: 220px 1fr 220px;
-  gap: 18px;
-}
-
-.cote-duel h4 {
-  text-align: center;
-  color: var(--text-dim);
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.centre-duel {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-}
-
-.combattants-en-duel {
-  display: flex;
-  gap: 20px;
-  justify-content: center;
-  width: 100%;
-}
+/* --------------------------------------------------------------- messages */
 
 .message-attente {
-  color: var(--text-dim);
-  font-style: italic;
+  text-align: center; color: var(--text-dim);
+  font-size: 0.88rem; line-height: 1.5; max-width: 620px;
 }
 .message-attente.cache { display: none; }
+.message-attente.erreur { color: var(--danger); }
 
-/* ---------- Glyphes ---------- */
-.grille-glyphes {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: center;
+/* ---------------------------------------------------------------- ciblage */
+
+.zone-ciblage {
+  width: 100%; max-width: 620px;
+  background: var(--bg-panel); border: 1px solid var(--accent);
+  border-radius: 12px; padding: 14px 16px;
 }
+.zone-ciblage.cache { display: none; }
+.zone-ciblage-titre { margin: 0 0 12px; font-size: 0.85rem; line-height: 1.4; }
 
-.carte-glyphe {
-  background: var(--bg-card);
-  border: 2px solid var(--border);
-  border-radius: 10px;
-  width: 84px;
-  padding: 10px 6px;
-  text-align: center;
-  cursor: pointer;
-  transition: transform 0.12s ease, border-color 0.12s ease;
+.ligne-ciblage {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; padding: 9px 0; border-top: 1px solid var(--border); flex-wrap: wrap;
 }
+.ciblage-source { display: flex; flex-direction: column; gap: 2px; }
+.ciblage-source b { font-size: 0.88rem; letter-spacing: 1px; text-transform: uppercase; }
+.ciblage-source span { font-size: 0.74rem; color: var(--text-dim); }
 
-.carte-glyphe:hover {
-  transform: translateY(-3px);
-  border-color: var(--accent-2);
+.ciblage-cibles { display: flex; gap: 8px; }
+.bouton-cible {
+  background: transparent; color: var(--text);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 7px 12px; font-size: 0.76rem; letter-spacing: 1px;
 }
+.bouton-cible:hover { border-color: var(--accent); filter: none; }
+.bouton-cible.choisie { background: var(--accent); color: #14151a; border-color: var(--accent); }
 
-.carte-glyphe.selectionnee {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent), var(--shadow);
-}
+/* --------------------------------------------------------------- resultat */
 
-.glyphe-puissance {
-  font-size: 1.5rem;
-  font-weight: 900;
-}
-
-.glyphe-energie {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 4px;
-  min-height: 10px;
-  margin-top: 6px;
-}
-
-.rond-energie {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--or);
-  box-shadow: 0 0 4px rgba(224, 182, 76, 0.8);
-}
-
-.grille-glyphes.inactif .carte-glyphe {
-  cursor: default;
-  opacity: 0.8;
-}
-
-.grille-glyphes.inactif .carte-glyphe:hover {
-  transform: none;
-  border-color: var(--border);
-}
-
-.carte-glyphe.dos {
-  background: repeating-linear-gradient(45deg, var(--bg-card), var(--bg-card) 6px, #2c2f3a 6px, #2c2f3a 12px);
-  cursor: default;
-}
-
-.zone-glyphes.cache { display: none; }
-
-/* ---------- Duel : cartes en presence ---------- */
-.carte-duel {
-  background: var(--bg-card);
-  border: 2px solid var(--border);
-  border-radius: 12px;
-  padding: 14px 18px;
-  min-width: 220px;
-  max-width: 280px;
-  text-align: center;
-}
-
-.carte-duel .role {
-  font-size: 0.7rem;
-  color: var(--accent-2);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.carte-duel h3 { margin: 6px 0; }
-
-.carte-duel .glyphe-joue {
-  margin-top: 8px;
-  font-weight: 800;
-  color: var(--accent);
-}
-
-.carte-duel .glyphe-joue-puissance {
-  font-size: 1.4rem;
-}
-
-.carte-duel .glyphe-joue-energie {
-  display: flex;
-  justify-content: center;
-  gap: 4px;
-  margin-top: 4px;
-}
-
-.carte-duel .pouvoir-actif {
-  margin-top: 4px;
-  font-size: 0.72rem;
-  font-style: italic;
-  color: var(--accent-2);
-  line-height: 1.3;
-}
-
-.carte-duel .bloc-stat {
-  margin-top: 12px;
-}
-
-.carte-duel .valeur-grosse {
-  display: block;
-  font-size: 2.2rem;
-  font-weight: 900;
-  color: var(--text);
-  line-height: 1;
-}
-
-.carte-duel .valeur-grosse.petite {
-  font-size: 1.6rem;
-  color: var(--ok);
-}
-
-.carte-duel .libelle-stat {
-  display: block;
-  margin-top: 3px;
-  font-size: 0.68rem;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 1px;
-}
-
-.carte-duel .detail-liste {
-  list-style: none;
-  margin: 6px 0 0;
-  padding: 0;
-  font-size: 0.74rem;
-  color: var(--text);
-  text-align: left;
-}
-
-.carte-duel .detail-liste li {
-  padding: 1px 0;
-}
-
-.carte-duel .detail-liste .detail-label {
-  color: var(--text-dim);
-}
-
-.carte-duel .detail-liste.degats {
-  color: var(--ok);
-}
-
-.carte-duel.gagnant {
-  border-color: var(--ok);
-  box-shadow: 0 0 20px rgba(62, 207, 106, 0.4);
-}
-
-/* ---------- Journal de resolution ---------- */
-.zone-resultat { width: 100%; max-width: 640px; }
+.zone-resultat { width: 100%; max-width: 660px; }
 .zone-resultat.cache { display: none; }
 
 .journal {
-  background: #0e0f13;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px 16px;
-  max-height: 260px;
-  overflow-y: auto;
-  font-size: 0.82rem;
-  color: var(--text-dim);
-  margin-bottom: 14px;
+  background: var(--bg-panel); border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 14px; margin-bottom: 14px;
+  font-size: 0.8rem; line-height: 1.5; max-height: 320px; overflow-y: auto;
 }
-
 .journal p { margin: 4px 0; }
 .journal p.gain { color: var(--ok); }
-.journal p.perte { color: var(--danger); }
+.journal p.carte { color: var(--accent-2); }
 
-#btn-duel-suivant { display: block; margin: 0 auto; }
+#btn-bataille-suivante { display: block; margin: 0 auto; }
 
-/* ---------- Fin de partie ---------- */
-#ecran-fin {
-  text-align: center;
-  padding-top: 60px;
-}
-
-#ecran-fin h2 {
-  font-size: 2.2rem;
-}
-
+#ecran-fin { text-align: center; padding-top: 40px; }
+#ecran-fin h2 { font-size: 2rem; letter-spacing: 3px; text-transform: uppercase; }
 #btn-nouvelle-partie { margin-top: 20px; }
 
-@media (max-width: 900px) {
-  .zone-duel { grid-template-columns: 1fr; }
+@media (max-width: 1100px) {
+  .zone-duo { grid-template-columns: 1fr; }
+  .grille-combattants.petite { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+}
+
+@media (max-width: 700px) {
   .tableau-bord { grid-template-columns: 1fr; text-align: center; }
   .joueur-ia { text-align: center; }
+  .pv-ronds { justify-content: center; margin: 0 auto; }
+  .joueur-ia .pv-ronds { justify-content: center; }
+  .duos-en-jeu { grid-template-columns: 1fr; }
 }

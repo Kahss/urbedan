@@ -1,33 +1,61 @@
-"""Moteur generique de resolution des Pouvoirs, pilote par les mots-cles de pouvoirs.csv.
+"""Moteur de resolution des Pouvoirs, version duo : 2 Combattants par camp.
 
-Hypotheses de resolution retenues pour ce POC (voir README.md) :
-- Chaque Combattant ne possede plus qu'un seul Pouvoir. Ce Pouvoir peut definir un cout
-  minimum en Energie (`energie_min`, note "X+") : il ne s'active que si l'Energie du
-  Glyphe joue est superieure ou egale a ce seuil (`energie_min` absent ou 0 = Pouvoir
-  toujours actif, quelle que soit l'Energie jouee, y compris 0). Le modificateur
-  `par_energie` permet en plus de multiplier la valeur de l'effet par l'Energie
-  effectivement jouee par le Combattant (ex : "+1 Puissance / Energie"). `par_energie_adverse`
-  multiplie par l'Energie jouee par l'adversaire, et `par_energie_en_jeu` par la somme des
-  deux Energies jouees (soi + adversaire) ce duel-ci.
-- Un duel se resout en 2 passes : Pass 1 (pouvoir "immediat"), puis determination du
-  vainqueur, puis Pass 2 (pouvoir conditionne par Victoire / Defaite / Surpuissance, ou
-  modificateur Contrecoup).
-- Au sein de chaque passe, le Combattant J1 resout son Pouvoir actif avant que le
-  Combattant J2 ne resolve le sien.
-- Stop pouvoir et Copie pouvoir sont generiques : ils visent toujours l'unique Pouvoir
-  de l'adversaire, s'il est actif (Energie jouee >= son seuil). Stop pouvoir agit
-  retroactivement si ce pouvoir a deja ete resolu (cas ou le defenseur J2 vise le
-  pouvoir de J1, deja joue), ou preventivement sinon (cas ou J1 vise le pouvoir de J2
-  qui n'a pas encore joue).
-- Protection annule toutes les modifications deja subies de la part de l'adversaire et
-  bloque toute nouvelle modification adverse (puissance/degats/vie/stop/copie) pour le
-  reste de la resolution du duel.
-- Patience/Impatience se basent sur le numero du duel courant dans la partie (1 a 4),
-  independamment de l'Energie jouee.
-- Le detail du calcul de la Puissance/des Degats de chaque Combattant (base, Glyphe,
-  contribution du Pouvoir) est trace et restitue (`detail_puissance`, `detail_degats`,
-  `puissance_txt`, `degats_txt`) pour affichage transparent.
+Hypotheses de resolution retenues (voir README.md, section version duo) :
+- Les Glyphes ont disparu : l'Energie n'existe plus, et le Pouvoir unique de chaque
+  Combattant est donc TOUJOURS actif (plus de seuil `energie_min`, plus de modificateurs
+  `par_energie*`).
+- Une bataille oppose deux camps de 2 Combattants. La Puissance d'un camp est la somme
+  des Puissances de ses 2 Combattants ; le camp de plus forte somme remporte la bataille.
+  En cas d'egalite, les deux camps la remportent (double victoire).
+- Le camp vainqueur inflige a l'adversaire la somme des Degats de ses 2 Combattants.
+- Les camps conservent un ordre J1 / J2 (le vainqueur de la bataille precedente est J1).
+  Le camp J1 resout les Pouvoirs de ses 2 Combattants (dans l'ordre du duo) avant le camp
+  J2. Les conditions `courage` / `riposte` se lisent desormais "mon camp resout en
+  premier / en second".
+- Un effet a cible unique (Puissance/Degats adverses, Stop pouvoir, Copie pouvoir,
+  Echange) vise UN des 2 Combattants adverses, designe par le joueur apres revelation des
+  deux duos (`CombattantBataille.cible`). Un Pouvoir ne designe qu'une seule cible, meme
+  s'il porte plusieurs effets a cible unique.
+- Les effets `vie` et `vampirisme` portent sur les PV d'un joueur, pas sur un Combattant :
+  ils ne demandent donc aucun ciblage.
+- `protection` protege le CAMP entier de son porteur : elle annule les modifications
+  adverses deja subies par ses 2 Combattants (et par les PV du joueur) et bloque toute
+  nouvelle modification adverse pour le reste de la bataille. Sans cela, l'adversaire se
+  contenterait de designer l'autre Combattant du duo.
+- Une bataille se resout en 2 passes : Pass 1 (Pouvoirs immediats), determination du camp
+  vainqueur, puis Pass 2 (Pouvoirs conditionnes par Victoire / Defaite / Surpuissance, ou
+  portant le modificateur Contrecoup).
+- `surpuissance` se compare sur les sommes de Puissance figees au moment de la
+  determination du vainqueur, pour qu'un Pouvoir de la passe differee ne puisse pas
+  reecrire a posteriori le critere qui l'a declenche.
+- `contrecoup` retourne sur son porteur l'effet normalement dirige vers l'adversaire, et
+  uniquement si son camp remporte la bataille (conforme a pouvoirs.csv ; l'implementation
+  de la version de base omettait cette redirection et soignait donc l'adversaire).
+- Nouvelles conditions de la version duo : `premiere_fois` / `seconde_fois`, satisfaites
+  selon que le Combattant est engage pour la premiere ou la seconde fois de la partie.
 """
+
+TYPES_CIBLE_UNIQUE = ("stop_pouvoir", "copie_pouvoir", "echange")
+CONDITIONS_DIFFEREES = ("victoire", "defaite", "surpuissance")
+
+
+def pouvoir_requiert_cible(pouvoir):
+    """Le Pouvoir porte-t-il au moins un effet a cible unique, obligeant son proprietaire
+    a designer l'un des 2 Combattants adverses ?"""
+    if pouvoir is None:
+        return False
+    contrecoup = pouvoir.get("modificateur") == "contrecoup"
+    for effet in pouvoir.get("effets", []):
+        type_effet = effet["type"]
+        if type_effet in TYPES_CIBLE_UNIQUE:
+            return True
+        if (
+            not contrecoup
+            and type_effet in ("puissance", "degats")
+            and effet.get("cible", "soi") == "adversaire"
+        ):
+            return True
+    return False
 
 
 def _formater_detail(total, detail):
@@ -41,94 +69,160 @@ def _formater_detail(total, detail):
     return f"{total} = " + " ".join(morceaux)
 
 
-class DuelCombattant:
-    def __init__(self, joueur, instance, glyphe, role, duel_numero, duels_max):
-        self.joueur = joueur
+class CombattantBataille:
+    """Un Combattant engage dans la bataille en cours, cote `camp`."""
+
+    def __init__(self, camp, instance, n_utilisation):
+        self.camp = camp
         self.instance = instance
         self.template = instance.template
-        self.glyphe = glyphe
-        self.role = role  # "J1" ou "J2"
-        self.duel_numero = duel_numero
-        self.duels_max = duels_max
-        self.puissance = self.template.puissance + glyphe.puissance
+        self.n_utilisation = n_utilisation  # 1 = premiere fois, 2 = seconde fois
+        self.puissance = self.template.puissance
         self.degats = self.template.degats
-        self.detail_puissance = [("base", self.template.puissance), ("glyphe", glyphe.puissance)]
+        self.detail_puissance = [("base", self.template.puissance)]
         self.detail_degats = [("base", self.template.degats)]
         self.stoppe = False
+        self.cible = None  # CombattantBataille adverse designe par le joueur
+
+    @property
+    def joueur(self):
+        return self.camp.joueur
+
+    def pouvoir(self):
+        """Le Pouvoir du Combattant. Toujours actif dans la version duo : plus d'Energie,
+        donc plus de seuil d'activation."""
+        return self.template.pouvoir
+
+    def to_dict(self):
+        return {
+            "id": self.template.id,
+            "nom": self.template.nom,
+            "n_utilisation": self.n_utilisation,
+            "puissance": self.puissance,
+            "degats": max(0, self.degats),
+            "detail_puissance": self.detail_puissance,
+            "detail_degats": self.detail_degats,
+            "puissance_txt": _formater_detail(self.puissance, self.detail_puissance),
+            "degats_txt": _formater_detail(self.degats, self.detail_degats),
+            "pouvoir": self.template.pouvoir,
+            "stoppe": self.stoppe,
+            "cible": self.cible.template.id if self.cible else None,
+            "cible_nom": self.cible.template.nom if self.cible else None,
+        }
+
+
+class CampBataille:
+    """Le duo d'un joueur pour la bataille en cours."""
+
+    def __init__(self, joueur, engagements, role):
+        """`engagements` : liste de (CombattantEnEquipe, n_utilisation)."""
+        self.joueur = joueur
+        self.role = role  # "J1" ou "J2"
+        self.combattants = [CombattantBataille(self, inst, n) for inst, n in engagements]
         self.protege = False
         self.gagnant = False
         self.adversaire = None
+        self.bonus_degats = 0  # accorde au vainqueur par la carte bataille
+        self.detail_degats_camp = []
+        self.puissance_figee = None  # somme au moment de la determination du vainqueur
 
-    def pouvoir_actif(self):
-        """Retourne le Pouvoir du Combattant s'il est active par l'Energie du Glyphe
-        joue (>= energie_min du Pouvoir), sinon None."""
-        pouvoir = self.template.pouvoir
-        if pouvoir is None:
-            return None
-        if self.glyphe.energie < pouvoir.get("energie_min", 0):
-            return None
-        return pouvoir
+    @property
+    def camp(self):
+        """Permet de traiter uniformement un Combattant et un camp comme cible d'un
+        effet : les deux exposent `.camp`."""
+        return self
+
+    def puissance_totale(self):
+        return sum(c.puissance for c in self.combattants)
+
+    def degats_totaux(self):
+        return sum(max(0, c.degats) for c in self.combattants) + self.bonus_degats
+
+    def to_dict(self):
+        return {
+            "joueur": self.joueur.nom,
+            "role": self.role,
+            "combattants": [c.to_dict() for c in self.combattants],
+            "puissance_totale": self.puissance_totale(),
+            "degats_totaux": self.degats_totaux(),
+            "bonus_degats": self.bonus_degats,
+            "detail_degats_camp": self.detail_degats_camp,
+            "gagnant": self.gagnant,
+        }
 
 
 def _valeur_effective(valeur, pouvoir, source):
-    mod = pouvoir.get("modificateur")
-    if mod == "par_energie":
-        return valeur * source.glyphe.energie
-    if mod == "par_energie_adverse":
-        return valeur * source.adversaire.glyphe.energie
-    if mod == "par_energie_en_jeu":
-        return valeur * (source.glyphe.energie + source.adversaire.glyphe.energie)
-    if mod == "patience":
-        return valeur * source.duel_numero
-    if mod == "impatience":
-        return valeur * (source.duels_max - source.duel_numero + 1)
+    modificateur = pouvoir.get("modificateur")
+    if modificateur == "patience":
+        return valeur * source.camp.tour
+    if modificateur == "impatience":
+        return valeur * (source.camp.tours_max - source.camp.tour + 1)
     return valeur
 
 
 def _verifier_condition(condition, source):
     if condition is None:
         return True
-    adv = source.adversaire
+    camp = source.camp
+    adverse = camp.adversaire
     if condition == "courage":
-        return source.role == "J1"
+        return camp.role == "J1"
     if condition == "riposte":
-        return source.role == "J2"
+        return camp.role == "J2"
     if condition == "vengeance":
-        return adv.joueur.pv > source.joueur.pv
+        return adverse.joueur.pv > camp.joueur.pv
     if condition == "domination":
-        return adv.joueur.pv < source.joueur.pv
+        return adverse.joueur.pv < camp.joueur.pv
+    if condition == "premiere_fois":
+        return source.n_utilisation == 1
+    if condition == "seconde_fois":
+        return source.n_utilisation == 2
     if condition == "victoire":
-        return source.gagnant
+        return camp.gagnant
     if condition == "defaite":
-        return not source.gagnant
+        return not camp.gagnant
     if condition == "surpuissance":
-        return source.gagnant and source.puissance >= 2 * adv.puissance
+        return camp.gagnant and camp.puissance_figee >= 2 * adverse.puissance_figee
     return True
 
 
 def _est_differee(pouvoir):
-    return pouvoir.get("condition") in ("victoire", "defaite", "surpuissance") or pouvoir.get("modificateur") == "contrecoup"
+    return (
+        pouvoir.get("condition") in CONDITIONS_DIFFEREES
+        or pouvoir.get("modificateur") == "contrecoup"
+    )
 
 
 def _contient_copie_pouvoir(pouvoir):
     return any(effet["type"] == "copie_pouvoir" for effet in pouvoir.get("effets", []))
 
 
-class MoteurDuel:
-    def __init__(self, dc1, dc2):
-        self.dc1 = dc1
-        self.dc2 = dc2
-        dc1.adversaire = dc2
-        dc2.adversaire = dc1
-        self.ledger = []  # {source, cible, champ, valeur}
+class MoteurBataille:
+    def __init__(self, camp_j1, camp_j2, tour, tours_max, bonus_degats_vainqueur=0):
+        self.camp_j1 = camp_j1
+        self.camp_j2 = camp_j2
+        camp_j1.adversaire = camp_j2
+        camp_j2.adversaire = camp_j1
+        for camp in (camp_j1, camp_j2):
+            camp.tour = tour
+            camp.tours_max = tours_max
+        self.tour = tour
+        self.tours_max = tours_max
+        self.bonus_degats_vainqueur = bonus_degats_vainqueur
+        self.ledger = []  # {source, cible, champ, valeur, detail_liste, detail_entree}
         self.log = []
 
+    # ------------------------------------------------------------ application
     def _appliquer(self, source, cible, champ, valeur, label):
+        """Applique `valeur` au champ `champ` de `cible` (un Combattant pour
+        puissance/degats, un camp pour pv), en tracant l'operation dans le ledger pour
+        qu'elle reste annulable par un Stop pouvoir retroactif ou une Protection."""
         if valeur == 0:
             return True
-        if cible is not source and cible.protege:
+        if cible.camp is not source.camp and cible.camp.protege:
             self.log.append(
-                f"{source.template.nom} (Pouvoir) est bloque par la Protection de {cible.template.nom}"
+                f"{source.template.nom} (Pouvoir) est bloque par la Protection du camp "
+                f"{cible.camp.joueur.nom}"
             )
             return False
         detail_liste = None
@@ -139,7 +233,7 @@ class MoteurDuel:
             cible.degats += valeur
             detail_liste = cible.detail_degats
         elif champ == "pv":
-            cible.joueur.pv += valeur
+            cible.camp.joueur.pv += valeur
         detail_entree = None
         if detail_liste is not None:
             detail_entree = (label, valeur)
@@ -150,21 +244,6 @@ class MoteurDuel:
         })
         return True
 
-    def _annuler_pouvoir(self, cible):
-        """Annule le Pouvoir du Combattant `cible` : revert de tous les effets deja
-        produits par ce pouvoir, qu'il ait porte sur lui-meme ou sur l'adversaire."""
-        cible.stoppe = True
-        restants = []
-        annule = False
-        for record in self.ledger:
-            if record["source"] is cible:
-                self._revert(record)
-                annule = True
-            else:
-                restants.append(record)
-        self.ledger = restants
-        return annule
-
     def _revert(self, record):
         cible, champ, valeur = record["cible"], record["champ"], record["valeur"]
         if champ == "puissance":
@@ -172,15 +251,32 @@ class MoteurDuel:
         elif champ == "degats":
             cible.degats -= valeur
         elif champ == "pv":
-            cible.joueur.pv -= valeur
+            cible.camp.joueur.pv -= valeur
         if record["detail_liste"] is not None and record["detail_entree"] in record["detail_liste"]:
             record["detail_liste"].remove(record["detail_entree"])
 
-    def _nettoyer_effets_adverses(self, cible):
+    def _annuler_pouvoir(self, combattant):
+        """Annule le Pouvoir de `combattant` : revert de tous les effets deja produits par
+        ce Pouvoir, qu'ils aient porte sur son camp ou sur le camp adverse."""
+        combattant.stoppe = True
+        restants = []
+        annule = False
+        for record in self.ledger:
+            if record["source"] is combattant:
+                self._revert(record)
+                annule = True
+            else:
+                restants.append(record)
+        self.ledger = restants
+        return annule
+
+    def _nettoyer_effets_adverses(self, camp):
+        """Annule toutes les modifications que le camp adverse a deja fait subir a `camp`
+        (ses 2 Combattants et les PV de son joueur)."""
         restants = []
         annules = 0
         for record in self.ledger:
-            if record["cible"] is cible and record["source"] is not cible:
+            if record["cible"].camp is camp and record["source"].camp is not camp:
                 self._revert(record)
                 annules += 1
             else:
@@ -188,140 +284,185 @@ class MoteurDuel:
         self.ledger = restants
         return annules
 
+    # ---------------------------------------------------------------- effets
     def _resoudre_effet(self, source, pouvoir, effet, label=None):
-        adv = source.adversaire
-        t = effet["type"]
-        mod = pouvoir.get("modificateur")
+        camp = source.camp
+        camp_adverse = camp.adversaire
+        type_effet = effet["type"]
+        modificateur = pouvoir.get("modificateur")
         label = label or f"Pouvoir {source.template.nom}"
 
-        if t in ("puissance", "degats", "vie"):
-            champ = "pv" if t == "vie" else t
-            cible = source if effet.get("cible", "soi") == "soi" else adv
-            if mod == "contrecoup" and not source.gagnant:
-                self.log.append(
-                    f"{source.template.nom} Pouvoir ({pouvoir['description']}) : Contrecoup non declenche (pas de victoire)"
-                )
-                return
+        if type_effet in ("puissance", "degats", "vie"):
+            vers_soi = effet.get("cible", "soi") == "soi"
+            if modificateur == "contrecoup":
+                if not camp.gagnant:
+                    self.log.append(
+                        f"{source.template.nom} Pouvoir ({pouvoir['description']}) : "
+                        "Contrecoup non declenche (pas de victoire)"
+                    )
+                    return
+                # Contrecoup retourne sur son porteur l'effet normalement dirige vers
+                # l'adversaire : aucune cible adverse n'est donc a designer.
+                vers_soi = True
             valeur = _valeur_effective(effet.get("valeur", 0), pouvoir, source)
-            avant = cible.puissance if champ == "puissance" else (cible.degats if champ == "degats" else cible.joueur.pv)
-            applique = self._appliquer(source, cible, champ, valeur, label)
-            if applique:
-                cible_nom = cible.template.nom if champ != "pv" else cible.joueur.nom
+            if type_effet == "vie":
+                # Les PV appartiennent au joueur, pas a un Combattant : aucun ciblage.
+                cible = camp if vers_soi else camp_adverse
+                champ = "pv"
+                avant = cible.joueur.pv
+                nom_cible = cible.joueur.nom
+            else:
+                champ = type_effet
+                if vers_soi:
+                    cible = source
+                else:
+                    cible = source.cible
+                    if cible is None:
+                        self.log.append(
+                            f"{source.template.nom} Pouvoir ({pouvoir['description']}) : "
+                            "aucune cible designee, effet perdu"
+                        )
+                        return
+                avant = cible.puissance if champ == "puissance" else cible.degats
+                nom_cible = cible.template.nom
+            if self._appliquer(source, cible, champ, valeur, label):
                 self.log.append(
                     f"{source.template.nom} Pouvoir ({pouvoir['description']}) -> "
-                    f"{champ} de {cible_nom} : {avant} -> {avant + valeur}"
+                    f"{champ} de {nom_cible} : {avant} -> {avant + valeur}"
                 )
 
-        elif t == "stop_pouvoir":
-            # Generique : vise toujours l'unique Pouvoir de l'adversaire, s'il est actif.
-            pouvoir_adv = adv.pouvoir_actif()
-            if pouvoir_adv is None:
+        elif type_effet == "stop_pouvoir":
+            cible = source.cible
+            if cible is None:
+                self.log.append(f"{source.template.nom} Pouvoir : aucune cible designee")
+                return
+            if cible.camp.protege:
                 self.log.append(
-                    f"{source.template.nom} Pouvoir : {adv.template.nom} n'a active aucun Pouvoir a annuler"
+                    f"{source.template.nom} Pouvoir tente d'annuler le Pouvoir de "
+                    f"{cible.template.nom}, bloque par la Protection de son camp"
                 )
                 return
-            if adv.protege:
+            if cible.pouvoir() is None:
                 self.log.append(
-                    f"{source.template.nom} Pouvoir tente d'annuler le Pouvoir de {adv.template.nom}, bloque par Protection"
+                    f"{source.template.nom} Pouvoir : {cible.template.nom} n'a aucun Pouvoir a annuler"
                 )
                 return
-            annule = self._annuler_pouvoir(adv)
-            if annule:
+            if self._annuler_pouvoir(cible):
                 self.log.append(
-                    f"{source.template.nom} Pouvoir annule (retroactivement) le Pouvoir de {adv.template.nom}"
+                    f"{source.template.nom} Pouvoir annule (retroactivement) le Pouvoir de "
+                    f"{cible.template.nom}"
                 )
             else:
                 self.log.append(
-                    f"{source.template.nom} Pouvoir annule par avance le Pouvoir de {adv.template.nom}"
+                    f"{source.template.nom} Pouvoir annule par avance le Pouvoir de "
+                    f"{cible.template.nom}"
                 )
 
-        elif t == "copie_pouvoir":
-            # Generique : copie toujours l'unique Pouvoir de l'adversaire, s'il est actif.
-            pouvoir_copie = adv.pouvoir_actif()
+        elif type_effet == "copie_pouvoir":
+            cible = source.cible
+            if cible is None:
+                self.log.append(f"{source.template.nom} Pouvoir : aucune cible designee")
+                return
+            pouvoir_copie = cible.pouvoir()
             if pouvoir_copie is None:
                 self.log.append(
-                    f"{source.template.nom} Pouvoir : {adv.template.nom} n'a active aucun Pouvoir a copier"
+                    f"{source.template.nom} Pouvoir : {cible.template.nom} n'a aucun Pouvoir a copier"
                 )
                 return
-            if adv.protege:
+            if cible.camp.protege:
                 self.log.append(
-                    f"{source.template.nom} Pouvoir tente de copier le Pouvoir de {adv.template.nom}, bloque par Protection"
+                    f"{source.template.nom} Pouvoir tente de copier le Pouvoir de "
+                    f"{cible.template.nom}, bloque par la Protection de son camp"
                 )
                 return
-            if adv.stoppe:
+            if cible.stoppe:
                 self.log.append(
-                    f"{source.template.nom} Pouvoir : le Pouvoir de {adv.template.nom} est deja annule, rien a copier"
+                    f"{source.template.nom} Pouvoir : le Pouvoir de {cible.template.nom} "
+                    "est deja annule, rien a copier"
                 )
                 return
             if _est_differee(pouvoir_copie):
-                # Simplification POC : copier un pouvoir conditionne par l'issue du duel
-                # (Victoire/Defaite/Surpuissance) ou par Contrecoup n'est pas supporte.
+                # Simplification POC : copier un Pouvoir conditionne par l'issue de la
+                # bataille (Victoire/Defaite/Surpuissance) ou par Contrecoup n'est pas supporte.
                 self.log.append(
-                    f"{source.template.nom} Pouvoir : copie du Pouvoir de {adv.template.nom} ignoree "
-                    "(pouvoir conditionne par l'issue du duel, non supporte)"
+                    f"{source.template.nom} Pouvoir : copie du Pouvoir de {cible.template.nom} "
+                    "ignoree (Pouvoir conditionne par l'issue de la bataille, non supporte)"
                 )
                 return
             if _contient_copie_pouvoir(pouvoir_copie):
-                # Copier un Pouvoir qui contient lui-meme une Copie de pouvoir provoquerait une
-                # recursion infinie (l'adversaire cible ne change jamais d'une copie a l'autre) :
-                # non supporte, comme les autres limitations POC de Copie pouvoir.
+                # Recursion infinie : la cible designee ne change jamais d'une copie a l'autre.
                 self.log.append(
-                    f"{source.template.nom} Pouvoir : copie du Pouvoir de {adv.template.nom} ignoree "
-                    "(pouvoir qui copie lui-meme un Pouvoir, non supporte)"
+                    f"{source.template.nom} Pouvoir : copie du Pouvoir de {cible.template.nom} "
+                    "ignoree (Pouvoir qui copie lui-meme un Pouvoir, non supporte)"
                 )
                 return
             self.log.append(
-                f"{source.template.nom} Pouvoir copie le Pouvoir de {adv.template.nom} ({pouvoir_copie['description']})"
+                f"{source.template.nom} Pouvoir copie le Pouvoir de {cible.template.nom} "
+                f"({pouvoir_copie['description']})"
             )
             if _verifier_condition(pouvoir_copie.get("condition"), source):
-                label_copie = f"Pouvoir {source.template.nom} (copie de {adv.template.nom})"
-                for e2 in pouvoir_copie["effets"]:
-                    self._resoudre_effet(source, pouvoir_copie, e2, label=label_copie)
-
-        elif t == "protection":
-            source.protege = True
-            annules = self._nettoyer_effets_adverses(source)
-            suffixe = f", annule {annules} modification(s) subie(s)" if annules else ""
-            self.log.append(f"{source.template.nom} Pouvoir (Protection) active{suffixe}")
-
-        elif t == "echange":
-            if adv.protege:
+                # Le Pouvoir copie s'execute du point de vue du copieur, et ses effets a
+                # cible unique visent la meme cible que celle designee pour la copie.
+                label_copie = f"Pouvoir {source.template.nom} (copie de {cible.template.nom})"
+                for effet_copie in pouvoir_copie["effets"]:
+                    self._resoudre_effet(source, pouvoir_copie, effet_copie, label=label_copie)
+            else:
                 self.log.append(
-                    f"{source.template.nom} Pouvoir (Echange) bloque par Protection de {adv.template.nom}"
+                    f"{source.template.nom} Pouvoir copie : condition non remplie de son cote"
                 )
-                return
-            # Calcule les deltas AVANT toute mutation, pour que l'echange reste tracable
-            # (et reversible par un Stop pouvoir retroactif) via le meme ledger que les
-            # autres effets, plutot qu'une permutation directe non tracee.
-            label_echange = f"Echange (Pouvoir {source.template.nom})"
-            delta_puissance = adv.puissance - source.puissance
-            delta_degats = adv.degats - source.degats
-            self._appliquer(source, source, "puissance", delta_puissance, label_echange)
-            self._appliquer(source, adv, "puissance", -delta_puissance, label_echange)
-            self._appliquer(source, source, "degats", delta_degats, label_echange)
-            self._appliquer(source, adv, "degats", -delta_degats, label_echange)
+
+        elif type_effet == "protection":
+            camp.protege = True
+            annules = self._nettoyer_effets_adverses(camp)
+            suffixe = f", annule {annules} modification(s) subie(s)" if annules else ""
             self.log.append(
-                f"{source.template.nom} Pouvoir echange Puissance/Degats avec {adv.template.nom}"
+                f"{source.template.nom} Pouvoir (Protection) protege le camp "
+                f"{camp.joueur.nom}{suffixe}"
             )
 
-        elif t == "vampirisme":
-            x = _valeur_effective(effet.get("valeur", 0), pouvoir, source)
-            if adv.protege:
+        elif type_effet == "echange":
+            cible = source.cible
+            if cible is None:
+                self.log.append(f"{source.template.nom} Pouvoir : aucune cible designee")
+                return
+            if cible.camp.protege:
                 self.log.append(
-                    f"{source.template.nom} Pouvoir (Vampirisme {x}) bloque par Protection de {adv.template.nom}"
+                    f"{source.template.nom} Pouvoir (Echange) bloque par la Protection du "
+                    f"camp {cible.camp.joueur.nom}"
+                )
+                return
+            # Les deltas sont calcules AVANT toute mutation, pour que l'echange reste
+            # tracable dans le ledger (donc annulable par un Stop pouvoir retroactif)
+            # plutot qu'une permutation directe non tracee.
+            label_echange = f"Echange (Pouvoir {source.template.nom})"
+            delta_puissance = cible.puissance - source.puissance
+            delta_degats = cible.degats - source.degats
+            self._appliquer(source, source, "puissance", delta_puissance, label_echange)
+            self._appliquer(source, cible, "puissance", -delta_puissance, label_echange)
+            self._appliquer(source, source, "degats", delta_degats, label_echange)
+            self._appliquer(source, cible, "degats", -delta_degats, label_echange)
+            self.log.append(
+                f"{source.template.nom} Pouvoir echange Puissance/Degats avec {cible.template.nom}"
+            )
+
+        elif type_effet == "vampirisme":
+            valeur = _valeur_effective(effet.get("valeur", 0), pouvoir, source)
+            if camp_adverse.protege:
+                self.log.append(
+                    f"{source.template.nom} Pouvoir (Vampirisme {valeur}) bloque par la "
+                    f"Protection du camp {camp_adverse.joueur.nom}"
                 )
                 return
             label_vampirisme = f"Pouvoir {source.template.nom} (Vampirisme)"
-            self._appliquer(source, adv, "pv", -x, label_vampirisme)
-            self._appliquer(source, source, "pv", x, label_vampirisme)
+            self._appliquer(source, camp_adverse, "pv", -valeur, label_vampirisme)
+            self._appliquer(source, camp, "pv", valeur, label_vampirisme)
             self.log.append(
-                f"{source.template.nom} Pouvoir (Vampirisme {x}) : {adv.joueur.nom} {-x} PV, {source.joueur.nom} +{x} PV"
+                f"{source.template.nom} Pouvoir (Vampirisme {valeur}) : "
+                f"{camp_adverse.joueur.nom} -{valeur} PV, {camp.joueur.nom} +{valeur} PV"
             )
 
     def _resoudre_pouvoir(self, source, differe):
-        """Resout l'unique Pouvoir de `source`, s'il est actif (Energie jouee >= son
-        seuil) et si sa nature (immediat/differe) correspond a la passe en cours."""
-        pouvoir = source.pouvoir_actif()
+        pouvoir = source.pouvoir()
         if pouvoir is None:
             return
         if _est_differee(pouvoir) != differe:
@@ -337,63 +478,70 @@ class MoteurDuel:
         for effet in pouvoir["effets"]:
             self._resoudre_effet(source, pouvoir, effet)
 
+    # -------------------------------------------------------------- resolution
     def resoudre(self):
-        # Pass 1 : pouvoir immediat, J1 puis J2 (chacun n'a qu'un seul Pouvoir)
-        for combattant in (self.dc1, self.dc2):
-            self._resoudre_pouvoir(combattant, differe=False)
+        # Pass 1 : Pouvoirs immediats, camp J1 (dans l'ordre du duo) puis camp J2.
+        for camp in (self.camp_j1, self.camp_j2):
+            for combattant in camp.combattants:
+                self._resoudre_pouvoir(combattant, differe=False)
 
-        if self.dc1.puissance > self.dc2.puissance:
-            self.dc1.gagnant = True
-        elif self.dc2.puissance > self.dc1.puissance:
-            self.dc2.gagnant = True
+        puissance_j1 = self.camp_j1.puissance_totale()
+        puissance_j2 = self.camp_j2.puissance_totale()
+        self.camp_j1.puissance_figee = puissance_j1
+        self.camp_j2.puissance_figee = puissance_j2
+        if puissance_j1 > puissance_j2:
+            self.camp_j1.gagnant = True
+        elif puissance_j2 > puissance_j1:
+            self.camp_j2.gagnant = True
         else:
-            self.dc1.gagnant = True
-            self.dc2.gagnant = True
-            self.log.append("Egalite de Puissance : double victoire")
+            self.camp_j1.gagnant = True
+            self.camp_j2.gagnant = True
+            self.log.append(
+                f"Egalite de Puissance ({puissance_j1} contre {puissance_j2}) : double victoire"
+            )
 
-        # Pass 2 : pouvoir differe (Victoire / Defaite / Surpuissance / Contrecoup)
-        for combattant in (self.dc1, self.dc2):
-            self._resoudre_pouvoir(combattant, differe=True)
+        # Pass 2 : Pouvoirs differes (Victoire / Defaite / Surpuissance / Contrecoup).
+        for camp in (self.camp_j1, self.camp_j2):
+            for combattant in camp.combattants:
+                self._resoudre_pouvoir(combattant, differe=True)
 
-        # Application des degats du/des vainqueur(s)
-        for combattant in (self.dc1, self.dc2):
-            if combattant.gagnant:
-                adv = combattant.adversaire
-                degats = max(0, combattant.degats)
-                adv.joueur.pv -= degats
-                self.log.append(
-                    f"{combattant.template.nom} remporte le duel, Degats = "
-                    f"{_formater_detail(combattant.degats, combattant.detail_degats)} : "
-                    f"inflige {degats} a {adv.joueur.nom} (PV restants : {adv.joueur.pv})"
-                )
+        # Bonus de Degats accorde au(x) vainqueur(s) par la carte bataille du tour.
+        if self.bonus_degats_vainqueur:
+            for camp in (self.camp_j1, self.camp_j2):
+                if camp.gagnant:
+                    camp.bonus_degats += self.bonus_degats_vainqueur
+                    camp.detail_degats_camp.append(
+                        ("carte bataille", self.bonus_degats_vainqueur)
+                    )
+
+        # Application des Degats du/des camp(s) vainqueur(s).
+        for camp in (self.camp_j1, self.camp_j2):
+            if not camp.gagnant:
+                continue
+            adverse = camp.adversaire
+            degats = camp.degats_totaux()
+            adverse.joueur.pv -= degats
+            detail = [
+                (c.template.nom, max(0, c.degats)) for c in camp.combattants
+            ] + camp.detail_degats_camp
+            self.log.append(
+                f"Le duo de {camp.joueur.nom} remporte la bataille, Degats = "
+                f"{_formater_detail(degats, detail)} : inflige {degats} a "
+                f"{adverse.joueur.nom} (PV restants : {adverse.joueur.pv})"
+            )
 
         return {
             "log": self.log,
-            "gagnants": [c.template.nom for c in (self.dc1, self.dc2) if c.gagnant],
-            "gagnants_ids": [c.template.id for c in (self.dc1, self.dc2) if c.gagnant],
-            "puissance_finale": {self.dc1.template.nom: self.dc1.puissance, self.dc2.template.nom: self.dc2.puissance},
-            "degats_finale": {self.dc1.template.nom: self.dc1.degats, self.dc2.template.nom: self.dc2.degats},
-            "detail_puissance": {
-                self.dc1.template.nom: self.dc1.detail_puissance,
-                self.dc2.template.nom: self.dc2.detail_puissance,
+            "camps": {
+                self.camp_j1.joueur.nom: self.camp_j1.to_dict(),
+                self.camp_j2.joueur.nom: self.camp_j2.to_dict(),
             },
-            "detail_degats": {
-                self.dc1.template.nom: self.dc1.detail_degats,
-                self.dc2.template.nom: self.dc2.detail_degats,
-            },
-            "puissance_txt": {
-                self.dc1.template.nom: _formater_detail(self.dc1.puissance, self.dc1.detail_puissance),
-                self.dc2.template.nom: _formater_detail(self.dc2.puissance, self.dc2.detail_puissance),
-            },
-            "degats_txt": {
-                self.dc1.template.nom: _formater_detail(self.dc1.degats, self.dc1.detail_degats),
-                self.dc2.template.nom: _formater_detail(self.dc2.degats, self.dc2.detail_degats),
-            },
+            "gagnants": [
+                camp.joueur.nom for camp in (self.camp_j1, self.camp_j2) if camp.gagnant
+            ],
         }
 
 
-def resoudre_duel(joueur_j1, combattant_j1, glyphe_j1, joueur_j2, combattant_j2, glyphe_j2, duel_numero, duels_max=4):
-    dc1 = DuelCombattant(joueur_j1, combattant_j1, glyphe_j1, "J1", duel_numero, duels_max)
-    dc2 = DuelCombattant(joueur_j2, combattant_j2, glyphe_j2, "J2", duel_numero, duels_max)
-    moteur = MoteurDuel(dc1, dc2)
+def resoudre_bataille(camp_j1, camp_j2, tour, tours_max, bonus_degats_vainqueur=0):
+    moteur = MoteurBataille(camp_j1, camp_j2, tour, tours_max, bonus_degats_vainqueur)
     return moteur.resoudre()

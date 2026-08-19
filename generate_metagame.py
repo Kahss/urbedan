@@ -1,11 +1,13 @@
-"""Simule un grand nombre de parties d'Urban Eredan jouees entierement par l'IA (la
-meme heuristique de `engine/ia.py` des deux cotes) et dresse les statistiques de
+"""Simule un grand nombre de parties d'Urban Eredan (version duo) jouees entierement par
+l'IA (la meme heuristique de `engine/ia.py` des deux cotes) et dresse les statistiques de
 pourcentage de victoire de chaque Combattant.
 
-Un Combattant est considere comme ayant gagne des lors que l'equipe dont il fait partie
-a remporte la partie : il peut avoir perdu son propre duel (voire ne jamais avoir
-combattu, si la partie s'est terminee avant que son tour n'arrive), tant que son equipe
-a gagne, il compte comme gagnant.
+Critere d'equilibrage de la version duo (versions/duo.md) : un Combattant est equilibre non
+pas s'il remporte la moitie de ses batailles, mais si environ la moitie des equipes dont il
+fait partie remporte la partie. Un Combattant compte donc comme gagnant des lors que son
+equipe gagne, meme s'il a perdu ses propres batailles (voire s'il n'a jamais ete engage).
+C'est ce qui rend viables les Combattants qui ont interet a perdre (Pouvoirs conditionnes
+par `defaite`).
 
 Usage :
     python generate_metagame.py -n 10000
@@ -18,47 +20,69 @@ import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(BASE_DIR, "backend"))
 
-from engine.game import NB_DUELS_MAX, Partie, charger_combattants  # noqa: E402
-from engine.ia import choisir_combattant_et_glyphe  # noqa: E402
+from engine.game import (  # noqa: E402
+    NB_BATAILLES_MAX,
+    PHASE_BATAILLE_RESOLUE,
+    PHASE_CIBLAGE,
+    PHASE_CHOIX_DUO,
+    Partie,
+    charger_combattants,
+)
+from engine.ia import (  # noqa: E402
+    choisir_ciblages,
+    choisir_duo,
+    estimer_puissance_duo_adverse,
+)
+from engine.models import TAILLE_EQUIPE  # noqa: E402
 
 DATA_PATH = os.path.join(BASE_DIR, "data", "combattants.json")
 
 
 def jouer_choix_humain(partie):
-    """Fait choisir au joueur 'humain' de la partie son Combattant et son Glyphe pour
-    le duel en cours, via la meme heuristique que l'IA (cf. engine/ia.py), de maniere a
-    simuler un affrontement IA contre IA."""
-    role = "j1" if partie.j1 is partie.joueur_humain else "j2"
-    if getattr(partie, "combattant_" + role) is not None:
-        return
-    adversaire = partie.joueur_ia
-    instance, glyphe = choisir_combattant_et_glyphe(
-        partie.joueur_humain, role, partie.duel_numero, NB_DUELS_MAX,
-        partie.joueur_humain.pv, adversaire.pv,
+    """Fait choisir au camp 'humain' son duo pour la bataille en cours, via la meme
+    heuristique que l'IA, en exploitant comme elle les Combattants adverses eventuellement
+    reveles par une carte Reperage / Intimidation : les deux camps sont ainsi strictement
+    symetriques, sans quoi les statistiques favoriseraient mecaniquement un cote."""
+    puissance_adverse = None
+    if partie.reveles_ia:
+        puissance_adverse = estimer_puissance_duo_adverse(partie.joueur_ia, partie.reveles_ia)
+    duo = choisir_duo(
+        partie.joueur_humain,
+        partie.role_de(partie.joueur_humain),
+        partie.tour,
+        NB_BATAILLES_MAX,
+        partie.joueur_humain.pv,
+        partie.joueur_ia.pv,
+        partie.batailles_restantes(),
+        puissance_adverse_estimee=puissance_adverse,
     )
-    partie.soumettre_combattant(instance.template.id, glyphe.id)
+    partie.soumettre_duo([instance.template.id for instance in duo])
 
 
 def jouer_partie(templates, tous_les_ids):
     """Joue une partie complete (equipes tirees au hasard dans tout le roster) et
     retourne (ids equipe A, ids equipe B, vainqueur : 'humain' / 'ia' / None)."""
-    equipe_a = random.sample(tous_les_ids, 4)
+    equipe_a = random.sample(tous_les_ids, TAILLE_EQUIPE)
     partie = Partie(templates, equipe_a)
     equipe_b = [c.template.id for c in partie.joueur_ia.equipe]
 
     while not partie.terminee:
-        if partie.phase == "choix_combattant":
+        if partie.phase == PHASE_CHOIX_DUO:
             jouer_choix_humain(partie)
-        elif partie.phase == "duel_resolu":
-            partie.duel_suivant()
+        elif partie.phase == PHASE_CIBLAGE:
+            partie.soumettre_ciblages(
+                choisir_ciblages(partie.camp_humain, partie.tour, NB_BATAILLES_MAX)
+            )
+        elif partie.phase == PHASE_BATAILLE_RESOLUE:
+            partie.bataille_suivante()
 
     return equipe_a, equipe_b, partie.vainqueur
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Simule des parties d'Urban Eredan jouees par l'IA et dresse les "
-        "statistiques de pourcentage de victoire par Combattant."
+        description="Simule des parties d'Urban Eredan (version duo) jouees par l'IA et "
+        "dresse les statistiques de pourcentage de victoire par Combattant."
     )
     parser.add_argument(
         "-n", "--nombre-parties", type=int, default=10000,
