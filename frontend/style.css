@@ -151,7 +151,10 @@ h2 { text-align: center; }
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
 }
+
+.barre-action #compteur-selection { margin-right: auto; }
 
 button {
   background: var(--accent);
@@ -167,6 +170,15 @@ button {
 }
 
 button:hover:not(:disabled) { background: #ff7440; transform: translateY(-1px); }
+
+button.secondaire {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
+button.secondaire:hover:not(:disabled) { background: var(--bg-card); color: var(--text); }
 
 button:disabled {
   background: var(--border);
@@ -623,3 +635,96 @@ button:disabled {
 @media (prefers-reduced-motion: reduce) {
   .carte-bataille.animee, .marqueur.vient-de-gagner, .ligne-bataille.nouvelle { animation: none; }
 }
+
+/* ---------- Capacites ---------- */
+.capacite {
+  margin-top: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px dashed var(--border);
+  background: rgba(23, 212, 212, 0.05);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.capacite-etiquette {
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent-2);
+}
+
+.capacite-texte { font-size: 0.78rem; line-height: 1.25; }
+
+.capacite-statut {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
+}
+
+.capacite.statut-active {
+  border-style: solid;
+  border-color: var(--accent-2);
+  background: rgba(23, 212, 212, 0.12);
+}
+
+.capacite.statut-active .capacite-statut { color: var(--accent-2); }
+.capacite.statut-inactive { opacity: 0.45; }
+.capacite.statut-en_attente .capacite-statut { color: var(--or); }
+
+/* Une caracteristique ramenee a 0 par une capacite adverse : valeur imprimee barree */
+.carac.annulee { opacity: 0.75; border-style: dashed; }
+.carac.annulee s { font-size: 0.62rem; opacity: 0.6; }
+
+.capacites-duel {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 10px 0 2px;
+}
+
+.capacites-duel.cache { display: none; }
+
+.ligne-capacite {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border-left: 3px solid var(--accent-2);
+  background: var(--bg-panel);
+  font-size: 0.78rem;
+  color: var(--text);
+}
+
+.ligne-capacite.humain { border-left-color: var(--ok); }
+.ligne-capacite.ia { border-left-color: var(--danger); }
+
+.ligne-capacite-resultat {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-dim);
+}
+
+.bataille-issue em { font-style: normal; color: var(--accent-2); font-size: 0.72rem; }
+
+.legende-capacites-liste { display: grid; gap: 12px; margin-top: 10px; }
+
+.legende-capacite-bloc h5 {
+  margin: 0 0 4px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent-2);
+}
+
+.legende-capacite-bloc ul { margin: 0; padding-left: 18px; }
+
+.legende-capacite-bloc li { font-size: 0.78rem; color: var(--text-dim); line-height: 1.5; }
+
+.legende-capacite-bloc li b { color: var(--text); }

@@ -4,6 +4,7 @@ import os
 from flask import Flask, jsonify, request, send_from_directory
 
 from engine.batailles import catalogue
+from engine.capacites import vocabulaire
 from engine.game import ErreurPartie, Partie, charger_combattants
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -30,8 +31,14 @@ def api_combattants():
 
 @app.get("/api/batailles")
 def api_batailles():
-    """Le catalogue des 20 cartes Bataille du deck, pour la legende du frontend."""
+    """Le catalogue des 21 cartes Bataille du deck, pour la legende du frontend."""
     return jsonify(catalogue())
+
+
+@app.get("/api/capacites")
+def api_capacites():
+    """Les mots cles disponibles pour ecrire une capacite, pour la legende du frontend."""
+    return jsonify(vocabulaire())
 
 
 @app.post("/api/partie")

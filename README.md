@@ -8,15 +8,20 @@ uniquement au clic).
 
 ## Ce qui change par rapport a la version de reference
 
-- Les cartes **Glyphes**, l'**Energie** et les **Pouvoirs** disparaissent.
+- Les cartes **Glyphes** et l'**Energie** disparaissent ; les Pouvoirs sont remplaces par
+  un systeme de **Capacites** (une par Combattant, cf. plus bas).
 - Un Combattant n'a plus de Puissance : il porte trois caracteristiques, **Force**
-  (rouge), **Dexterite** (vert) et **Sagesse** (bleu), chacune de 0 a 5, plus ses Degats.
+  (rouge), **Dexterite** (vert) et **Sagesse** (bleu), chacune de 0 a 5, plus ses Degats
+  et sa Capacite.
 - Un deck de **21 cartes Bataille**, **remelange et recoupe en 2 pioches au debut de chaque
   duel**, est pose au centre de la table. Le recto porte la condition qui designe le
   vainqueur de la bataille ; le verso ne montre qu'**une couleur**, choisie parmi les
   caracteristiques que la condition utilise.
 - Le premier Combattant a remporter **3 batailles** remporte le duel et inflige ses
   Degats. Une bataille que la condition ne tranche pas est **nulle** : personne ne marque.
+- Sur l'ecran de selection, un bouton **Equipe aleatoire** tire 4 Combattants au hasard :
+  c'est la « partie initiation » de `game.md`, ou les Combattants sont distribues
+  aleatoirement.
 
 ## Lancer le jeu
 
@@ -40,6 +45,7 @@ backend/
   app.py                    Serveur Flask (API REST)
   engine/
     batailles.py            Les 21 cartes Bataille, leur resolution et les 2 pioches
+    capacites.py            Le vocabulaire des Capacites (condition / effet / multiplicateur)
     models.py               Combattants, Joueurs
     ia.py                   Heuristique de l'IA (Combattant + choix de pioche)
     game.py                 Orchestration d'une Partie (mise en place, duels, batailles)
@@ -80,6 +86,72 @@ haute, a egalite Force » et « Maillon faible » : l'indice oriente sans jamais
 tandis que `Maillon faible` le punit. Une caracteristique laissee a 0 reste payante, mais
 plus gratuitement.
 
+## Les Capacites
+
+Chaque Combattant porte une **Capacite**, composee de trois parties (cf. `game.md` et
+`backend/engine/capacites.py`) : une **condition** facultative, un **effet** obligatoire et
+un **multiplicateur** facultatif. Le vocabulaire complet, seul autorise par le moteur :
+
+| Partie | Mot cle | Effet |
+| --- | --- | --- |
+| Condition | `victoire` / `defaite` | le Combattant doit remporter / perdre son duel |
+| Condition | `premier` / `second` | le joueur doit etre J1 / J2 de ce duel |
+| Condition | `vengeance` / `confiance` | le joueur doit avoir perdu / remporte son duel precedent |
+| Effet | `vampirisme` X | l'adversaire perd X PV, le joueur en gagne X |
+| Effet | `pv_soi` X / `pv_adverse` X | le joueur gagne X PV / l'adversaire perd X PV |
+| Effet | `degats_soi` X / `degats_adverse` X | les Degats du Combattant / du Combattant adverse sont modifies de X |
+| Effet | `initiative` | le Combattant remporte les batailles que la condition ne tranche pas |
+| Effet | `annule_couleur` (couleur) | la caracteristique de cette couleur tombe a 0 chez l'adversaire, pour tout le duel |
+| Multiplicateur | `patience` / `impatience` | x le nombre de duels joues / restants, celui-ci compris (1 a 4) |
+| Multiplicateur | `par_bataille_remportee` / `par_bataille_perdue` | x le nombre de batailles gagnees / perdues dans ce duel |
+
+Deux familles d'effets, qui n'agissent pas au meme moment :
+
+- `initiative` et `annule_couleur` sont **figes des que les deux Combattants sont engages**,
+  avant la premiere carte revelee : ils changent la facon dont les batailles se resolvent.
+  Le moteur refuse donc de les associer a une condition qui depend de l'issue du duel
+  (`victoire`, `defaite`) ou a un multiplicateur — il n'y a rien a multiplier.
+- les autres effets s'appliquent **a la resolution du duel** : les modificateurs de Degats
+  sont pris en compte avant que les Degats ne soient retires (plancher a 0), puis les PV
+  sont ajustes (ils peuvent depasser 10).
+
+Ces regles sont verifiees au chargement de `data/combattants.json` : une capacite mal
+formee (mot cle inconnu, valeur manquante, passif conditionne a l'issue du duel) fait
+echouer le demarrage avec un message explicite.
+
+Le roster fourni couvre l'ensemble du vocabulaire — chacune des 6 conditions, des 7 effets
+et des 4 multiplicateurs apparait au moins une fois :
+
+| Combattant | Force / Dexterite / Sagesse | Total | Degats | Capacite |
+| --- | --- | --- | --- | --- |
+| Riff | 2 / 4 / 4 | 10 | 3 | Premier : +1 Degat |
+| Nova | 2 / 1 / 5 | 8 | 3 | Annule la Sagesse adverse |
+| Grind | 4 / 5 / 1 | 10 | 2 | Confiance : +2 Degats |
+| Blaze | 4 / 3 / 2 | 9 | 3 | Vengeance : +3 Degats |
+| Iron | 5 / 0 / 4 | 9 | 3 | -2 Degats adverses |
+| Cobra | 2 / 5 / 1 | 8 | 5 | Confiance : Vampirisme 1 |
+| Echo | 1 / 5 / 4 | 10 | 2 | Initiative |
+| Vex | 1 / 2 / 5 | 8 | 4 | Defaite : -2 PV adverses |
+| Mirage | 2 / 2 / 4 | 8 | 4 | Second : Annule la Dexterite adverse |
+| Surge | 3 / 2 / 3 | 8 | 5 | +1 Degat par duel joue |
+| Jab | 5 / 4 / 0 | 9 | 4 | Second : +3 Degats |
+| Buzzer | 1 / 4 / 4 | 9 | 2 | -1 PV adverse par bataille remportee |
+| Verve | 0 / 3 / 5 | 8 | 5 | Victoire : +3 PV |
+| Gambit | 3 / 0 / 5 | 8 | 3 | +1 PV par bataille remportee |
+| Nitro | 3 / 5 / 0 | 8 | 5 | +1 Degat par duel restant |
+| Cascade | 5 / 3 / 1 | 9 | 3 | Defaite : +2 PV |
+| Mime | 3 / 4 / 2 | 9 | 2 | Annule la Force adverse |
+| Verrou | 5 / 2 / 2 | 9 | 2 | -1 Degat adverse par bataille perdue |
+| Furet | 1 / 5 / 2 | 8 | 5 | Victoire : Vampirisme 1 |
+| Suture | 1 / 3 / 5 | 9 | 2 | Defaite : +1 PV par duel joue |
+| Toph | 5 / 1 / 3 | 9 | 4 | Vengeance : Initiative |
+| Loup | 5 / 1 / 2 | 8 | 3 | Victoire : Vampirisme 2 |
+
+Une Capacite est un cout comme un autre : elle se paie sur les caracteristiques et les
+Degats. `Annule une couleur` est ainsi le contrepoids des profils extremes que le deck
+favorise — un 5 remporte trois cartes de sa couleur, mais tombe a 0 devant Nova, Mirage ou
+Mime.
+
 ## Editer / ajouter des Combattants
 
 `data/combattants.json` peut etre modifie a la main puis est recharge automatiquement au
@@ -95,34 +167,47 @@ lancement d'une nouvelle partie (pas besoin de redemarrer le serveur).
   "dexterite": 1,
   "sagesse": 3,
   "degats": 3,
-  "pouvoir": { "...": "conserve en donnees, ignore par cette version" }
+  "capacite": {
+    "condition": "vengeance",
+    "effet": { "type": "degats_soi", "valeur": 3 },
+    "multiplicateur": null
+  }
 }
 ```
 
 - `force` / `dexterite` / `sagesse` : entiers de 0 a 5 (le moteur refuse toute valeur hors
   de cet intervalle au chargement).
 - `degats` : PV retires a l'adversaire quand le Combattant remporte son duel.
-- `pouvoir` : conserve tel quel pour une version ulterieure ; ni le moteur ni le frontend
-  ne le lisent.
+- `capacite` : `condition` et `multiplicateur` peuvent valoir `null` ; `effet` est
+  obligatoire et porte un `type`, une `valeur` entiere (sauf `initiative`) et, pour
+  `annule_couleur`, une `couleur` (`rouge`, `vert` ou `bleu`). Le libelle imprime sur la
+  carte est genere a partir de ces trois champs : il ne peut pas mentir sur l'effet reel.
 
 ### Equilibrer un Combattant
 
-Le total des trois caracteristiques mesure la frequence a laquelle un Combattant gagne ses
-duels ; les **Degats** compensent cette frequence. Le roster fourni se tient entre 8 et 10 :
-en dessous, un Combattant perd trop souvent pour que ses Degats (plafonnes a 5) puissent
-compenser. Deux proprietes du deck guident la repartition :
+Trois leviers se compensent : les **caracteristiques** et la **Capacite** determinent la
+frequence a laquelle un Combattant gagne ses duels, les **Degats** paient cette frequence.
+Le roster fourni se tient entre 8 et 10 de total : en dessous, un Combattant perd trop
+souvent pour que ses Degats (plafonnes a 5) puissent compenser. Trois proprietes guident la
+repartition :
 
 - **Les valeurs extremes valent mieux que les valeurs moyennes** : un 5 remporte les
   3 cartes « la plus haute » de sa couleur, et un 0 remporte celle « la plus basse » — au
   prix de `Maillon faible`, qui fait perdre la bataille a celui dont la plus petite
-  caracteristique est la plus faible.
-- **Un total eleve doit se payer en Degats** : le roster fourni va de 2 Degats (pour les
-  profils qui gagnent ~68 % de leurs duels) a 5 Degats (pour ceux qui en gagnent ~38 %).
+  caracteristique est la plus faible, et au prix des Capacites `annule_couleur`, qui font
+  tomber une caracteristique a 0.
+- **Un total eleve, ou une Capacite forte, doit se payer en Degats** : le roster fourni va
+  de 2 Degats (profils qui gagnent 44 a 79 % de leurs duels) a 5 Degats (profils a 36 a
+  40 %).
+- **Une Capacite multipliee coute cher** : `patience` et `impatience` valent 2,5 fois
+  l'effet en moyenne, `par bataille remportee`/`perdue` environ 1,5 fois. Reservez-les aux
+  profils fragiles, qui ont de la marge sur leurs Degats pour les payer.
 
 Le roster fourni (22 Combattants) a ete regle de cette facon : chaque Combattant inflige
-en moyenne autant de PV qu'il en subit, a 0,35 PV par duel pres (mesure par simulation sur
-toutes les paires possibles). Les Degats vont de 2 (profils qui gagnent ~68 % de leurs
-duels) a 5 (profils a ~38 %).
+en moyenne autant de PV qu'il en subit, a **0,23 PV par duel** pres (mesure par simulation
+sur les 462 rencontres ordonnees possibles, dans les 4 numeros de duel et les 4 historiques
+de duel precedent). Les Combattants gagnent de 36 % (Verve) a 79 % (Mime) de leurs duels :
+c'est le prix paye en Degats qui remet tout le monde a egalite, pas le taux de victoire.
 
 ## IA
 
@@ -135,9 +220,13 @@ duels) a 5 (profils a ~38 %).
   la composition du deck et voit les cartes deja revelees : elle sait donc exactement
   quelles cartes dorment encore dans les deux pioches, sans savoir laquelle est ou. Pour
   chaque pioche, elle resout toutes les cartes encore en jeu portant cette couleur contre
-  les caracteristiques des deux Combattants engages, et retient la pioche de meilleure
-  esperance (+1 bataille gagnee, -1 perdue, 0 nulle). Les egalites sont tranchees au
-  hasard.
+  les caracteristiques des deux Combattants engages — celles du duel, une couleur
+  eventuellement annulee par une Capacite — et l'Initiative eventuelle des deux camps, puis
+  retient la pioche de meilleure esperance (+1 bataille gagnee, -1 perdue, 0 nulle). Les
+  egalites sont tranchees au hasard.
+
+L'IA ne tient pas compte des Capacites dans le choix de son Combattant (elle le tire au
+hasard) : seules celles qui changent la resolution des batailles entrent dans son calcul.
 
 Le joueur humain dispose de la meme information : le deck est liste sur l'ecran de
 selection, et le rapport de bataille du duel en cours rappelle quelles cartes sont deja
@@ -168,9 +257,27 @@ l'utilisateur avant developpement :
   3-2.
 - **Equipe visible** : le roster complet des deux joueurs est visible en permanence ; seuls
   le contenu des pioches (hors couleur du dos) reste cache.
-- **Moteur de Pouvoirs retire** : `engine/powers.py` n'existe plus dans cette version (le
-  champ `pouvoir` des Combattants reste en donnees). `pouvoirs.csv` est conserve pour une
-  version ulterieure.
+- **Capacites** : le systeme decrit par `versions/battles.md` laissait le moment
+  d'application ouvert. Les effets qui changent la resolution des batailles (`initiative`,
+  `annule_couleur`) sont figes a l'engagement des deux Combattants ; les autres
+  s'appliquent a la resolution du duel, modificateurs de Degats d'abord (plancher a 0),
+  effets de PV ensuite. Le moteur refuse a l'import toute capacite incoherente avec ce
+  decoupage.
+- **Initiative contre Initiative** : si les deux Combattants l'ont, elles se neutralisent et
+  la bataille reste nulle.
+- **« Bataille » = duel** : les conditions `victoire` / `defaite` portent sur le duel, pas
+  sur une bataille isolee (c'est le sens de `vengeance` / `confiance` dans
+  `versions/battles.md`, qui parlent de « sa bataille lors du duel precedent »).
+- **Multiplicateur a 0** : une Capacite « par bataille remportee » sans bataille remportee ne
+  produit rien.
+- **PV non plafonnes** : un gain de PV peut faire depasser les 10 PV de depart (l'affichage
+  le montre en orange) ; les Degats, eux, ne descendent jamais sous 0.
+- **Modificateur de Degats sans effet** : `+X Degats` sur un Combattant qui perd son duel
+  s'applique bien mais n'est pas rapporte dans le bilan, pour ne pas annoncer des Degats que
+  personne n'a subis.
+- **Ancien moteur de Pouvoirs retire** : `engine/powers.py` n'existe plus, et le champ
+  `pouvoir` de `data/combattants.json` (base sur la Puissance et l'Energie, disparues) a ete
+  remplace par `capacite`. `pouvoirs.csv` reste a la racine comme reference du jeu de base.
 
 ## Lisibilite de la resolution
 
@@ -183,6 +290,15 @@ chaque etape (score, rapport, dos des pioches tels qu'ils etaient alors) : le re
 duel n'est affiche qu'apres la derniere bataille. L'animation est desactivee si le systeme
 declare `prefers-reduced-motion`.
 
+Les Capacites sont rendues lisibles de la meme facon : la Capacite de chaque Combattant est
+imprimee sur sa carte avec son statut dans le duel en cours (`active`, `inactive`, ou
+« selon l'issue » quand elle depend du resultat), une caracteristique ramenee a 0 est
+affichee barree de sa valeur imprimee, un bandeau rappelle les Capacites qui agissent
+pendant les batailles, les batailles gagnees par l'Initiative sont marquees comme telles
+dans le rapport, et le bilan du duel liste chaque Capacite declenchee avec les PV qu'elle a
+deplaces. Les statuts sont figes a l'engagement des Combattants : rejouer les batailles a
+l'ecran ne devoile jamais l'issue du duel.
+
 ## Verifier l'equilibre
 
 ```
@@ -191,19 +307,26 @@ uv run python generate_metagame.py -n 3000
 
 Simule des parties completes IA contre IA (la meme heuristique des deux cotes, equipes
 tirees au hasard) et affiche le pourcentage de victoire par Combattant. Sur le roster
-fourni, les 22 Combattants tiennent dans une fourchette de 6 points (43,9 % a 50,1 % sur
-12 000 parties, le solde etant les parties nulles).
+fourni, les 22 Combattants tiennent dans une fourchette de 3,5 points (45,5 % a 49,0 % sur
+12 000 parties, le solde etant les 5 % de parties nulles).
 
 ## Tests effectues
 
+- 30 verifications unitaires du systeme de Capacites (chaque condition, chaque effet,
+  chaque multiplicateur, sur des duels rendus deterministes en ne mettant qu'un seul modele
+  de carte dans les pioches), rejouees sur 3 graines.
 - 2 000 parties completes simulees via le moteur Python (sans crash), avec mesure du
-  rythme : duels de 3 a 7 cartes (4,8 en moyenne), 17,4 % de batailles nulles, 7,0 % de
-  duels tranches par le plafond, 32,9 % de parties finies par KO.
-- Equilibrage mesure sur les 231 paires de Combattants possibles (500 duels par paire) :
-  ecart maximal entre PV infliges et PV subis de 0,35 PV par duel.
-- Partie complete jouee via l'API HTTP reelle (serveur Flask demarre), verifiant le cycle
-  choix du Combattant → batailles alternees → fin de duel (par 3 batailles et par
-  plafond) → duel suivant → KO, ainsi que le reapprovisionnement des pioches depuis la
-  defausse.
-- Verification visuelle du frontend (ecran de selection, ecran de duel, etapes de
-  l'animation de revelation) par captures en navigateur headless.
+  rythme : 3,65 duels par partie, duels de 3 a 7 cartes (4,7 en moyenne), 14,4 % de
+  batailles nulles, 1,9 % des cartes tranchees par l'Initiative, 5,8 % de duels tranches
+  par le plafond, 3,1 % de doubles victoires, 50,6 % de parties finies par KO et 5,0 % de
+  parties nulles. Les 22 Capacites se declenchent toutes en jeu (1,28 par duel).
+- Equilibrage mesure sur les 462 rencontres ordonnees possibles (1 536 duels par
+  rencontre, soit 710 000 duels) : ecart maximal entre PV infliges et PV subis de 0,23 PV
+  par duel.
+- 8 parties completes jouees via l'API HTTP reelle (serveur Flask demarre), verifiant le
+  cycle choix du Combattant → batailles alternees → fin de duel (par 3 batailles et par
+  plafond) → duel suivant → KO, la coherence des PV a chaque duel (PV de depart + effets de
+  Capacite - Degats = PV d'arrivee) et le refus en HTTP 400 des actions invalides.
+- Verification visuelle du frontend (ecran de selection avec Capacites et bouton
+  « Equipe aleatoire », duel avec une caracteristique annulee, bilan de duel, legendes)
+  par captures en navigateur headless.

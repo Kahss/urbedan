@@ -1,5 +1,5 @@
 {
-  "$schema_doc": "Voir README.md section 'Editer / ajouter des Combattants'. Dans cette version, un Combattant n'a plus de Puissance ni de Pouvoir actif : il porte trois caracteristiques (force / dexterite / sagesse, chacune de 0 a 5) avec lesquelles il dispute les batailles du duel, et une valeur de degats. Le total des trois caracteristiques se situe entre 8 et 10 et est compense par les degats : plus un Combattant gagne souvent, moins il frappe fort. Les champs 'archetype', 'description' et 'pouvoir' ne sont lus ni par le moteur ni par le frontend : le pouvoir est conserve en donnees pour une version ulterieure.",
+  "$schema_doc": "Voir README.md section 'Editer / ajouter des Combattants'. Un Combattant porte trois caracteristiques (force / dexterite / sagesse, chacune de 0 a 5) avec lesquelles il dispute les batailles du duel, une valeur de degats, et une capacite (condition facultative + effet obligatoire + multiplicateur facultatif) decrite dans backend/engine/capacites.py. Le total des trois caracteristiques, les degats et la puissance de la capacite se compensent : plus un Combattant gagne souvent ou dispose d'une capacite forte, moins il frappe fort. Les champs 'archetype' et 'description' ne sont lus ni par le moteur ni par le frontend.",
   "combattants": [
     {
       "id": "riff",
@@ -9,24 +9,14 @@
       "force": 2,
       "dexterite": 4,
       "sagesse": 4,
-      "degats": 2,
-      "pouvoir": {
-        "description": "Courage : +2 Puissance / +2 Dégâts par Energie",
-        "condition": "courage",
-        "modificateur": "par_energie",
-        "energie_min": 2,
-        "effets": [
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 2
-          },
-          {
-            "type": "degats",
-            "cible": "soi",
-            "valeur": 2
-          }
-        ]
+      "degats": 3,
+      "capacite": {
+        "condition": "premier",
+        "effet": {
+          "type": "degats_soi",
+          "valeur": 1
+        },
+        "multiplicateur": null
       }
     },
     {
@@ -35,22 +25,16 @@
       "archetype": "La hackeuse activiste",
       "description": "Nova a coupe le courant de tout un pate d'immeubles a quinze ans, juste pour voir ce que ca ferait. Aujourd'hui elle infiltre les automatismes adverses en plein duel, les desactive, puis retourne leurs propres protocoles contre eux. Elle ne frappe jamais fort la premiere fois : elle prefere demonter le systeme de l'interieur avant de porter le coup de grace.",
       "force": 2,
-      "dexterite": 2,
+      "dexterite": 1,
       "sagesse": 5,
-      "degats": 2,
-      "pouvoir": {
-        "description": "Copie puis annule le Pouvoir actif adverse",
+      "degats": 3,
+      "capacite": {
         "condition": null,
-        "modificateur": null,
-        "energie_min": 2,
-        "effets": [
-          {
-            "type": "copie_pouvoir"
-          },
-          {
-            "type": "stop_pouvoir"
-          }
-        ]
+        "effet": {
+          "type": "annule_couleur",
+          "couleur": "bleu"
+        },
+        "multiplicateur": null
       }
     },
     {
@@ -62,17 +46,13 @@
       "dexterite": 5,
       "sagesse": 1,
       "degats": 2,
-      "pouvoir": {
-        "description": "Patience : +2 Puissance",
-        "modificateur": "patience",
-        "energie_min": 0,
-        "effets": [
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 2
-          }
-        ]
+      "capacite": {
+        "condition": "confiance",
+        "effet": {
+          "type": "degats_soi",
+          "valeur": 2
+        },
+        "multiplicateur": null
       }
     },
     {
@@ -81,26 +61,16 @@
       "archetype": "Le writer pyromane",
       "description": "Blaze tague a la bombe et au chalumeau, et personne ne l'arrete tant que la piece n'est pas terminee. Il frappe plus fort quand il sent l'adversaire deja affaibli, sans pitie pour les plus faibles — mais quand on lui tient tete, une rage froide prend le dessus et le rend plus dangereux encore. On raconte que ses fresques les plus connues ont fini par bruler la moitie du mur qui les portait.",
       "force": 4,
-      "dexterite": 2,
+      "dexterite": 3,
       "sagesse": 2,
-      "degats": 5,
-      "pouvoir": {
-        "description": "Vengeance : +4 Puissance, +4 Degats",
+      "degats": 3,
+      "capacite": {
         "condition": "vengeance",
-        "modificateur": null,
-        "energie_min": 1,
-        "effets": [
-          {
-            "type": "degats",
-            "cible": "soi",
-            "valeur": 4
-          },
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 4
-          }
-        ]
+        "effet": {
+          "type": "degats_soi",
+          "valeur": 3
+        },
+        "multiplicateur": null
       }
     },
     {
@@ -110,23 +80,15 @@
       "description": "Videur du Zenith Club depuis dix ans, Iron a arrete de compter les coups qu'il a encaisses a la place des autres. Rien ne l'ebranle : il absorbe, encaisse, et laisse l'adversaire s'epuiser contre sa garde plutot que de forcer le passage. Quand la situation degenere vraiment, c'est lui qui ferme la porte, dans tous les sens du terme.",
       "force": 5,
       "dexterite": 0,
-      "sagesse": 3,
-      "degats": 4,
-      "pouvoir": {
-        "description": "Protection et -1 Puissance adverse par Energie",
+      "sagesse": 4,
+      "degats": 3,
+      "capacite": {
         "condition": null,
-        "modificateur": "par_energie",
-        "energie_min": 1,
-        "effets": [
-          {
-            "type": "protection"
-          },
-          {
-            "type": "puissance",
-            "cible": "adversaire",
-            "valeur": -1
-          }
-        ]
+        "effet": {
+          "type": "degats_adverse",
+          "valeur": 2
+        },
+        "multiplicateur": null
       }
     },
     {
@@ -134,21 +96,17 @@
       "nom": "Cobra",
       "archetype": "Le motard de nuit",
       "description": "Personne ne sait qui se cache sous le casque de Cobra, seulement qu'on l'entend arriver avant de le voir. Il roule sans filet, mord avant de reflechir, et plus la course s'envenime, plus il plante les crocs profondement. Sa plus grande victoire l'a laisse a moitie inconscient au bord de la route — il dit que ca en valait le coup.",
-      "force": 3,
+      "force": 2,
       "dexterite": 5,
       "sagesse": 1,
-      "degats": 3,
-      "pouvoir": {
-        "description": "Vampirisme 1 par Energie",
-        "condition": null,
-        "modificateur": "par_energie",
-        "energie_min": 0,
-        "effets": [
-          {
-            "type": "vampirisme",
-            "valeur": 1
-          }
-        ]
+      "degats": 5,
+      "capacite": {
+        "condition": "confiance",
+        "effet": {
+          "type": "vampirisme",
+          "valeur": 1
+        },
+        "multiplicateur": null
       }
     },
     {
@@ -160,22 +118,12 @@
       "dexterite": 5,
       "sagesse": 4,
       "degats": 2,
-      "pouvoir": {
-        "description": "+2 Puissance / + 1 Dégât par Energie",
-        "modificateur": "par_energie",
-        "energie_min": 2,
-        "effets": [
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 2
-          },
-          {
-            "type": "degats",
-            "cible": "soi",
-            "valeur": 1
-          }
-        ]
+      "capacite": {
+        "condition": null,
+        "effet": {
+          "type": "initiative"
+        },
+        "multiplicateur": null
       }
     },
     {
@@ -184,21 +132,16 @@
       "archetype": "La voyante des quais",
       "description": "Vex lit l'avenir dans les graffitis et les tickets de loterie perdus, installee sur son carton pres du canal. Elle tire une etrange force de ses propres defaites, se relance encore plus fort a chaque victoire, et plus l'ecart de Puissance avec l'adversaire est grand en sa faveur, plus la malediction qu'elle jette ensuite est cruelle.",
       "force": 1,
-      "dexterite": 3,
+      "dexterite": 2,
       "sagesse": 5,
-      "degats": 2,
-      "pouvoir": {
-        "description": "Défaite : -6 Vie adverse",
+      "degats": 4,
+      "capacite": {
         "condition": "defaite",
-        "modificateur": null,
-        "energie_min": 2,
-        "effets": [
-          {
-            "type": "vie",
-            "cible": "adversaire",
-            "valeur": -6
-          }
-        ]
+        "effet": {
+          "type": "pv_adverse",
+          "valeur": 2
+        },
+        "multiplicateur": null
       }
     },
     {
@@ -207,21 +150,16 @@
       "archetype": "L'illusionniste du marche aux puces",
       "description": "Sur son etal de bric-a-brac, Mirage ne vend jamais rien : elle observe. Elle laisse l'adversaire miser gros, sourit, puis lui retourne exactement l'energie qu'il vient d'investir contre elle. Plus on joue fort contre Mirage, plus on nourrit le tour qu'elle est en train de preparer.",
       "force": 2,
-      "dexterite": 3,
+      "dexterite": 2,
       "sagesse": 4,
-      "degats": 3,
-      "pouvoir": {
-        "description": "+2 Puissance par Energie adverse",
-        "condition": null,
-        "modificateur": "par_energie_adverse",
-        "energie_min": 1,
-        "effets": [
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 2
-          }
-        ]
+      "degats": 4,
+      "capacite": {
+        "condition": "second",
+        "effet": {
+          "type": "annule_couleur",
+          "couleur": "vert"
+        },
+        "multiplicateur": null
       }
     },
     {
@@ -233,18 +171,13 @@
       "dexterite": 2,
       "sagesse": 3,
       "degats": 5,
-      "pouvoir": {
-        "description": "+2 Puissance par Energie en jeu",
+      "capacite": {
         "condition": null,
-        "modificateur": "par_energie_en_jeu",
-        "energie_min": 1,
-        "effets": [
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 2
-          }
-        ]
+        "effet": {
+          "type": "degats_soi",
+          "valeur": 1
+        },
+        "multiplicateur": "patience"
       }
     },
     {
@@ -253,21 +186,16 @@
       "archetype": "Le boxeur de rue",
       "description": "Jab n'a jamais mis les pieds dans un club select : ses rounds, il les a faits au parking du Zenith, sous les phares des voitures garees en cercle. Il n'attaque jamais le premier — il regarde, encaisse un temps, puis place le contre exact au moment ou l'adversaire s'expose. Personne ne l'a jamais vu porter le premier coup, et personne n'a jamais gagne contre lui en deuxieme position.",
       "force": 5,
-      "dexterite": 3,
+      "dexterite": 4,
       "sagesse": 0,
-      "degats": 5,
-      "pouvoir": {
-        "description": "Riposte : +3 Puissance",
-        "condition": "riposte",
-        "modificateur": null,
-        "energie_min": 1,
-        "effets": [
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 3
-          }
-        ]
+      "degats": 4,
+      "capacite": {
+        "condition": "second",
+        "effet": {
+          "type": "degats_soi",
+          "valeur": 3
+        },
+        "multiplicateur": null
       }
     },
     {
@@ -278,19 +206,14 @@
       "force": 1,
       "dexterite": 4,
       "sagesse": 4,
-      "degats": 3,
-      "pouvoir": {
-        "description": "Domination : +4 Puissance",
-        "condition": "domination",
-        "modificateur": null,
-        "energie_min": 1,
-        "effets": [
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 4
-          }
-        ]
+      "degats": 2,
+      "capacite": {
+        "condition": null,
+        "effet": {
+          "type": "pv_adverse",
+          "valeur": 1
+        },
+        "multiplicateur": "par_bataille_remportee"
       }
     },
     {
@@ -302,18 +225,13 @@
       "dexterite": 3,
       "sagesse": 5,
       "degats": 5,
-      "pouvoir": {
-        "description": "Victoire : +4 Vie",
+      "capacite": {
         "condition": "victoire",
-        "modificateur": null,
-        "energie_min": 1,
-        "effets": [
-          {
-            "type": "vie",
-            "cible": "soi",
-            "valeur": 4
-          }
-        ]
+        "effet": {
+          "type": "pv_soi",
+          "valeur": 3
+        },
+        "multiplicateur": null
       }
     },
     {
@@ -324,22 +242,14 @@
       "force": 3,
       "dexterite": 0,
       "sagesse": 5,
-      "degats": 5,
-      "pouvoir": {
-        "description": "Surpuissance : +4 Vie et -4 Vie adverse",
-        "condition": "surpuissance",
-        "effets": [
-          {
-            "type": "vie",
-            "cible": "soi",
-            "valeur": 4
-          },
-          {
-            "type": "vie",
-            "cible": "adversaire",
-            "valeur": -4
-          }
-        ]
+      "degats": 3,
+      "capacite": {
+        "condition": null,
+        "effet": {
+          "type": "pv_soi",
+          "valeur": 1
+        },
+        "multiplicateur": "par_bataille_remportee"
       }
     },
     {
@@ -350,19 +260,14 @@
       "force": 3,
       "dexterite": 5,
       "sagesse": 0,
-      "degats": 4,
-      "pouvoir": {
-        "description": "Impatience : +2 Puissance",
+      "degats": 5,
+      "capacite": {
         "condition": null,
-        "modificateur": "impatience",
-        "energie_min": 1,
-        "effets": [
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 2
-          }
-        ]
+        "effet": {
+          "type": "degats_soi",
+          "valeur": 1
+        },
+        "multiplicateur": "impatience"
       }
     },
     {
@@ -371,20 +276,16 @@
       "archetype": "Le cascadeur du parking desaffecte",
       "description": "Cascade s'entraine sur le toit du parking abandonne de la zone industrielle, enchainant des sauts que personne d'autre n'oserait tenter. Il ne ressent la montee d'adrenaline qu'une fois la figure reussie : c'est seulement apres avoir gagne le duel qu'il retrouve un second souffle, comme si la victoire elle-meme le soignait.",
       "force": 5,
-      "dexterite": 4,
+      "dexterite": 3,
       "sagesse": 1,
-      "degats": 2,
-      "pouvoir": {
-        "description": "Contrecoup : +3 Vie",
-        "condition": null,
-        "modificateur": "contrecoup",
-        "effets": [
-          {
-            "type": "vie",
-            "cible": "adversaire",
-            "valeur": 3
-          }
-        ]
+      "degats": 3,
+      "capacite": {
+        "condition": "defaite",
+        "effet": {
+          "type": "pv_soi",
+          "valeur": 2
+        },
+        "multiplicateur": null
       }
     },
     {
@@ -395,17 +296,14 @@
       "force": 3,
       "dexterite": 4,
       "sagesse": 2,
-      "degats": 3,
-      "pouvoir": {
-        "description": "Copie le Pouvoir adverse",
+      "degats": 2,
+      "capacite": {
         "condition": null,
-        "modificateur": null,
-        "energie_min": 1,
-        "effets": [
-          {
-            "type": "copie_pouvoir"
-          }
-        ]
+        "effet": {
+          "type": "annule_couleur",
+          "couleur": "rouge"
+        },
+        "multiplicateur": null
       }
     },
     {
@@ -417,16 +315,13 @@
       "dexterite": 2,
       "sagesse": 2,
       "degats": 2,
-      "pouvoir": {
-        "description": "Annule le Pouvoir actif adverse",
+      "capacite": {
         "condition": null,
-        "modificateur": null,
-        "energie_min": 1,
-        "effets": [
-          {
-            "type": "stop_pouvoir"
-          }
-        ]
+        "effet": {
+          "type": "degats_adverse",
+          "valeur": 1
+        },
+        "multiplicateur": "par_bataille_perdue"
       }
     },
     {
@@ -436,18 +331,15 @@
       "description": "Furet se faufile entre les etals du marche couvert sans jamais se faire voir, et ce qu'il derobe n'est pas toujours ce qu'on croit. Dans le feu d'un duel, il peut echanger sa situation avec celle de l'adversaire d'un geste aussi discret qu'un vol a la tire — et repartir avec ce qui comptait vraiment.",
       "force": 1,
       "dexterite": 5,
-      "sagesse": 3,
-      "degats": 3,
-      "pouvoir": {
-        "description": "Echange Puissance/Degats avec l'adversaire",
-        "condition": null,
-        "modificateur": null,
-        "energie_min": 2,
-        "effets": [
-          {
-            "type": "echange"
-          }
-        ]
+      "sagesse": 2,
+      "degats": 5,
+      "capacite": {
+        "condition": "victoire",
+        "effet": {
+          "type": "vampirisme",
+          "valeur": 1
+        },
+        "multiplicateur": null
       }
     },
     {
@@ -456,21 +348,16 @@
       "archetype": "Le medecin de rue benevole",
       "description": "Suture tient une infirmerie de fortune dans l'arriere-boutique d'une friperie, et soigne quiconque en a besoin sans poser de questions. Plus un affrontement s'eternise, plus son geste devient sur : ce n'est jamais au premier duel qu'elle est la plus efficace, mais a mesure que le tournoi avance et que l'experience s'accumule.",
       "force": 1,
-      "dexterite": 2,
+      "dexterite": 3,
       "sagesse": 5,
-      "degats": 4,
-      "pouvoir": {
-        "description": "Patience : +1 Vie",
-        "condition": null,
-        "modificateur": "patience",
-        "energie_min": 0,
-        "effets": [
-          {
-            "type": "vie",
-            "cible": "soi",
-            "valeur": 1
-          }
-        ]
+      "degats": 2,
+      "capacite": {
+        "condition": "defaite",
+        "effet": {
+          "type": "pv_soi",
+          "valeur": 1
+        },
+        "multiplicateur": "patience"
       }
     },
     {
@@ -480,23 +367,14 @@
       "description": "On l'a sous-estimee toute sa vie : une gamine, aveugle, forcement vulnerable. Chaque adversaire qui la croit en position de faiblesse decouvre la meme chose : pieds nus sur le bitume, elle sent chaque vibration, chaque feinte, chaque ruse avant meme qu'elle ne se declenche. Alors le mepris se retourne aussitot contre lui, sous la forme d'un deluge de pierre et de metal.",
       "force": 5,
       "dexterite": 1,
-      "sagesse": 4,
-      "degats": 2,
-      "pouvoir": {
-        "description": "Vengeance : Stop Pouvoir et +4 Puissance",
+      "sagesse": 3,
+      "degats": 4,
+      "capacite": {
         "condition": "vengeance",
-        "modificateur": null,
-        "energie_min": 1,
-        "effets": [
-          {
-            "type": "stop_pouvoir"
-          },
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 4
-          }
-        ]
+        "effet": {
+          "type": "initiative"
+        },
+        "multiplicateur": null
       }
     },
     {
@@ -507,18 +385,14 @@
       "force": 5,
       "dexterite": 1,
       "sagesse": 2,
-      "degats": 4,
-      "pouvoir": {
-        "description": "Domination : Vampirisme 2 par Energie",
-        "condition": "domination",
-        "modificateur": "par_energie",
-        "energie_min": 1,
-        "effets": [
-          {
-            "type": "vampirisme",
-            "valeur": 2
-          }
-        ]
+      "degats": 3,
+      "capacite": {
+        "condition": "victoire",
+        "effet": {
+          "type": "vampirisme",
+          "valeur": 2
+        },
+        "multiplicateur": null
       }
     }
   ]

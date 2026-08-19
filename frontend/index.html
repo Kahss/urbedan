@@ -21,16 +21,22 @@
       Clique sur 4 Combattants pour constituer ton equipe ; l'IA recevra 4 des Combattants restants.
       Chaque Combattant porte trois caracteristiques&nbsp;: <b class="txt-rouge">Force</b>,
       <b class="txt-vert">Dexterite</b> et <b class="txt-bleu">Sagesse</b>. Elles servent a remporter
-      les batailles ; les Degats sont ce qu'il retire aux PV adverses s'il gagne son duel.
+      les batailles ; les Degats sont ce qu'il retire aux PV adverses s'il gagne son duel. Chacun
+      porte en plus une <b>Capacite</b>, qui inflechit le duel ou son resultat.
     </p>
     <div id="grille-selection" class="grille-combattants"></div>
     <div class="barre-action">
       <span id="compteur-selection">0 / 4 selectionnes</span>
+      <button id="btn-equipe-aleatoire" class="secondaire">Equipe aleatoire</button>
       <button id="btn-lancer-partie" disabled>Lancer la partie</button>
     </div>
     <details id="legende-deck" class="legende-deck">
-      <summary>Les 20 cartes Bataille du deck</summary>
+      <summary>Les 21 cartes Bataille du deck</summary>
       <div id="legende-deck-liste" class="legende-deck-liste"></div>
+    </details>
+    <details id="legende-capacites" class="legende-deck">
+      <summary>Comment se lit une Capacite</summary>
+      <div id="legende-capacites-liste" class="legende-capacites-liste"></div>
     </details>
   </section>
 
@@ -61,6 +67,8 @@
 
       <div class="centre-duel">
         <div id="combattants-en-duel" class="combattants-en-duel"></div>
+
+        <div id="capacites-duel" class="capacites-duel cache"></div>
 
         <div id="zone-pioches" class="zone-pioches cache">
           <p id="libelle-pioches" class="libelle-pioches"></p>

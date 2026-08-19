@@ -55,17 +55,40 @@ function roleIa(etat) {
   return etat.j1 === "humain" ? "j2" : "j1";
 }
 
-function caracsHtml(data) {
-  return CARACS.map(
-    (c) =>
-      `<span class="carac carac-${c.couleur}" title="${c.libelle}">` +
-      `<span class="carac-initiale">${c.initiale}</span><b>${data[c.cle]}</b></span>`
-  ).join("");
+// `effectives` (facultatif) donne les caracteristiques du duel en cours : une capacite
+// adverse peut en avoir ramene une a 0, la valeur imprimee est alors barree.
+function caracsHtml(data, effectives) {
+  return CARACS.map((c) => {
+    const base = data[c.cle];
+    const valeur = effectives ? effectives[c.cle] : base;
+    const annulee = valeur !== base;
+    const titre = annulee ? `${c.libelle} annulee (${base} sur la carte)` : c.libelle;
+    return (
+      `<span class="carac carac-${c.couleur}${annulee ? " annulee" : ""}" title="${titre}">` +
+      `<span class="carac-initiale">${c.initiale}</span><b>${valeur}</b>` +
+      (annulee ? `<s>${base}</s>` : "") +
+      `</span>`
+    );
+  }).join("");
+}
+
+// Capacite d'un Combattant. `statut` ("active", "inactive", "en_attente") n'est connu que
+// pendant un duel : sur l'ecran de selection, la capacite est simplement decrite.
+function capaciteHtml(capacite, statut) {
+  if (!capacite) return "";
+  const classes = ["capacite"];
+  if (statut) classes.push("statut-" + statut);
+  const etiquettes = { active: "active", inactive: "inactive", en_attente: "selon l'issue" };
+  const marque = statut ? `<span class="capacite-statut">${etiquettes[statut]}</span>` : "";
+  return (
+    `<div class="${classes.join(" ")}"><span class="capacite-etiquette">Capacite</span>` +
+    `<span class="capacite-texte">${capacite.libelle}</span>${marque}</div>`
+  );
 }
 
 // ------------------------------------------------------------- cartes
 
-function creerCarteCombattant(data, { selectionnable = false, selectionnee = false, active = false, onClick = null } = {}) {
+function creerCarteCombattant(data, { selectionnable = false, selectionnee = false, active = false, onClick = null, statutCapacite = null } = {}) {
   const carte = document.createElement("div");
   carte.className = "carte-combattant";
   if (selectionnable) carte.classList.add("selectionnable");
@@ -86,6 +109,12 @@ function creerCarteCombattant(data, { selectionnable = false, selectionnee = fal
   stats.className = "stats-combattant";
   stats.innerHTML = `<span>Degats <b>${data.degats}</b></span><span>Total caracs <b>${data.total_caracs}</b></span>`;
   carte.appendChild(stats);
+
+  if (data.capacite) {
+    const capacite = document.createElement("div");
+    capacite.innerHTML = capaciteHtml(data.capacite, statutCapacite);
+    carte.appendChild(capacite.firstChild);
+  }
 
   if (data.utilise) {
     const badge = document.createElement("span");
@@ -145,6 +174,25 @@ async function initSelectionEcran() {
   equipeSelectionnee.clear();
   renderGrilleSelection();
   renderLegendeDeck(await api("/batailles"));
+  renderLegendeCapacites(await api("/capacites"));
+}
+
+function renderLegendeCapacites(vocabulaire) {
+  const liste = document.getElementById("legende-capacites-liste");
+  vider(liste);
+  [
+    { titre: "Condition (facultative) — quand la Capacite s'active", cle: "conditions" },
+    { titre: "Effet (obligatoire) — ce qu'elle fait", cle: "effets" },
+    { titre: "Multiplicateur (facultatif) — combien de fois l'effet s'applique", cle: "multiplicateurs" },
+  ].forEach(({ titre, cle }) => {
+    const bloc = document.createElement("div");
+    bloc.className = "legende-capacite-bloc";
+    const lignes = vocabulaire[cle]
+      .map((item) => `<li><b>${item.libelle || item.cle}</b> : ${item.texte}</li>`)
+      .join("");
+    bloc.innerHTML = `<h5>${titre}</h5><ul>${lignes}</ul>`;
+    liste.appendChild(bloc);
+  });
 }
 
 function renderLegendeDeck(cartes) {
@@ -188,6 +236,18 @@ function toggleSelection(id) {
   }
   renderGrilleSelection();
 }
+
+document.getElementById("btn-equipe-aleatoire").addEventListener("click", () => {
+  // Tire 4 Combattants au hasard parmi tous ceux du roster, en remplacant la selection.
+  const melange = combattantsDisponibles.slice();
+  for (let i = melange.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [melange[i], melange[j]] = [melange[j], melange[i]];
+  }
+  equipeSelectionnee.clear();
+  melange.slice(0, 4).forEach((c) => equipeSelectionnee.add(c.id));
+  renderGrilleSelection();
+});
 
 document.getElementById("btn-lancer-partie").addEventListener("click", async () => {
   const etat = await api("/partie", {
@@ -250,19 +310,14 @@ function pvRonds(pv) {
 }
 
 function pvAffiches(etat, enAnimation) {
-  const pv = { humain: etat.joueur_humain.pv, ia: etat.joueur_ia.pv };
   const resultat = etat.dernier_resultat;
   // Tant que les batailles defilent, le duel n'est pas encore cense etre resolu : on
-  // rend les PV perdus par le camp qui vient de subir les Degats, pour ne pas devoiler
-  // l'issue du duel avant la derniere bataille.
+  // reaffiche les PV tels qu'ils etaient avant les Degats et les effets de Capacite du
+  // duel, pour ne pas devoiler son issue avant la derniere bataille.
   if (enAnimation && resultat) {
-    resultat.gagnants_roles.forEach((role) => {
-      const gagnant = resultat["combattant_" + role];
-      const perdant = resultat["combattant_" + (role === "j1" ? "j2" : "j1")];
-      pv[perdant.camp] += resultat.degats[gagnant.nom];
-    });
+    return { ...resultat.pv_debut };
   }
-  return pv;
+  return { humain: etat.joueur_humain.pv, ia: etat.joueur_ia.pv };
 }
 
 function renderTableauBord(etat, options = {}) {
@@ -275,6 +330,20 @@ function renderTableauBord(etat, options = {}) {
     `Duel ${Math.min(etat.duel_numero, etat.duels_max)} / ${etat.duels_max}`;
   document.getElementById("premier-joueur-texte").textContent =
     etat.j1 === "humain" ? "Tu es J1 : tu engages et tu pioches en premier" : "L'IA est J1 : elle engage et pioche en premier";
+}
+
+// Le slot ("j1" / "j2") occupe par ce Combattant dans le duel en cours, s'il y combat.
+function slotDuel(etat, id) {
+  if (etat.combattant_j1 === id) return "j1";
+  if (etat.combattant_j2 === id) return "j2";
+  return null;
+}
+
+function statutCapacite(etat, id) {
+  const slot = slotDuel(etat, id);
+  if (!slot) return null;
+  const capacite = (etat.capacites_duel || {})[slot];
+  return capacite ? capacite.statut : null;
 }
 
 function renderEquipes(etat, options = {}) {
@@ -295,6 +364,7 @@ function renderEquipes(etat, options = {}) {
       creerCarteCombattant(c, {
         selectionnable: peutChoisir && !c.utilise,
         active,
+        statutCapacite: active ? statutCapacite(etat, c.id) : null,
         onClick: peutChoisir && !c.utilise ? () => soumettreCombattant(c.id) : null,
       })
     );
@@ -305,7 +375,9 @@ function renderEquipes(etat, options = {}) {
   etat.joueur_ia.equipe.forEach((brut) => {
     const c = enDuel(brut);
     const active = c.id === etat.combattant_j1 || c.id === etat.combattant_j2;
-    grilleIa.appendChild(creerCarteCombattant(c, { active }));
+    grilleIa.appendChild(
+      creerCarteCombattant(c, { active, statutCapacite: active ? statutCapacite(etat, c.id) : null })
+    );
   });
 }
 
@@ -333,12 +405,15 @@ function renderZoneCentrale(etat, options = {}) {
   const zoneResultat = document.getElementById("zone-resultat");
   const messageAttente = document.getElementById("message-attente");
   const conteneurDuel = document.getElementById("combattants-en-duel");
+  const bandeauCapacites = document.getElementById("capacites-duel");
 
   zonePioches.classList.add("cache");
   zoneJournal.classList.add("cache");
   zoneResultat.classList.add("cache");
   messageAttente.classList.add("cache");
+  bandeauCapacites.classList.add("cache");
   vider(conteneurDuel);
+  vider(bandeauCapacites);
 
   // Pendant l'animation, on rejoue l'etat tel qu'il etait apres la bataille `jusqua` :
   // score, journal et pioches sont reconstitues a cet instant, et le resultat du duel
@@ -375,8 +450,14 @@ function renderZoneCentrale(etat, options = {}) {
     const data = trouverCombattant(etat, id);
     const gagnees = score[slot];
     const vientDeGagner = enAnimation && derniere && derniere.gagnant_role === slot;
+    // Caracteristiques du duel : une capacite adverse peut en avoir ramene une a 0.
+    const caracsDuel = (etat.caracs_duel || {})[slot];
+    const capacite = resultat
+      ? resultat["combattant_" + slot].capacite
+      : (etat.capacites_duel || {})[slot];
     let contenu = `<div class="role">${labelRole}</div><h3>${data.nom}</h3>`;
-    contenu += `<div class="caracs-combattant grand">${caracsHtml(data)}</div>`;
+    contenu += `<div class="caracs-combattant grand">${caracsHtml(data, caracsDuel)}</div>`;
+    contenu += capaciteHtml(capacite, capacite ? capacite.statut : null);
     contenu += `<div class="marqueurs">${marqueursBatailles(gagnees, etat.batailles_pour_gagner, { dernierAnime: vientDeGagner })}</div>`;
     contenu += `<div class="compte-batailles">${gagnees} bataille${gagnees > 1 ? "s" : ""} remportee${gagnees > 1 ? "s" : ""}</div>`;
     if (resultat) {
@@ -393,6 +474,21 @@ function renderZoneCentrale(etat, options = {}) {
     carte.innerHTML = contenu;
     conteneurDuel.appendChild(carte);
   });
+
+  // Capacites qui agissent pendant les batailles (Initiative, annulation de couleur) :
+  // elles sont connues des l'engagement des deux Combattants, donc affichables sans
+  // rien devoiler de l'issue du duel.
+  const passives = etat.capacites_passives || [];
+  if (passives.length && phase !== "choix_combattant") {
+    bandeauCapacites.classList.remove("cache");
+    passives.forEach((entree) => {
+      const ligne = document.createElement("div");
+      ligne.className = "ligne-capacite" + (entree.camp ? ` ${entree.camp}` : "");
+      ligne.innerHTML =
+        `<span class="capacite-etiquette">Capacite</span><span>${entree.texte}</span>`;
+      bandeauCapacites.appendChild(ligne);
+    });
+  }
 
   // Journal des batailles deja resolues
   if (entrees.length) {
@@ -414,7 +510,8 @@ function renderZoneCentrale(etat, options = {}) {
         })
         .join(`<span class="contre">vs</span>`);
       const issue = entree.gagnant_nom
-        ? `${entree.gagnant_nom} remporte la bataille`
+        ? `${entree.gagnant_nom} remporte la bataille` +
+          (entree.par_initiative ? " <em>(Initiative)</em>" : "")
         : "Bataille nulle";
       ligne.innerHTML =
         `<span class="bataille-numero">${entree.numero}</span>` +
@@ -475,9 +572,24 @@ function renderZoneCentrale(etat, options = {}) {
       (resultat.par_plafond ? ` (plafond de ${etat.cartes_max_par_duel} cartes atteint)` : "") +
       ` - ${resultat.gagnants.join(" et ")} remporte${resultat.gagnants.length > 1 ? "nt" : ""} le duel`;
     journal.appendChild(titre);
+    (resultat.capacites || []).forEach((entree) => {
+      const p = document.createElement("p");
+      p.className = "ligne-capacite-resultat";
+      p.innerHTML = `<span class="capacite-etiquette">Capacite</span>${entree.texte}`;
+      journal.appendChild(p);
+    });
     Object.entries(resultat.degats).forEach(([nom, valeur]) => {
       const p = document.createElement("p");
       p.textContent = `${nom} inflige ${valeur} Degats`;
+      journal.appendChild(p);
+    });
+    ["humain", "ia"].forEach((camp) => {
+      const variation = (resultat.effets_pv || {})[camp];
+      if (!variation) return;
+      const p = document.createElement("p");
+      p.className = camp === "humain" ? (variation > 0 ? "gain" : "perte") : variation > 0 ? "perte" : "gain";
+      p.textContent =
+        `${camp === "humain" ? "Toi" : "L'IA"} : ${variation > 0 ? "+" : ""}${variation} PV (Capacite)`;
       journal.appendChild(p);
     });
     const btn = document.getElementById("btn-duel-suivant");

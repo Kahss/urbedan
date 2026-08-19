@@ -2,11 +2,12 @@
 
 Dans cette version, un Combattant n'a plus de Puissance ni de Pouvoir : il porte trois
 caracteristiques (Force, Dexterite, Sagesse), chacune de 0 a 5, avec lesquelles il
-dispute les batailles du duel. Les cartes Glyphes et l'Energie ont disparu ; le champ
-`pouvoir` de data/combattants.json est conserve pour une version ulterieure mais n'est
-lu ni par le moteur ni par le frontend.
+dispute les batailles du duel, ses Degats, et une **capacite** qui lui permet d'influer
+sur le cours du duel (cf. engine/capacites.py). Les cartes Glyphes et l'Energie ont
+disparu.
 """
 from .batailles import CARACS
+from .capacites import charger_capacite
 
 
 class CombattantTemplate:
@@ -19,6 +20,7 @@ class CombattantTemplate:
         self.dexterite = data["dexterite"]
         self.sagesse = data["sagesse"]
         self.degats = data["degats"]
+        self.capacite = charger_capacite(data.get("capacite"), self.nom)
         for carac in CARACS:
             valeur = getattr(self, carac)
             if not 0 <= valeur <= 5:
@@ -37,6 +39,7 @@ class CombattantTemplate:
             "sagesse": self.sagesse,
             "total_caracs": sum(self.caracs.values()),
             "degats": self.degats,
+            "capacite": self.capacite.to_dict() if self.capacite else None,
         }
 
 

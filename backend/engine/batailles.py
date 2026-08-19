@@ -25,6 +25,7 @@ import random
 # Les trois caracteristiques, dans l'ordre d'affichage, et leur couleur.
 CARACS = ("force", "dexterite", "sagesse")
 COULEUR_PAR_CARAC = {"force": "rouge", "dexterite": "vert", "sagesse": "bleu"}
+CARAC_PAR_COULEUR = {couleur: carac for carac, couleur in COULEUR_PAR_CARAC.items()}
 LIBELLE_CARAC = {"force": "Force", "dexterite": "Dexterite", "sagesse": "Sagesse"}
 
 # Modeles de carte : nom, type de condition et caracteristiques lues, couleur du dos.

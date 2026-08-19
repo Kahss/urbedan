@@ -19,7 +19,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(BASE_DIR, "backend"))
 
 from engine.game import Partie, charger_combattants  # noqa: E402
-from engine.ia import choisir_combattant, choisir_pioche  # noqa: E402
+from engine.ia import choisir_combattant  # noqa: E402
 
 DATA_PATH = os.path.join(BASE_DIR, "data", "combattants.json")
 
@@ -42,14 +42,7 @@ def jouer_choix_humain(partie):
 def jouer_pioche_humaine(partie):
     """Fait choisir au joueur 'humain' l'une des 2 pioches de cartes Bataille, avec la
     meme heuristique que l'IA."""
-    role = role_humain(partie)
-    mien = getattr(partie, "combattant_" + role)
-    sien = partie.combattant_j2 if role == "j1" else partie.combattant_j1
-    index = choisir_pioche(
-        partie.pioches.sommets(), partie.pioches.cartes_en_pioche(),
-        mien.template.caracs, sien.template.caracs, role,
-    )
-    partie.soumettre_pioche(index)
+    partie.soumettre_pioche(partie.choisir_pioche_ia(role_humain(partie)))
 
 
 def jouer_partie(templates, tous_les_ids):

@@ -2,7 +2,8 @@
 import json
 import random
 
-from .batailles import Pioches
+from .batailles import LIBELLE_CARAC, Pioches
+from .capacites import CONDITIONS_FIN_DE_DUEL
 from .ia import choisir_combattant, choisir_pioche
 from .models import CombattantEnEquipe, CombattantTemplate, Joueur
 
@@ -54,6 +55,9 @@ class Partie:
         self.j1 = random.choice([self.joueur_humain, self.joueur_ia])
         self.j2 = self.joueur_ia if self.j1 is self.joueur_humain else self.joueur_humain
         self.historique = []
+        # Issue du duel precedent pour chaque camp ("victoire" / "defaite"), lue par les
+        # conditions de capacite `vengeance` et `confiance`.
+        self.issue_precedente = {"humain": None, "ia": None}
         self.dernier_resultat = None
         self.terminee = False
         self.vainqueur = None
@@ -70,11 +74,207 @@ class Partie:
         return self.combattant_j1 if role == "j1" else self.combattant_j2
 
     def _caracs(self, role):
+        """Les caracteristiques avec lesquelles ce Combattant dispute les batailles : celles
+        de sa carte, une couleur eventuellement ramenee a 0 par une capacite adverse."""
+        if self.caracs_duel is not None:
+            return self.caracs_duel[role]
         return self._combattant(role).template.caracs
 
     def _camp(self, role):
         """"humain" ou "ia" pour le joueur qui tient ce role dans le duel en cours."""
         return "humain" if self._joueur(role) is self.joueur_humain else "ia"
+
+    # ------------------------------------------------------------- capacites
+    def _capacite(self, role):
+        combattant = self._combattant(role)
+        return combattant.template.capacite if combattant else None
+
+    def _condition_remplie(self, role, condition, gagnants_roles=None):
+        """La condition d'une capacite est-elle remplie pour ce role ? `gagnants_roles`
+        n'est connu qu'a la resolution du duel : les conditions `victoire` et `defaite` ne
+        sont donc jamais remplies avant."""
+        if condition is None:
+            return True
+        if condition == "premier":
+            return role == "j1"
+        if condition == "second":
+            return role == "j2"
+        if condition == "vengeance":
+            return self.issue_precedente[self._camp(role)] == "defaite"
+        if condition == "confiance":
+            return self.issue_precedente[self._camp(role)] == "victoire"
+        if gagnants_roles is None:
+            return False
+        if condition == "victoire":
+            return role in gagnants_roles
+        return role not in gagnants_roles  # defaite
+
+    def _valeur_multiplicateur(self, multiplicateur, role):
+        """Combien de fois l'effet est applique. Un multiplicateur peut valoir 0 (une
+        capacite `par bataille remportee` ne produit rien si aucune bataille n'est gagnee)."""
+        if multiplicateur is None:
+            return 1
+        if multiplicateur == "patience":
+            return self.duel_numero
+        if multiplicateur == "impatience":
+            return NB_DUELS_MAX - self.duel_numero + 1
+        if multiplicateur == "par_bataille_remportee":
+            return len(self.batailles[role])
+        return len(self.batailles[ROLE_OPPOSE[role]])  # par_bataille_perdue
+
+    def _preparer_passifs(self):
+        """Fige les capacites qui agissent pendant les batailles, une fois les deux
+        Combattants engages et avant la premiere carte revelee : `annule_couleur` ramene a 0
+        la caracteristique visee chez l'adversaire, `initiative` fait remporter les batailles
+        que la condition ne tranche pas."""
+        self.caracs_duel = {
+            role: dict(self._combattant(role).template.caracs) for role in ("j1", "j2")
+        }
+        self.initiative = {"j1": False, "j2": False}
+        self.annulations = {"j1": None, "j2": None}
+        self.capacites_passives = []
+
+        for role in ("j1", "j2"):
+            capacite = self._capacite(role)
+            if capacite is None or not capacite.passive:
+                continue
+            if not self._condition_remplie(role, capacite.condition):
+                continue
+            nom = self._combattant(role).template.nom
+            entree = {
+                "role": role,
+                "camp": self._camp(role),
+                "combattant": nom,
+                "libelle": capacite.libelle(),
+            }
+            if capacite.effet.type == "initiative":
+                self.initiative[role] = True
+                entree["texte"] = f"{nom} (Initiative) remporte les batailles nulles"
+            else:
+                carac = capacite.effet.carac_annulee
+                cible = ROLE_OPPOSE[role]
+                self.caracs_duel[cible][carac] = 0
+                self.annulations[cible] = carac
+                entree["texte"] = (
+                    f"{nom} annule la {LIBELLE_CARAC[carac]} de "
+                    f"{self._combattant(cible).template.nom} (0 pour ce duel)"
+                )
+            self.capacites_passives.append(entree)
+
+        self.statuts_capacites = {role: self._capacite_dict(role) for role in ("j1", "j2")}
+
+        if self.initiative["j1"] and self.initiative["j2"]:
+            # Les deux Combattants remportent les egalites : elles se neutralisent et la
+            # bataille reste nulle.
+            self.capacites_passives.append({
+                "role": None,
+                "camp": None,
+                "combattant": None,
+                "libelle": "Initiative",
+                "texte": "Les deux Combattants ont l'Initiative : les egalites restent nulles",
+            })
+
+    def _capacites_resolution(self, gagnants_roles):
+        """Applique les capacites qui agissent a la resolution du duel et retourne
+        (Degats effectifs par role, variation de PV par camp, journal des capacites).
+
+        Les modificateurs de Degats sont calcules avant que les Degats ne soient retires ;
+        les effets de PV (gain, perte, vampirisme) s'appliquent ensuite."""
+        degats = {}
+        modificateurs = {"j1": 0, "j2": 0}
+        effets_pv = {"humain": 0, "ia": 0}
+        journal = []
+
+        for role in ("j1", "j2"):
+            capacite = self._capacite(role)
+            if capacite is None or capacite.passive:
+                continue
+            if not self._condition_remplie(role, capacite.condition, gagnants_roles):
+                continue
+            multiplicateur = self._valeur_multiplicateur(capacite.multiplicateur, role)
+            valeur = capacite.effet.valeur * multiplicateur
+            if valeur <= 0:
+                continue
+
+            nom = self._combattant(role).template.nom
+            camp = self._camp(role)
+            camp_adverse = self._camp(ROLE_OPPOSE[role])
+            type_effet = capacite.effet.type
+            # Un modificateur de Degats ne change rien si le Combattant concerne ne remporte
+            # pas le duel : l'effet est bien applique, mais il n'est pas rapporte au joueur.
+            observable = True
+
+            if type_effet == "degats_soi":
+                modificateurs[role] += valeur
+                observable = role in gagnants_roles
+                texte = f"{nom} inflige {valeur} Degats de plus"
+            elif type_effet == "degats_adverse":
+                modificateurs[ROLE_OPPOSE[role]] -= valeur
+                observable = ROLE_OPPOSE[role] in gagnants_roles
+                texte = (
+                    f"{nom} retire {valeur} Degats a "
+                    f"{self._combattant(ROLE_OPPOSE[role]).template.nom}"
+                )
+            elif type_effet == "pv_soi":
+                effets_pv[camp] += valeur
+                texte = f"{nom} fait gagner {valeur} PV a son joueur"
+            elif type_effet == "pv_adverse":
+                effets_pv[camp_adverse] -= valeur
+                texte = f"{nom} retire {valeur} PV a l'adversaire"
+            else:  # vampirisme
+                effets_pv[camp] += valeur
+                effets_pv[camp_adverse] -= valeur
+                texte = f"{nom} vampirise {valeur} PV"
+
+            if not observable:
+                continue
+
+            journal.append({
+                "role": role,
+                "camp": camp,
+                "combattant": nom,
+                "libelle": capacite.libelle(),
+                "multiplicateur": multiplicateur,
+                "valeur": valeur,
+                "texte": texte,
+            })
+
+        for role in ("j1", "j2"):
+            base = self._combattant(role).template.degats
+            degats[role] = max(0, base + modificateurs[role])
+
+        return degats, effets_pv, journal
+
+    def _capacite_dict(self, role, gagnants_roles=None):
+        """La capacite du Combattant engage, avec son statut dans le duel en cours :
+        `active`, `inactive`, ou `en_attente` tant que son issue depend du resultat du duel."""
+        capacite = self._capacite(role)
+        if capacite is None:
+            return None
+        if gagnants_roles is None and capacite.condition in CONDITIONS_FIN_DE_DUEL:
+            statut = "en_attente"
+        else:
+            statut = (
+                "active"
+                if self._condition_remplie(role, capacite.condition, gagnants_roles)
+                else "inactive"
+            )
+        data = capacite.to_dict()
+        data["statut"] = statut
+        return data
+
+    def choisir_pioche_ia(self, role):
+        """Applique l'heuristique de l'IA pour le role donne : quelle pioche choisir. Rendue
+        publique car generate_metagame.py s'en sert pour piloter les deux camps."""
+        return choisir_pioche(
+            self.pioches.sommets(),
+            self.pioches.cartes_en_pioche(),
+            self._caracs(role),
+            self._caracs(ROLE_OPPOSE[role]),
+            role,
+            self.initiative[role],
+            self.initiative[ROLE_OPPOSE[role]],
+        )
 
     # ------------------------------------------------------------------ duel
     def _initialiser_duel(self):
@@ -83,6 +283,15 @@ class Partie:
         self.pioches.remelanger()
         self.combattant_j1 = None
         self.combattant_j2 = None
+        # Capacites passives : figees des que les deux Combattants sont engages.
+        self.caracs_duel = None
+        self.initiative = {"j1": False, "j2": False}
+        self.annulations = {"j1": None, "j2": None}
+        self.capacites_passives = []
+        # Statut des capacites tel qu'il etait a l'engagement des Combattants : figer ce
+        # cliche evite d'exposer, pendant que les batailles defilent a l'ecran, un statut
+        # recalcule apres la resolution du duel.
+        self.statuts_capacites = {"j1": None, "j2": None}
         self.batailles = {"j1": [], "j2": []}
         self.nulles = []
         self.journal_batailles = []
@@ -107,21 +316,14 @@ class Partie:
                         return
                     self.combattant_j2 = choisir_combattant(self.j2)
                     continue
+                self._preparer_passifs()
                 self.phase = "batailles"
                 continue
 
             if self.phase == "batailles":
                 if not self._joueur(self.role_actif).est_ia:
                     return
-                role = self.role_actif
-                index = choisir_pioche(
-                    self.pioches.sommets(),
-                    self.pioches.cartes_en_pioche(),
-                    self._caracs(role),
-                    self._caracs(ROLE_OPPOSE[role]),
-                    role,
-                )
-                self._jouer_bataille(index)
+                self._jouer_bataille(self.choisir_pioche_ia(self.role_actif))
                 continue
 
             return
@@ -175,6 +377,13 @@ class Partie:
         carte = self.pioches.piocher(index)
         gagnant_role = carte.resoudre(self._caracs("j1"), self._caracs("j2"))
 
+        # Initiative : le Combattant remporte les batailles que la condition ne tranche pas.
+        # Si les deux l'ont, elles se neutralisent et la bataille reste nulle.
+        par_initiative = False
+        if gagnant_role is None and self.initiative["j1"] != self.initiative["j2"]:
+            gagnant_role = "j1" if self.initiative["j1"] else "j2"
+            par_initiative = True
+
         if gagnant_role is None:
             self.nulles.append(carte)
         else:
@@ -190,6 +399,7 @@ class Partie:
                 "j2": carte.detail(self._caracs("j2")),
             },
             "gagnant_role": gagnant_role,
+            "par_initiative": par_initiative,
             "gagnant_camp": self._camp(gagnant_role) if gagnant_role else None,
             "gagnant_nom": self._combattant(gagnant_role).template.nom if gagnant_role else None,
             "score": self._score(),
@@ -235,11 +445,12 @@ class Partie:
                 + "/".join(str(valeur) for _, valeur in entree["valeurs"][role])
                 for role in ("j1", "j2")
             )
-            issue = (
-                f"{entree['gagnant_nom']} remporte la bataille"
-                if entree["gagnant_nom"]
-                else "bataille nulle"
-            )
+            if entree["gagnant_nom"]:
+                issue = f"{entree['gagnant_nom']} remporte la bataille"
+                if entree["par_initiative"]:
+                    issue += " (Initiative)"
+            else:
+                issue = "bataille nulle"
             log.append(
                 f"Bataille {entree['numero']} - {carte['nom']} ({carte['condition']}) : "
                 f"{valeurs} -> {issue}"
@@ -251,18 +462,36 @@ class Partie:
                 f"le score ({score['j1']}-{score['j2']}) tranche le duel"
             )
 
+        # Capacites : les passifs ont deja agi pendant les batailles, les effets de
+        # resolution s'appliquent maintenant (Degats modifies avant d'etre retires, puis PV).
+        degats_effectifs, effets_pv, capacites_resolution = self._capacites_resolution(
+            gagnants_roles
+        )
+        capacites = self.capacites_passives + capacites_resolution
+        for entree in capacites:
+            log.append("Capacite - " + entree["texte"])
+
+        if len(gagnants_roles) == 2:
+            log.append("Double victoire : les deux Combattants infligent leurs Degats")
+
+        pv_debut = {"humain": self.joueur_humain.pv, "ia": self.joueur_ia.pv}
         degats = {}
         for role in gagnants_roles:
             combattant = self._combattant(role)
             adversaire = self._joueur(ROLE_OPPOSE[role])
-            adversaire.pv -= combattant.template.degats
-            degats[combattant.template.nom] = combattant.template.degats
+            valeur = degats_effectifs[role]
+            base = combattant.template.degats
+            adversaire.pv -= valeur
+            degats[combattant.template.nom] = valeur
             log.append(
                 f"{combattant.template.nom} remporte le duel {score[role]}-{score[ROLE_OPPOSE[role]]} "
-                f"et inflige {combattant.template.degats} Degats"
+                f"et inflige {valeur} Degats" + ("" if valeur == base else f" ({base} de base)")
             )
-        if len(gagnants_roles) == 2:
-            log.insert(-2, "Double victoire : les deux Combattants infligent leurs Degats")
+
+        for camp, variation in effets_pv.items():
+            if variation:
+                joueur = self.joueur_humain if camp == "humain" else self.joueur_ia
+                joueur.pv += variation
 
         self.combattant_j1.utilise = True
         self.combattant_j2.utilise = True
@@ -277,6 +506,12 @@ class Partie:
             "gagnants_ids": [self._combattant(role).template.id for role in gagnants_roles],
             "gagnants": [self._combattant(role).template.nom for role in gagnants_roles],
             "degats": degats,
+            "capacites": capacites,
+            "effets_pv": effets_pv,
+            # PV des deux joueurs avant les Degats et les effets de PV de ce duel : le
+            # frontend s'en sert pour rejouer le duel sans devoiler son issue.
+            "pv_debut": pv_debut,
+            "pv_fin": {"humain": self.joueur_humain.pv, "ia": self.joueur_ia.pv},
             "journal_batailles": list(self.journal_batailles),
             "log": log,
         }
@@ -287,8 +522,18 @@ class Partie:
                 "nom": combattant.template.nom,
                 "camp": self._camp(role),
                 "batailles": score[role],
-                "degats": combattant.template.degats,
+                "degats": degats_effectifs[role],
+                "degats_base": combattant.template.degats,
+                "capacite": self._capacite_dict(role, gagnants_roles),
             }
+
+        # Memoire pour les conditions `vengeance` / `confiance` du duel suivant : mise a
+        # jour apres la construction du resultat, dont les statuts de capacite decrivent le
+        # duel qui vient de se jouer.
+        for role in ("j1", "j2"):
+            self.issue_precedente[self._camp(role)] = (
+                "victoire" if role in gagnants_roles else "defaite"
+            )
 
         self.dernier_resultat = resultat
         self.historique.append(resultat)
@@ -348,6 +593,18 @@ class Partie:
             "role_actif": self.role_actif if self.phase == "batailles" else None,
             "joueur_actif": self._camp(self.role_actif) if self.phase == "batailles" else None,
             "score": self._score(),
+            "caracs_duel": self.caracs_duel,
+            "annulations": self.annulations,
+            "initiative": self.initiative,
+            "capacites_duel": {
+                role: (
+                    self.statuts_capacites[role]
+                    if self.statuts_capacites[role] is not None
+                    else (self._capacite_dict(role) if self._combattant(role) else None)
+                )
+                for role in ("j1", "j2")
+            },
+            "capacites_passives": self.capacites_passives,
             "cartes_revelees": self._cartes_revelees(),
             "journal_batailles": self.journal_batailles,
             "pioches": [
