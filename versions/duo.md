@@ -1,0 +1,21 @@
+# Version avec duo de personnages
+
+- Cette version change beaucoup de choses par rapport à la version de base
+- Dans cette version, le jeu se passe en une série de 4 affrontements, mais cette fois, chaque affrontement fait intervenir deux personnages de chaque équipe
+- Voici la boucle de gameplay :
+  - La carte bataille du tour est révélée.
+  - Les deux joueurs choisissent simultanément les deux personnages qu'ils envoient à la bataille
+  - Les capacités de chaque personnages sont appliquées si possible
+  - Le duo de personnage avec la somme de puissance la plus élevée remporte le duel
+  - Le perdant perd un nombre de PV égaux à la somme des dégâts des personnages adverses
+- Concernant les éléments de jeu :
+  - Les personnages gardent leurs caractéristiques : puissance, dégâts et capacité
+  - Il n'y a plus d'élément permettant d'augmenter la puissance des personnages joué
+  - Les capacités ne nécessitent plus d'énergie pour être activées
+  - Les cartes batailles ont un effet appliqué par le joueur qui remporte la bataille
+    - Par exemple : +2 dégâts, +2 PV, le joueur adverse révèle un de ces deux choix au tour suivant
+- Chaque personnage ne peut être utilisé que deux fois tout au long de la partie.
+  - Dans un jeu physique, les cartes seraient inclinées pour montrer qu'elles ont déjà été utilisées une fois.
+  - Visuellement, tu devras le représenter par exemple avec des ronds de couleur sous les cartes.
+  - Ce point de règle permet de créer deux nouvelles conditions d'activation de pouvoir : première fois et seconde fois, en fonction de si le personnage est joué pour la première ou la seconde fois de la partie
+- Concernant l'équilibrage, un personnage est considéré comme équilibré non pas s'il remporte environ la moitié de ses duels, mais plutôt si environ la moitié des équipes dont il fait partie remporte la partie. Cela permet de créer des personnages ayant intérêt à perdre, par exemple avec des capacités ayant des effets en cas de défaite
