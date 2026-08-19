@@ -40,11 +40,25 @@ function roleDe(etat, camp) {
   return etat.j1 === camp ? "J1" : "J2";
 }
 
+/** Puissance de base du coequipier de `combattant`, des lors qu'il est determine : le duo
+ *  verrouille s'il y en a un, sinon le Combattant deja selectionne pendant le choix.
+ *  null tant que le coequipier reste inconnu. */
+function puissanceAlliee(etat, camp, combattant) {
+  const duo = camp === "humain" ? etat.duo_humain || duoSelectionne : etat.duo_ia || [];
+  const allies = duo.filter((id) => id !== combattant.id);
+  if (allies.length !== 1) return null;
+  const allie = equipeDe(etat, camp).find((c) => c.id === allies[0]);
+  return allie ? allie.puissance : null;
+}
+
 /** Conditions verifiables avant la resolution. Victoire / Defaite / Surpuissance dependent
- *  de l'issue de la bataille : elles ne sont jamais affichees comme validees. */
-function conditionEstValidee(pouvoir, role, pvSoi, pvAdv, prochaineUtilisation) {
+ *  de l'issue de la bataille, et les seuils sur les Combattants adverses dependent d'un duo
+ *  encore inconnu : elles ne sont jamais affichees comme validees. */
+function conditionEstValidee(pouvoir, role, pvSoi, pvAdv, prochaineUtilisation, allie) {
   if (!pouvoir) return false;
   switch (pouvoir.condition) {
+    case "puissance_alliee":
+      return allie !== null && allie >= pouvoir.seuil;
     case "courage":
       return role === "J1";
     case "riposte":
@@ -243,6 +257,7 @@ function renderEquipes(etat) {
   const engagesHumain = etat.duo_humain || [];
   const engagesIa = etat.duo_ia || [];
   const reveles = etat.duo_ia_revele || [];
+  const revelesHumain = etat.duo_humain_revele || [];
 
   const grilleHumain = document.getElementById("equipe-humain");
   vider(grilleHumain);
@@ -254,9 +269,10 @@ function renderEquipes(etat) {
         selectionnee: duoSelectionne.includes(c.id),
         indisponible: choixOuvert && !selectionnable,
         engage: engagesHumain.includes(c.id),
+        revele: revelesHumain.includes(c.id),
         conditionValidee: conditionEstValidee(
           c.pouvoir, roleDe(etat, "humain"), etat.joueur_humain.pv, etat.joueur_ia.pv,
-          c.utilisations + 1
+          c.utilisations + 1, puissanceAlliee(etat, "humain", c)
         ),
         onClick: selectionnable ? () => basculerDuo(c.id) : null,
       })
@@ -273,7 +289,7 @@ function renderEquipes(etat) {
         indisponible: !c.disponible,
         conditionValidee: conditionEstValidee(
           c.pouvoir, roleDe(etat, "ia"), etat.joueur_ia.pv, etat.joueur_humain.pv,
-          c.utilisations + 1
+          c.utilisations + 1, puissanceAlliee(etat, "ia", c)
         ),
       })
     );
@@ -331,11 +347,11 @@ async function appelerApi(chemin, corps) {
 
 function renderCentre(etat) {
   const message = document.getElementById("message-attente");
-  const zoneCiblage = document.getElementById("zone-ciblage");
+  const zoneChoix = document.getElementById("zone-choix");
   const zoneResultat = document.getElementById("zone-resultat");
   message.classList.add("cache");
   message.classList.remove("erreur");
-  zoneCiblage.classList.add("cache");
+  zoneChoix.classList.add("cache");
   zoneResultat.classList.add("cache");
 
   renderDuosEnJeu(etat);
@@ -352,11 +368,21 @@ function renderCentre(etat) {
     if (restantes === 1) texte += " Derniere bataille.";
     message.textContent = texte;
     message.classList.remove("cache");
+  } else if (etat.phase === "revelation") {
+    renderRevelation(etat);
+    zoneChoix.classList.remove("cache");
   } else if (etat.phase === "ciblage") {
     renderCiblage(etat);
-    zoneCiblage.classList.remove("cache");
+    zoneChoix.classList.remove("cache");
+  } else if (etat.phase === "second_souffle") {
+    // La bataille est resolue : le journal est deja lisible, mais le bouton de passage a
+    // la bataille suivante attend que le Combattant a recharger soit designe.
+    renderSecondSouffle(etat);
+    zoneChoix.classList.remove("cache");
+    renderResultat(etat, false);
+    zoneResultat.classList.remove("cache");
   } else if (etat.phase === "bataille_resolue") {
-    renderResultat(etat);
+    renderResultat(etat, true);
     zoneResultat.classList.remove("cache");
   }
 }
@@ -385,7 +411,9 @@ function renderDuosEnJeu(etat) {
     if (!ids || ids.length === 0) {
       const attente = document.createElement("p");
       attente.className = "panneau-duo-attente";
-      attente.textContent = camp === "ia" ? "Duo verrouille, face cachee" : "Duo a choisir";
+      if (camp !== "ia") attente.textContent = "Duo a choisir";
+      else if (etat.phase === "revelation") attente.textContent = "Attend ta revelation";
+      else attente.textContent = "Duo verrouille, face cachee";
       panneau.appendChild(attente);
     } else if (infoCamp) {
       infoCamp.combattants.forEach((c) => panneau.appendChild(carteResolution(c, infoCamp)));
@@ -398,7 +426,7 @@ function renderDuosEnJeu(etat) {
         carte.innerHTML = `<h5>${data.nom}</h5>` +
           `<span class="carte-engagee-stats">Puissance ${data.puissance} / Degats ${data.degats}</span>` +
           `<span class="carte-engagee-utilisation">${
-            data.utilisations >= 2 ? "Seconde fois" : "Premiere fois"
+            data.utilisations >= 1 ? "Seconde fois" : "Premiere fois"
           }</span>`;
         panneau.appendChild(carte);
       });
@@ -454,52 +482,100 @@ function totalCamp(infoCamp) {
   return bloc;
 }
 
-// ---------------------------------------------------------------- ciblage
+// ------------------------------------------------------------------ choix
+
+/** Panneau de choix, partage par les trois decisions que la partie peut demander :
+ *  designer une cible, reveler un Combattant (Reperage), en recharger un (Second souffle).
+ *  Chaque ligne porte un intitule optionnel et une rangee de boutons. */
+function renderChoix(titre, lignes) {
+  const zone = document.getElementById("zone-choix");
+  vider(zone);
+  const intitule = document.createElement("p");
+  intitule.className = "zone-choix-titre";
+  intitule.textContent = titre;
+  zone.appendChild(intitule);
+
+  lignes.forEach(({ source, options, choisie, onChoisir }) => {
+    const ligne = document.createElement("div");
+    ligne.className = "ligne-choix";
+    if (source) {
+      const bloc = document.createElement("div");
+      bloc.className = "choix-source";
+      bloc.innerHTML = `<b>${source.titre}</b><span>${source.detail}</span>`;
+      ligne.appendChild(bloc);
+    }
+    const boutons = document.createElement("div");
+    boutons.className = "choix-options";
+    options.forEach((option) => {
+      const bouton = document.createElement("button");
+      bouton.className = "bouton-choix";
+      if (choisie === option.id) bouton.classList.add("choisie");
+      bouton.textContent = option.libelle;
+      bouton.addEventListener("click", () => onChoisir(option.id));
+      boutons.appendChild(bouton);
+    });
+    ligne.appendChild(boutons);
+    zone.appendChild(ligne);
+  });
+}
 
 function renderCiblage(etat) {
-  const zone = document.getElementById("zone-ciblage");
-  vider(zone);
-  const titre = document.createElement("p");
-  titre.className = "zone-ciblage-titre";
-  titre.textContent =
-    "Les deux duos sont reveles. Designe la cible des Pouvoirs a cible unique :";
-  zone.appendChild(titre);
-
-  etat.ciblages_requis.forEach((requis) => {
-    const ligne = document.createElement("div");
-    ligne.className = "ligne-ciblage";
-    const source = document.createElement("div");
-    source.className = "ciblage-source";
-    source.innerHTML = `<b>${requis.nom}</b><span>${requis.pouvoir}</span>`;
-    ligne.appendChild(source);
-
-    const cibles = document.createElement("div");
-    cibles.className = "ciblage-cibles";
-    requis.cibles.forEach((cible) => {
-      const bouton = document.createElement("button");
-      bouton.className = "bouton-cible";
-      if (ciblagesEnCours[requis.combattant_id] === cible.id) {
-        bouton.classList.add("choisie");
-      }
-      bouton.textContent = cible.nom;
-      bouton.addEventListener("click", () => {
-        ciblagesEnCours[requis.combattant_id] = cible.id;
+  renderChoix(
+    "Les deux duos sont reveles. Designe la cible des Pouvoirs a cible unique :",
+    etat.ciblages_requis.map((requis) => ({
+      source: { titre: requis.nom, detail: requis.pouvoir },
+      options: requis.cibles.map((cible) => ({ id: cible.id, libelle: cible.nom })),
+      choisie: ciblagesEnCours[requis.combattant_id],
+      onChoisir: (cibleId) => {
+        ciblagesEnCours[requis.combattant_id] = cibleId;
         if (etat.ciblages_requis.every((r) => ciblagesEnCours[r.combattant_id])) {
           soumettreCiblages();
         } else {
           renderCiblage(etat);
         }
-      });
-      cibles.appendChild(bouton);
-    });
-    ligne.appendChild(cibles);
-    zone.appendChild(ligne);
-  });
+      },
+    }))
+  );
+}
+
+function renderRevelation(etat) {
+  renderChoix(
+    "Reperage : ton duo est verrouille. Revele celui de tes 2 Combattants que tu acceptes de montrer.",
+    [
+      {
+        source: {
+          titre: "A reveler",
+          detail: "L'IA choisira son propre duo en le connaissant",
+        },
+        options: etat.revelation_choix.map((c) => ({ id: c.id, libelle: c.nom })),
+        onChoisir: (id) => appelerApi("/partie/revelation", { combattant_id: id }),
+      },
+    ]
+  );
+}
+
+function renderSecondSouffle(etat) {
+  renderChoix(
+    "Second souffle : rends une utilisation au Combattant de ton equipe de ton choix.",
+    [
+      {
+        source: {
+          titre: "Second souffle",
+          detail: "Il pourra etre engage une fois de plus dans la partie",
+        },
+        options: etat.second_souffle_choix.map((c) => ({
+          id: c.id,
+          libelle: `${c.nom} (${c.utilisations_restantes} → ${c.utilisations_restantes + 1})`,
+        })),
+        onChoisir: (id) => appelerApi("/partie/second-souffle", { combattant_id: id }),
+      },
+    ]
+  );
 }
 
 // --------------------------------------------------------------- resultat
 
-function renderResultat(etat) {
+function renderResultat(etat, boutonVisible) {
   const resultat = etat.dernier_resultat;
   const journal = document.getElementById("journal-resolution");
   vider(journal);
@@ -511,6 +587,7 @@ function renderResultat(etat) {
     journal.appendChild(p);
   });
   const bouton = document.getElementById("btn-bataille-suivante");
+  bouton.classList.toggle("cache", !boutonVisible);
   bouton.textContent = etat.terminee ? "Voir le resultat final" : "Bataille suivante";
   bouton.onclick = etat.terminee ? () => renderFin(etat) : batailleSuivante;
 }

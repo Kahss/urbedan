@@ -4,19 +4,26 @@ designer comme cible de ses effets a cible unique.
 Le choix du duo se fait sur une estimation de la Puissance totale du duo, en ne comptant
 que ce qui est certain au moment du choix :
 - `courage` / `riposte` (role du camp, connu avant le choix puisque J1 est le vainqueur de
-  la bataille precedente), `vengeance` / `domination` (PV courants) et `premiere_fois` /
-  `seconde_fois` (compteur d'utilisations) sont verifiables immediatement.
+  la bataille precedente), `vengeance` / `domination` (PV courants), `premiere_fois` /
+  `seconde_fois` (compteur d'utilisations) et `puissance_alliee` (le coequipier fait partie
+  du duo evalue) sont verifiables immediatement.
+- `puissance_base_adverse` / `degats_base_adverse` portent sur le duo adverse, inconnu au
+  moment du choix : ils ne sont jamais comptes.
 - `victoire` / `defaite` / `surpuissance` et le modificateur `contrecoup` dependent de
   l'issue de la bataille, inconnue au moment du choix : ils ne sont jamais comptes.
 - `patience` / `impatience` sont calculables directement.
 - `stop_pouvoir` / `copie_pouvoir` / `protection` / `echange` dependent du duo adverse
   (inconnu au moment du choix) : ils ne modifient pas le score.
 
-Quand une carte bataille Reperage ou Intimidation a revele tout ou partie du duo adverse,
-l'IA ne cherche plus a maximiser sa Puissance mais a gagner au meilleur prix : elle engage
-le duo legal le moins fort qui batte encore l'estimation adverse, et si aucun ne le peut,
-elle sacrifie la bataille avec son duo le plus faible pour preserver ses Combattants
-forts. C'est aussi ce qui donne sa valeur a un Pouvoir conditionne par `defaite`.
+Quand une carte bataille Reperage a revele un Combattant du duo adverse, l'IA ne cherche
+plus a maximiser sa Puissance mais a gagner au meilleur prix : elle engage le duo legal le
+moins fort qui batte encore l'estimation adverse, et si aucun ne le peut, elle sacrifie la
+bataille avec son duo le plus faible pour preserver ses Combattants forts. C'est aussi ce
+qui donne sa valeur a un Pouvoir conditionne par `defaite`.
+
+Ce module porte aussi les deux choix que les cartes bataille demandent au vainqueur :
+quel Combattant de son duo reveler (Reperage) et auquel de ses Combattants rendre une
+utilisation (Second souffle).
 """
 import random
 
@@ -25,11 +32,21 @@ from .powers import TYPES_CIBLE_UNIQUE, pouvoir_requiert_cible
 CONDITIONS_INCERTAINES = ("victoire", "defaite", "surpuissance")
 
 
-def _condition_certaine(condition, role, n_utilisation, pv_soi, pv_adv):
+def _condition_certaine(
+    pouvoir, role, n_utilisation, pv_soi, pv_adv, puissance_alliee, conditions_forcees
+):
     """True/False si la condition est verifiable des maintenant, None si elle depend de
-    l'issue de la bataille (inconnue au moment du choix)."""
+    l'issue de la bataille ou du duo adverse (inconnus au moment du choix)."""
+    if conditions_forcees:
+        return True
+    condition = pouvoir.get("condition")
     if condition is None:
         return True
+    seuil = pouvoir.get("seuil", 0)
+    if condition == "puissance_alliee":
+        return None if puissance_alliee is None else puissance_alliee >= seuil
+    if condition in ("puissance_base_adverse", "degats_base_adverse"):
+        return None  # depend du duo adverse, inconnu au moment du choix
     if condition == "courage":
         return role == "J1"
     if condition == "riposte":
@@ -53,13 +70,19 @@ def _valeur_effective(valeur, modificateur, tour, tours_max):
     return valeur
 
 
-def estimer_gain(pouvoir, role, n_utilisation, tour, tours_max, pv_soi, pv_adv):
+def estimer_gain(
+    pouvoir, role, n_utilisation, tour, tours_max, pv_soi, pv_adv,
+    puissance_alliee=None, conditions_forcees=False,
+):
     """Estime (gain_puissance, gain_degats, gain_vie) apporte par `pouvoir`, a partir des
     seules informations connues avant la resolution. Un malus infligé a l'adversaire
     compte comme un gain equivalent, le score etant un score d'avantage relatif."""
     if pouvoir is None:
         return 0, 0, 0
-    if _condition_certaine(pouvoir.get("condition"), role, n_utilisation, pv_soi, pv_adv) is not True:
+    certaine = _condition_certaine(
+        pouvoir, role, n_utilisation, pv_soi, pv_adv, puissance_alliee, conditions_forcees
+    )
+    if certaine is not True:
         return 0, 0, 0
 
     modificateur = pouvoir.get("modificateur")
@@ -73,8 +96,9 @@ def estimer_gain(pouvoir, role, n_utilisation, tour, tours_max, pv_soi, pv_adv):
         if effet["type"] == "puissance":
             gain_puissance += valeur if vers_soi else -valeur
         elif effet["type"] == "degats":
-            if vers_soi:
-                gain_degats += valeur
+            # Un malus adverse retranche des Degats au duo d'en face : meme avantage
+            # relatif qu'un bonus du meme montant sur le sien.
+            gain_degats += valeur if vers_soi else -valeur
         elif effet["type"] == "vie":
             gain_vie += valeur if vers_soi else -valeur
         elif effet["type"] == "vampirisme":
@@ -83,10 +107,13 @@ def estimer_gain(pouvoir, role, n_utilisation, tour, tours_max, pv_soi, pv_adv):
     return gain_puissance, gain_degats, gain_vie
 
 
-def _score_combattant(instance, role, tour, tours_max, pv_soi, pv_adv):
+def _score_combattant(
+    instance, role, tour, tours_max, pv_soi, pv_adv, puissance_alliee, conditions_forcees
+):
     n_utilisation = instance.utilisations + 1
     gain_puissance, gain_degats, gain_vie = estimer_gain(
-        instance.template.pouvoir, role, n_utilisation, tour, tours_max, pv_soi, pv_adv
+        instance.template.pouvoir, role, n_utilisation, tour, tours_max, pv_soi, pv_adv,
+        puissance_alliee, conditions_forcees,
     )
     return (
         instance.template.puissance + gain_puissance,
@@ -95,10 +122,15 @@ def _score_combattant(instance, role, tour, tours_max, pv_soi, pv_adv):
     )
 
 
-def _score_duo(duo, role, tour, tours_max, pv_soi, pv_adv):
+def _score_duo(duo, role, tour, tours_max, pv_soi, pv_adv, conditions_forcees=False):
     puissance = degats = vie = 0.0
-    for instance in duo:
-        p, d, v = _score_combattant(instance, role, tour, tours_max, pv_soi, pv_adv)
+    for i, instance in enumerate(duo):
+        # Le coequipier est connu : `puissance_alliee` est donc evaluable des le choix.
+        allie = duo[1 - i] if len(duo) == 2 else None
+        p, d, v = _score_combattant(
+            instance, role, tour, tours_max, pv_soi, pv_adv,
+            allie.template.puissance if allie else None, conditions_forcees,
+        )
         puissance += p
         degats += d
         vie += v
@@ -124,14 +156,15 @@ def estimer_puissance_duo_adverse(joueur_adverse, instances_revelees):
 
 def choisir_duo(
     joueur, role, tour, tours_max, pv_soi, pv_adv, batailles_restantes,
-    puissance_adverse_estimee=None,
+    puissance_adverse_estimee=None, conditions_forcees=False,
 ):
     """Choisit le duo a engager parmi les duos legaux du joueur (cf.
     Joueur.duos_legaux, qui exclut ceux rendant les batailles suivantes injouables).
     Retourne un tuple de 2 CombattantEnEquipe."""
     duos = joueur.duos_legaux(batailles_restantes)
     evalues = [
-        (_score_duo(duo, role, tour, tours_max, pv_soi, pv_adv), duo) for duo in duos
+        (_score_duo(duo, role, tour, tours_max, pv_soi, pv_adv, conditions_forcees), duo)
+        for duo in duos
     ]
 
     if puissance_adverse_estimee is None:
@@ -156,9 +189,11 @@ def _menace(combattant_adverse, tour, tours_max):
     if pouvoir is None:
         return 0.0
     camp = combattant_adverse.camp
+    allies = [c for c in camp.combattants if c is not combattant_adverse]
     gain_puissance, gain_degats, gain_vie = estimer_gain(
         pouvoir, camp.role, combattant_adverse.n_utilisation, tour, tours_max,
         camp.joueur.pv, camp.adversaire.joueur.pv,
+        allies[0].template.puissance if allies else None, camp.conditions_forcees,
     )
     if (gain_puissance, gain_degats, gain_vie) == (0, 0, 0) and pouvoir.get("condition") in CONDITIONS_INCERTAINES:
         # Pouvoir conditionne par l'issue de la bataille : non estimable, mais pas inoffensif.
@@ -212,11 +247,34 @@ def choisir_ciblages(camp, tour, tours_max):
     return ciblages
 
 
+def choisir_revelation(duo):
+    """Reperage : lequel des 2 Combattants du duo montrer a l'adversaire.
+
+    L'adversaire deduit la force du duo de ce qu'il voit (cf.
+    `estimer_puissance_duo_adverse`) : montrer le Combattant de plus faible Puissance
+    minimise son estimation, donc le prix qu'il paiera pour esperer gagner."""
+    return min(duo, key=lambda inst: (inst.template.puissance, inst.template.degats))
+
+
+def choisir_second_souffle(joueur):
+    """Second souffle : a quel Combattant de son equipe le vainqueur rend une utilisation.
+
+    Seul un Combattant ayant deja depense une utilisation en gagne reellement une ;
+    parmi eux, celui qu'on a le plus interet a pouvoir rejouer est le plus fort.
+    Retourne None si aucun Combattant n'a encore ete engage."""
+    candidats = [c for c in joueur.equipe if c.utilisations > 0]
+    if not candidats:
+        return None
+    return max(candidats, key=lambda inst: (inst.template.puissance, inst.template.degats))
+
+
 __all__ = [
     "TYPES_CIBLE_UNIQUE",
     "choisir_ciblages",
     "choisir_cible",
     "choisir_duo",
+    "choisir_revelation",
+    "choisir_second_souffle",
     "estimer_gain",
     "estimer_puissance_duo_adverse",
 ]

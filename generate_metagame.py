@@ -25,12 +25,16 @@ from engine.game import (  # noqa: E402
     PHASE_BATAILLE_RESOLUE,
     PHASE_CIBLAGE,
     PHASE_CHOIX_DUO,
+    PHASE_REVELATION,
+    PHASE_SECOND_SOUFFLE,
     Partie,
     charger_combattants,
 )
 from engine.ia import (  # noqa: E402
     choisir_ciblages,
     choisir_duo,
+    choisir_revelation,
+    choisir_second_souffle,
     estimer_puissance_duo_adverse,
 )
 from engine.models import TAILLE_EQUIPE  # noqa: E402
@@ -41,7 +45,7 @@ DATA_PATH = os.path.join(BASE_DIR, "data", "combattants.json")
 def jouer_choix_humain(partie):
     """Fait choisir au camp 'humain' son duo pour la bataille en cours, via la meme
     heuristique que l'IA, en exploitant comme elle les Combattants adverses eventuellement
-    reveles par une carte Reperage / Intimidation : les deux camps sont ainsi strictement
+    reveles par une carte Reperage : les deux camps sont ainsi strictement
     symetriques, sans quoi les statistiques favoriseraient mecaniquement un cote."""
     puissance_adverse = None
     if partie.reveles_ia:
@@ -55,6 +59,7 @@ def jouer_choix_humain(partie):
         partie.joueur_ia.pv,
         partie.batailles_restantes(),
         puissance_adverse_estimee=puissance_adverse,
+        conditions_forcees="humain" in partie.conditions_forcees,
     )
     partie.soumettre_duo([instance.template.id for instance in duo])
 
@@ -69,9 +74,15 @@ def jouer_partie(templates, tous_les_ids):
     while not partie.terminee:
         if partie.phase == PHASE_CHOIX_DUO:
             jouer_choix_humain(partie)
+        elif partie.phase == PHASE_REVELATION:
+            partie.soumettre_revelation(choisir_revelation(partie.duo_humain).template.id)
         elif partie.phase == PHASE_CIBLAGE:
             partie.soumettre_ciblages(
                 choisir_ciblages(partie.camp_humain, partie.tour, NB_BATAILLES_MAX)
+            )
+        elif partie.phase == PHASE_SECOND_SOUFFLE:
+            partie.soumettre_second_souffle(
+                choisir_second_souffle(partie.joueur_humain).template.id
             )
         elif partie.phase == PHASE_BATAILLE_RESOLUE:
             partie.bataille_suivante()

@@ -34,7 +34,7 @@ backend/
     models.py               Combattants, Joueurs, legalite des duos
     batailles.py            Catalogue des cartes bataille et deck
     powers.py               Moteur de resolution des Pouvoirs (2 contre 2)
-    ia.py                   Heuristique de l'IA (choix du duo + ciblage)
+    ia.py                   Heuristique de l'IA (duo, ciblage, revelation, recharge)
     game.py                 Orchestration d'une Partie (mise en place, batailles, IA)
 frontend/
   index.html / style.css / app.js   Interface (100 % cliquable, sans framework)
@@ -61,7 +61,13 @@ Consequences sur les mots-cles de `pouvoirs.csv` :
   valeurs qu'ils multipliaient sont devenues fixes, ou sont passees sur `patience` /
   `impatience` / `premiere_fois` / `seconde_fois` selon la fiche du personnage.
 - **Ajoutes** : les conditions `premiere_fois` et `seconde_fois`, satisfaites selon que le
-  Combattant est engage pour la premiere ou la seconde fois de la partie.
+  Combattant est engage pour la premiere ou la seconde fois de la partie, et trois
+  conditions a seuil qui lisent le duo en presence : `puissance_alliee` (le coequipier),
+  `puissance_base_adverse` et `degats_base_adverse` (au moins un des 2 Combattants d'en
+  face). Le seuil est porte par le champ `seuil` du Pouvoir.
+- **Elargi** : un malus de `degats` dirige vers l'adversaire ne frappe plus un Combattant
+  mais le **total des Degats du duo adverse** — c'est le duo entier qui inflige ses Degats,
+  c'est le duo entier qu'on affaiblit. Un total ne descend jamais sous 0.
 - **Redefinis** : `courage` / `riposte` ne signifient plus "joue en premier / en second"
   (le choix est simultane) mais "**mon camp resout ses Pouvoirs en premier / en second**".
 
@@ -69,12 +75,16 @@ Consequences sur les mots-cles de `pouvoirs.csv` :
 
 1. La carte bataille du tour est revelee. C'est une information publique : elle fixe l'enjeu
    avant que les duos ne soient choisis.
-2. Les deux joueurs verrouillent simultanement leur duo de 2 Combattants distincts.
+2. Les deux joueurs verrouillent simultanement leur duo de 2 Combattants distincts. Un
+   `Reperage` gagne au tour precedent brise cette simultaneite : sa victime s'engage la
+   premiere et revele celui de ses 2 Combattants qu'elle choisit.
 3. Les deux duos sont reveles.
-4. Chaque joueur designe la cible des Pouvoirs a cible unique de son duo.
+4. Chaque joueur designe la cible des Pouvoirs a cible unique de son duo, s'il en a.
 5. Les Pouvoirs sont resolus (camp J1 puis camp J2), les sommes de Puissance comparees.
-6. Le camp vainqueur inflige la somme des Degats de ses 2 Combattants.
-7. Le ou les vainqueurs appliquent l'effet de la carte bataille.
+6. Le camp vainqueur inflige la somme des Degats de ses 2 Combattants, diminuee des malus
+   de Degats adverses et jamais negative.
+7. Le ou les vainqueurs appliquent l'effet de la carte bataille. `Second souffle` demande
+   au vainqueur un dernier choix : a quel Combattant de son equipe rendre une utilisation.
 
 Le vainqueur d'une bataille est le camp J1 de la suivante ; en cas de double victoire, J1 et
 J2 s'echangent.
@@ -87,13 +97,24 @@ les deux camps en cas de double victoire, ce qui rend les effets d'information r
 
 | Carte | Effet | Quand |
 |---|---|---|
-| Butin | Le vainqueur gagne 2 PV | apres les Degats |
-| Acharnement | Les Degats infliges par le vainqueur sont augmentes de 2 | pendant la bataille |
-| Reperage | A la bataille suivante, l'adversaire verrouille son duo en premier et en revele 1 Combattant tire au hasard | bataille suivante |
-| Intimidation | Idem, mais l'adversaire revele son duo entier | bataille suivante |
-| Second souffle | Les 2 Combattants du duo vainqueur recuperent l'utilisation depensee pour cette bataille | apres les Degats |
-| Ovation | Le vainqueur gagne 1 PV par Combattant de son duo engage pour la premiere fois | apres les Degats |
-| Escarmouche | Aucun effet : seuls les Degats comptent | — |
+| À la loyale | Aucun effet : seuls les Degats comptent | — |
+| Dans les bas-fonds | Les Degats infliges par le vainqueur sont augmentes de 2 | pendant la bataille |
+| Soigner les blessés | Le vainqueur gagne 2 PV | apres les Degats |
+| Planification | Patience : le vainqueur gagne 1 PV par bataille jouee, celle-ci comprise | apres les Degats |
+| Second souffle | Le vainqueur rend une utilisation au Combattant de son equipe qu'il choisit | apres les Degats |
+| Repérage | A la bataille suivante, l'adversaire verrouille son duo en premier et revele celui de ses 2 Combattants qu'il choisit | bataille suivante |
+| Dépasser ses limites | A la bataille suivante, toutes les conditions des Pouvoirs du vainqueur sont considerees validees | bataille suivante |
+
+Deux cartes demandent un choix a leur beneficiaire, materialise par un panneau de boutons :
+`Second souffle` (quel Combattant recharger, apres la resolution) et `Repérage` (quel
+Combattant montrer, cote victime, apres le verrouillage de son duo). `Repérage` laisse donc
+le choix a celui qui **subit** la carte : il montre ce qu'il veut bien montrer, et l'IA
+revele systematiquement son Combattant de plus faible Puissance pour faire sous-estimer son
+duo.
+
+`Dépasser ses limites` valide **toutes** les conditions du vainqueur au tour suivant, y
+compris `victoire` et `defaite` en meme temps : un Clerc y encaisse ses +3 PV de defaite
+tout en gagnant sa bataille.
 
 ## Les 2 utilisations par Combattant
 
@@ -101,8 +122,9 @@ Chaque Combattant ne peut etre engage que 2 fois sur la partie (les ronds sous s
 comptent, equivalent de la carte inclinee du jeu physique). Avec 4 Combattants a 2
 utilisations pour 4 batailles de 2 places, **toutes les utilisations sont consommees** : la
 composition n'est pas un choix, seul l'ordre d'engagement en est un (et donc le moment ou se
-declenchent `premiere_fois` et `seconde_fois`). `Second souffle` est la seule carte qui rend
-la composition reellement libre, en ajoutant deux utilisations.
+declenchent `premiere_fois` et `seconde_fois`). `Second souffle` est la seule carte qui
+desserre cet etau, en rendant une utilisation au Combattant de son choix — un Combattant
+epuise redevient jouable, et peut donc etre engage trois fois dans la partie.
 
 Cette exactitude cree un piege que le moteur ferme : un joueur peut se bloquer tout seul.
 Jouer `{A,B}` puis `{A,C}` puis `{B,C}` laisserait D seul avec 2 utilisations pour la
@@ -126,6 +148,7 @@ possede qu'un seul Pouvoir, toujours actif :
   "pouvoir": {
     "description": "Texte affiche sur la carte",
     "condition": null,
+    "seuil": null,
     "modificateur": null,
     "effets": [ { "type": "puissance", "cible": "soi", "valeur": 2 } ]
   }
@@ -133,10 +156,19 @@ possede qu'un seul Pouvoir, toujours actif :
 ```
 
 - `condition` (optionnel) : `courage`, `riposte`, `vengeance`, `domination`,
-  `premiere_fois`, `seconde_fois`, `victoire`, `defaite`, `surpuissance`.
+  `premiere_fois`, `seconde_fois`, `victoire`, `defaite`, `surpuissance`, plus trois
+  conditions a seuil qui exigent un champ `seuil` a cote de `condition` :
+  - `puissance_alliee` : le coequipier du duo a au moins `seuil` de Puissance de base.
+  - `puissance_base_adverse` / `degats_base_adverse` : au moins un des 2 Combattants
+    adverses a au moins `seuil` de Puissance / de Degats de base.
+  Ces trois conditions se lisent sur les caracteristiques **de base**, celles imprimees sur
+  la carte : sans cela le resultat dependrait de l'ordre de resolution des deux camps.
 - `modificateur` (optionnel) : `patience`, `impatience`, `contrecoup`.
 - `effets` : liste d'effets, chacun avec un `type` :
-  - `puissance` / `degats` : `cible` (`soi` ou `adversaire`) et `valeur` (entier signe).
+  - `puissance` : `cible` (`soi` ou `adversaire`) et `valeur` (entier signe). Vers
+    l'adversaire, vise le Combattant designe.
+  - `degats` : `cible` et `valeur`. Vers `soi`, modifie les Degats du Combattant ; vers
+    `adversaire`, retranche du **total du duo adverse** (aucun ciblage, plancher a 0).
   - `vie` : `cible` et `valeur`. Modifie les PV d'un **joueur**, pas une statistique de
     Combattant : ne demande donc aucun ciblage.
   - `stop_pouvoir`, `copie_pouvoir`, `echange` : aucun champ supplementaire, visent le
@@ -149,13 +181,17 @@ correspondre aux `valeur` des effets.
 
 ## Ciblage : un effet a cible unique, deux adversaires
 
-Un Pouvoir qui porte au moins un effet a cible unique (Puissance ou Degats **adverses**,
+Un Pouvoir qui porte au moins un effet a cible unique (Puissance **adverse**,
 `stop_pouvoir`, `copie_pouvoir`, `echange`) oblige son proprietaire a designer **l'un des 2
 Combattants adverses**. Le choix appartient au joueur, et il a lieu **apres revelation des
 deux duos** : designer a l'aveugle n'aurait aucun sens puisque le duo adverse est inconnu au
 moment du verrouillage. Un Pouvoir ne designe qu'une seule cible, meme s'il porte plusieurs
-effets a cible unique (Nova cible ainsi le meme Combattant pour sa copie et pour son
-annulation).
+effets a cible unique.
+
+Un malus de Degats adverse ne compte **pas** parmi eux : il porte sur le total du duo d'en
+face. Aucun Combattant du roster actuel ne requiert donc de ciblage, et la phase
+correspondante ne se declenche jamais en pratique — les mots-cles restent implementes et
+testes pour les Combattants a venir.
 
 ## Hypotheses et choix d'implementation
 
@@ -175,23 +211,32 @@ annulation).
   vainqueur, pour qu'un Pouvoir de la passe differee ne puisse pas reecrire a posteriori le
   critere qui l'a declenche.
 - **`contrecoup` retourne sur son porteur** l'effet normalement dirige vers l'adversaire, et
-  uniquement si son camp remporte la bataille (conforme a `pouvoirs.csv`). L'implementation de
-  la version de base omettait cette redirection : Cascade soignait donc son adversaire.
+  uniquement si son camp remporte la bataille (conforme a `pouvoirs.csv`). C'est ce qui fait
+  du Barbare un Combattant qui paie ses victoires : son `-2 PV` s'applique a lui, et
+  seulement quand son duo l'emporte.
 - **`copie_pouvoir`** copie la definition du Pouvoir du Combattant designe et l'execute du
   point de vue du copieur ; les effets a cible unique du Pouvoir copie visent la meme cible.
   Limitations POC inchangees : copier un Pouvoir conditionne par l'issue de la bataille
   (`victoire` / `defaite` / `surpuissance` / `contrecoup`) n'est pas supporte, ni copier un
   Pouvoir qui copie lui-meme un Pouvoir (recursion infinie), ni copier un Pouvoir deja annule.
 - **Choix simultane face a une IA** : l'IA verrouille son duo a l'ouverture de la bataille,
-  donc a l'aveugle. Seules les cartes `Reperage` et `Intimidation` inversent cet ordre, en
-  obligeant leur victime a s'engager la premiere et a en reveler tout ou partie. Si les deux
-  camps ont gagne une telle carte (double victoire), l'IA choisit malgre tout a l'aveugle :
-  son devoir de revelation est deja rempli par le fait qu'elle s'engage sans rien savoir.
+  donc a l'aveugle. Seule la carte `Reperage` inverse cet ordre, en obligeant sa victime a
+  s'engager la premiere et a montrer l'un de ses 2 Combattants. Si les deux camps l'ont
+  gagnee (double victoire), l'IA choisit malgre tout a l'aveugle : son devoir de revelation
+  est deja rempli par le fait qu'elle s'engage sans rien savoir.
+- **Malus de Degats au niveau du duo** : un `degats` adverse est applique au camp d'en face
+  (`CampBataille.bonus_degats`), pas a un Combattant, et le total inflige est ramene a 0 s'il
+  passe en negatif. Le plancher apparait explicitement dans le detail affiche, pour que la
+  somme lue par le joueur reste exacte.
+- **`Depasser ses limites`** pose `CampBataille.conditions_forcees`, teste en tete de
+  `_verifier_condition` : toutes les conditions du camp sont alors vraies, `victoire` et
+  `defaite` comprises, donc simultanement. Les Pouvoirs concernes restent resolus a leur
+  passe habituelle (immediate ou differee) : la carte change ce qui se declenche, pas quand.
 - **`surpuissance` est mort en duo** : la condition exige le double de la Puissance adverse,
-  ce qui, sur des sommes de deux Combattants, ne se produit jamais (0 % de declenchement
-  mesure sur 8 000 parties). Le seul Combattant qui la portait, Gambit, a vu sa condition
-  basculer sur le modificateur `patience` en gardant son identite (`+Vie` / `-Vie adverse`).
-  Le mot-cle reste implemente pour un futur personnage.
+  ce qui, sur des sommes de deux Combattants, ne se produit jamais. Aucun Combattant du
+  roster ne la porte ; le mot-cle reste implemente pour un futur personnage, comme
+  `protection`, `stop_pouvoir`, `copie_pouvoir`, `echange`, `impatience`, `courage`,
+  `riposte` et `premiere_fois`, aujourd'hui sans porteur.
 - **Equipe visible** : le roster complet de chaque joueur est visible par l'autre pendant
   toute la partie, ainsi que le compteur d'utilisations de chaque Combattant. Seul le duo
   engage par l'IA reste cache jusqu'a la revelation.
@@ -203,18 +248,27 @@ Puissance totale du duo (puis les Degats, puis la Vie). Cette estimation ne comp
 est certain au moment du choix :
 
 - `courage` / `riposte` (le role du camp est connu avant le choix), `vengeance` / `domination`
-  (PV courants) et `premiere_fois` / `seconde_fois` (compteur d'utilisations) sont evalues
-  immediatement ; `victoire` / `defaite` / `surpuissance` et `contrecoup` dependent de l'issue
-  de la bataille et ne sont jamais comptes.
+  (PV courants), `premiere_fois` / `seconde_fois` (compteur d'utilisations) et
+  `puissance_alliee` (le coequipier fait partie du duo evalue) sont evalues immediatement ;
+  `victoire` / `defaite` / `surpuissance` et `contrecoup` dependent de l'issue de la bataille,
+  `puissance_base_adverse` / `degats_base_adverse` du duo d'en face : ils ne sont jamais
+  comptes. Un `Depasser ses limites` gagne au tour precedent fait au contraire compter
+  toutes les conditions comme acquises.
 - `patience` / `impatience` sont calcules directement.
 - `stop_pouvoir` / `copie_pouvoir` / `protection` / `echange` dependent du duo adverse,
   inconnu au moment du choix : ils ne modifient pas le score.
 
-Quand `Reperage` ou `Intimidation` lui a revele tout ou partie du duo adverse, l'IA ne cherche
-plus le maximum mais **gagne au meilleur prix** : elle engage le duo legal le moins fort qui
-batte encore l'estimation adverse, et si aucun ne le peut, elle sacrifie la bataille avec son
-duo le plus faible pour preserver ses Combattants forts. C'est aussi ce qui donne sa valeur a
-un Pouvoir conditionne par `defaite`.
+Quand `Reperage` lui a revele un Combattant du duo adverse, l'IA ne cherche plus le maximum
+mais **gagne au meilleur prix** : elle engage le duo legal le moins fort qui batte encore
+l'estimation adverse, et si aucun ne le peut, elle sacrifie la bataille avec son duo le plus
+faible pour preserver ses Combattants forts. C'est aussi ce qui donne sa valeur a un Pouvoir
+conditionne par `defaite`.
+
+Les deux choix demandes par les cartes bataille suivent la meme logique d'information :
+`choisir_revelation` montre le Combattant de plus faible Puissance (l'adversaire estime le
+duo sur ce qu'il voit, autant le faire sous-estimer), `choisir_second_souffle` recharge le
+Combattant le plus fort parmi ceux ayant deja depense une utilisation — seuls ceux-la en
+gagnent reellement une.
 
 Pour le ciblage (`choisir_cible`), la regle depend de l'effet dominant : `echange` vise le
 plus fort (c'est ce qu'on recupere), `copie_pouvoir` le Pouvoir copiable le plus utile,
@@ -232,53 +286,77 @@ Combattants qui ont interet a perdre.
 uv run generate_metagame.py -n 10000
 ```
 
-Etat du roster : sur des echantillons independants de 60 000 parties, les 22 Combattants
-tiennent dans une bande d'environ **44,8 % a 53,2 %**, de moyenne 47,8 %. Un ou deux
-Combattants du bas de tableau frolent la borne des 45 % selon l'echantillon, a moins d'un
-point et dans l'intervalle de confiance de la mesure (+/- 0,7 pt a 60 000 parties).
+**Etat mesure du roster actuel** (40 000 parties, IA contre IA, marge d'environ +/- 0,9 pt) :
 
-**La bande 45-55 % est legerement mal centree pour cette version**, et c'est structurel :
-environ 4,3 % des parties se terminent par une egalite, comptee comme une defaite des deux
-cotes, ce qui verrouille la moyenne des taux de victoire a `(1 - 0,043) x 50 = 47,8 %`. Aucun
-reglage ne peut deplacer cette moyenne. La bande laisse donc 2,8 points de marge sous la
-moyenne contre 7,2 au-dessus : y faire tenir 22 Combattants exigerait de resserrer l'ecart a
-moins de 5,6 points, ce que la granularite du levier de Puissance (7 pt par point) ne permet
-pas. Une bande symetrique autour de la moyenne reelle, soit environ **43-53 %**, decrirait
-mieux l'equilibre atteignable ; sinon, departager les egalites ramenerait la moyenne vers
-50 % (`game.md` n'en prevoit pas et ce prototype n'en invente pas).
+| Combattant | P / D | Pouvoir | % parties gagnees |
+|---|---|---|---|
+| Paladin | 4 / 3 | Vengeance : +2 Puissance, +2 Degats | 79,0 % |
+| Sorcier | 4 / 2 | Victoire : Vampirisme 2 | 68,8 % |
+| Barbare | 4 / 6 | Contrecoup : -2 PV | 63,5 % |
+| Moine | 3 / 2 | Patience : +1 Degat | 50,6 % |
+| Mage | 3 / 2 | -2 Degats au duo adverse | 49,7 % |
+| Guerrier | 3 / 4 | Aucun effet | 49,5 % |
+| Druide | 1 / 2 | Seconde fois : +4 Puissance, +4 Degats | 45,1 % |
+| Ranger | 2 / 3 | Patience : -1 Degat au duo adverse | 41,3 % |
+| Clerc | 2 / 3 | Defaite : +3 PV | 39,7 % |
+| Ensorceleur | 2 / 1 | Si un adversaire a des Degats de base >= 3 : -3 Degats au duo adverse | 36,2 % |
+| Voleur | 1 / 1 | Si un adversaire a une Puissance de base >= 4 : Puissance +4 | 35,1 % |
+| Barde | 1 / 1 | Si Puissance alliee >= 3 : Degats +3 | 29,4 % |
 
-Trois taux de change mesures sur ce roster, utiles pour tout reglage futur :
+Moyenne 49,0 %, soit un taux d'egalite d'environ 2 % (une egalite compte comme une defaite
+des deux cotes, ce qui abaisse mecaniquement la moyenne sous 50 %).
 
-- **1 point de Puissance ≈ 7 pt** de taux de victoire. Comme aucun Combattant ne peut etre
-  mis au banc (toutes les utilisations sont consommees), sa Puissance de base pese
-  directement, et c'est un levier grossier : pour certains personnages, aucune valeur entiere
-  ne donne exactement 50 %.
-- **1 point de Degats ≈ 2,7 pt**, le levier fin.
-- **1 PV apporte par un Pouvoir ≈ 1,2 pt**. Remporter une bataille valant environ 12 PV
-  d'ecart, les effets `vie` calibres pour la version de base etaient tres sous-evalues en duo
-  et ont ete releves.
+**Ce roster n'est pas equilibre au sens de `versions/duo.md`** : l'ecart va de 29,4 % a
+79,0 %, soit pres de 50 points, la ou le critere vise une bande resserree autour de la
+moyenne. Ces valeurs sont celles demandees dans `versions/duo.md` et n'ont pas ete retouchees
+— la mesure est donnee telle quelle, comme point de depart d'un reglage.
 
-Corollaire pratique : **compare un nouveau Combattant a la moyenne de 47,8 %, pas a 50 %**.
-Viser 50 % pour tout le monde pousse a gonfler indefiniment le roster sans jamais reduire
-l'ecart, et le critere etant relatif, renforcer un Combattant affaiblit tous les autres.
+Le moteur du desequilibre est la **Puissance de base**. Comme les 8 utilisations d'une equipe
+sont toutes consommees sur les 4 batailles, aucun Combattant ne peut etre mis au banc : sa
+Puissance de base pese a chaque partie, alors qu'un Pouvoir conditionnel ne se declenche que
+parfois. Les trois Combattants a Puissance 4 occupent les trois premieres places, les trois a
+Puissance 1 ou 2 les trois dernieres, et le Guerrier (Puissance 3, aucun Pouvoir) atterrit a
+49,5 % : il sert de temoin, et montre qu'a ce niveau de Puissance un Pouvoir nul suffit deja
+a faire un Combattant moyen.
+
+Les Pouvoirs conditionnes sur le duo adverse (Voleur, Ensorceleur) sont les plus mal lotis :
+ils ne se declenchent qu'a certaines confrontations, et l'IA ne peut pas les anticiper au
+moment de choisir son duo. Le Barde souffre du meme probleme cote allie, avec en plus une
+Puissance de 1 qui pese a chaque bataille.
+
+Pour reequilibrer, `generate_metagame.py` reste l'outil de mesure :
+
+```
+uv run generate_metagame.py -n 40000
+```
+
+Rappel de methode : le critere etant relatif, renforcer un Combattant affaiblit tous les
+autres — il faut comparer a la moyenne mesuree (ici 49,0 %), pas a 50 %.
 
 ## Tests effectues
 
-- **Invariants de regles** sur 2 000 parties simulees : aucun Combattant ne depasse 2
-  utilisations, un duo legal existe toujours, les duos comportent 2 Combattants distincts et
-  disponibles, la partie ne depasse jamais 4 batailles, les 7 cartes bataille apparaissent.
-- **Calibrage des PV** sur 3 000 parties menees jusqu'a la 4e bataille (PV eleves pour eviter
-  tout KO) : le camp le plus touche encaisse 18,9 degats en moyenne sur la partie. A 20 PV,
-  42 % des parties finissent par KO et 64 % descendent a 3 PV ou moins.
-- **API HTTP reelle** (serveur Flask demarre) : 12 parties completes jouees de bout en bout,
-  verification de la forme de chaque reponse consommee par le frontend, des trois phases
-  (`choix_duo`, `ciblage`, `bataille_resolue`), de la coherence des sommes de Puissance, et du
-  rejet propre (HTTP 400) des actions invalides (equipe incomplete ou avec doublon, duo avec
-  doublon, Combattant hors equipe, ciblage hors phase).
-- **Frontend pilote dans un navigateur headless** (Chromium) : parcours complet au clic
-  (selection des 4 Combattants → lancement → choix du duo → ciblage → resultat) sans aucune
-  erreur JavaScript, avec verification du rendu des 20 ronds de PV, des 8 ronds
-  d'utilisation, de la carte bataille, du panneau de ciblage et du panneau du camp vainqueur.
-- **Equilibrage** verifie sur deux echantillons de 60 000 parties independants du reglage,
-  et taux de change (Puissance / Degats / PV) mesures separement pour outiller les
-  reglages futurs.
+- **Pouvoirs, un par un** : 35 verifications sur des batailles construites a la main, une par
+  Pouvoir du roster et par cas limite — malus de Degats applique une seule fois sur le total
+  du duo adverse, plancher a 0 quand Ensorceleur et Mage se cumulent, `puissance_alliee` lue
+  sur la base (le Voleur porte a 5 ne reveille pas le Barde), `Contrecoup` du Barbare paye en
+  cas de victoire et gratuit en cas de defaite, `Depasser ses limites` declenchant `victoire`
+  et `defaite` dans le meme duo (avec temoin sans forcage), `patience` multipliee par le
+  numero de la bataille des deux cotes, Pouvoir vide du Guerrier sans incident.
+- **Invariants de regles** sur 2 000 parties simulees : utilisations toujours dans `[0, 2]`,
+  un duo legal existe toujours, les duos comportent 2 Combattants distincts et disponibles,
+  la partie ne depasse jamais 4 batailles, les 7 cartes bataille apparaissent, `Reperage`
+  revele exactement 1 Combattant, `Second souffle` rend bien une utilisation au Combattant
+  designe, `Depasser ses limites` est effectivement applique au tour suivant (779 occurrences
+  observees).
+- **API HTTP reelle** (serveur Flask demarre) : 40 parties completes jouees de bout en bout,
+  verification de la forme de chaque reponse consommee par le frontend, des phases
+  traversees (`choix_duo`, `revelation`, `second_souffle`, `bataille_resolue`), de la
+  coherence des sommes de Puissance, de la positivite des Degats infliges, et du rejet propre
+  (HTTP 400) de 8 actions invalides — dont les deux nouvelles routes appelees hors phase.
+- **Frontend pilote dans un navigateur headless** (Chromium, via le DevTools Protocol) :
+  14 parties completes jouees au clic (selection d'equipe → duo → revelation → recharge →
+  resultat → ecran de fin) sans aucune erreur JavaScript, avec verification du rendu des
+  12 cartes et de leurs Pouvoirs, des 20 ronds de PV, des 8 ronds d'utilisation, des deux
+  nouveaux panneaux de choix, et du fait que le bouton « Bataille suivante » reste masque
+  tant que le Second souffle n'a pas ete attribue.
+- **Equilibrage** mesure sur 40 000 parties (tableau ci-dessus).

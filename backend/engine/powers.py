@@ -12,10 +12,14 @@ Hypotheses de resolution retenues (voir README.md, section version duo) :
   Le camp J1 resout les Pouvoirs de ses 2 Combattants (dans l'ordre du duo) avant le camp
   J2. Les conditions `courage` / `riposte` se lisent desormais "mon camp resout en
   premier / en second".
-- Un effet a cible unique (Puissance/Degats adverses, Stop pouvoir, Copie pouvoir,
-  Echange) vise UN des 2 Combattants adverses, designe par le joueur apres revelation des
-  deux duos (`CombattantBataille.cible`). Un Pouvoir ne designe qu'une seule cible, meme
-  s'il porte plusieurs effets a cible unique.
+- Un malus de `degats` dirige vers l'adversaire porte sur le TOTAL des Degats du duo
+  adverse, et non sur un Combattant en particulier : il ne demande donc aucun ciblage
+  (c'est le duo entier qui frappe, c'est le duo entier qu'on affaiblit). Le total d'un
+  camp ne descend jamais sous 0.
+- Un effet a cible unique (Puissance adverse, Stop pouvoir, Copie pouvoir, Echange) vise
+  UN des 2 Combattants adverses, designe par le joueur apres revelation des deux duos
+  (`CombattantBataille.cible`). Un Pouvoir ne designe qu'une seule cible, meme s'il porte
+  plusieurs effets a cible unique.
 - Les effets `vie` et `vampirisme` portent sur les PV d'un joueur, pas sur un Combattant :
   ils ne demandent donc aucun ciblage.
 - `protection` protege le CAMP entier de son porteur : elle annule les modifications
@@ -33,6 +37,14 @@ Hypotheses de resolution retenues (voir README.md, section version duo) :
   de la version de base omettait cette redirection et soignait donc l'adversaire).
 - Nouvelles conditions de la version duo : `premiere_fois` / `seconde_fois`, satisfaites
   selon que le Combattant est engage pour la premiere ou la seconde fois de la partie.
+- Conditions a seuil, comparees aux caracteristiques de BASE (celles imprimees sur la
+  carte, avant tout Pouvoir) pour rester independantes de l'ordre de resolution :
+  `puissance_alliee` (le coequipier du duo), `puissance_base_adverse` / `degats_base_adverse`
+  (au moins un des 2 Combattants adverses). Le seuil est porte par le champ `seuil` du
+  Pouvoir.
+- La carte bataille `Depasser ses limites` pose `CampBataille.conditions_forcees` : toutes
+  les conditions des Pouvoirs de ce camp sont alors tenues pour validees, y compris
+  `victoire` ET `defaite` simultanement.
 """
 
 TYPES_CIBLE_UNIQUE = ("stop_pouvoir", "copie_pouvoir", "echange")
@@ -49,9 +61,10 @@ def pouvoir_requiert_cible(pouvoir):
         type_effet = effet["type"]
         if type_effet in TYPES_CIBLE_UNIQUE:
             return True
+        # Un malus de `degats` adverse porte sur le total du duo : pas de cible a designer.
         if (
             not contrecoup
-            and type_effet in ("puissance", "degats")
+            and type_effet == "puissance"
             and effet.get("cible", "soi") == "adversaire"
         ):
             return True
@@ -122,8 +135,9 @@ class CampBataille:
         self.protege = False
         self.gagnant = False
         self.adversaire = None
-        self.bonus_degats = 0  # accorde au vainqueur par la carte bataille
+        self.bonus_degats = 0  # carte bataille du tour, et malus de Degats adverses
         self.detail_degats_camp = []
+        self.conditions_forcees = False  # carte bataille "Depasser ses limites"
         self.puissance_figee = None  # somme au moment de la determination du vainqueur
 
     @property
@@ -135,8 +149,13 @@ class CampBataille:
     def puissance_totale(self):
         return sum(c.puissance for c in self.combattants)
 
-    def degats_totaux(self):
+    def degats_bruts(self):
+        """Somme des Degats du duo, avant application du plancher a 0. Un malus adverse
+        (Mage, Ranger, Ensorceleur) se retranche ici, sur le total du duo."""
         return sum(max(0, c.degats) for c in self.combattants) + self.bonus_degats
+
+    def degats_totaux(self):
+        return max(0, self.degats_bruts())
 
     def to_dict(self):
         return {
@@ -160,11 +179,28 @@ def _valeur_effective(valeur, pouvoir, source):
     return valeur
 
 
-def _verifier_condition(condition, source):
+def _verifier_condition(pouvoir, source):
+    """La condition du Pouvoir est-elle satisfaite pour `source` ?
+
+    Les conditions a seuil se lisent sur les caracteristiques de BASE des Combattants
+    concernes : la carte imprimee, jamais la valeur deja modifiee par un Pouvoir. Sans
+    quoi le resultat dependrait de l'ordre de resolution des deux camps."""
+    camp = source.camp
+    if camp.conditions_forcees:
+        return True
+    condition = pouvoir.get("condition")
     if condition is None:
         return True
-    camp = source.camp
     adverse = camp.adversaire
+    seuil = pouvoir.get("seuil", 0)
+    if condition == "puissance_alliee":
+        return any(
+            c.template.puissance >= seuil for c in camp.combattants if c is not source
+        )
+    if condition == "puissance_base_adverse":
+        return any(c.template.puissance >= seuil for c in adverse.combattants)
+    if condition == "degats_base_adverse":
+        return any(c.template.degats >= seuil for c in adverse.combattants)
     if condition == "courage":
         return camp.role == "J1"
     if condition == "riposte":
@@ -232,6 +268,9 @@ class MoteurBataille:
         elif champ == "degats":
             cible.degats += valeur
             detail_liste = cible.detail_degats
+        elif champ == "degats_camp":
+            cible.bonus_degats += valeur
+            detail_liste = cible.detail_degats_camp
         elif champ == "pv":
             cible.camp.joueur.pv += valeur
         detail_entree = None
@@ -250,6 +289,8 @@ class MoteurBataille:
             cible.puissance -= valeur
         elif champ == "degats":
             cible.degats -= valeur
+        elif champ == "degats_camp":
+            cible.bonus_degats -= valeur
         elif champ == "pv":
             cible.camp.joueur.pv -= valeur
         if record["detail_liste"] is not None and record["detail_entree"] in record["detail_liste"]:
@@ -311,19 +352,27 @@ class MoteurBataille:
                 champ = "pv"
                 avant = cible.joueur.pv
                 nom_cible = cible.joueur.nom
-            else:
+            elif vers_soi:
+                cible = source
                 champ = type_effet
-                if vers_soi:
-                    cible = source
-                else:
-                    cible = source.cible
-                    if cible is None:
-                        self.log.append(
-                            f"{source.template.nom} Pouvoir ({pouvoir['description']}) : "
-                            "aucune cible designee, effet perdu"
-                        )
-                        return
                 avant = cible.puissance if champ == "puissance" else cible.degats
+                nom_cible = cible.template.nom
+            elif type_effet == "degats":
+                # Un malus de Degats frappe le TOTAL du duo adverse : pas de ciblage.
+                cible = camp_adverse
+                champ = "degats_camp"
+                avant = camp_adverse.degats_bruts()
+                nom_cible = f"duo de {camp_adverse.joueur.nom}"
+            else:
+                cible = source.cible
+                if cible is None:
+                    self.log.append(
+                        f"{source.template.nom} Pouvoir ({pouvoir['description']}) : "
+                        "aucune cible designee, effet perdu"
+                    )
+                    return
+                champ = "puissance"
+                avant = cible.puissance
                 nom_cible = cible.template.nom
             if self._appliquer(source, cible, champ, valeur, label):
                 self.log.append(
@@ -400,7 +449,7 @@ class MoteurBataille:
                 f"{source.template.nom} Pouvoir copie le Pouvoir de {cible.template.nom} "
                 f"({pouvoir_copie['description']})"
             )
-            if _verifier_condition(pouvoir_copie.get("condition"), source):
+            if _verifier_condition(pouvoir_copie, source):
                 # Le Pouvoir copie s'execute du point de vue du copieur, et ses effets a
                 # cible unique visent la meme cible que celle designee pour la copie.
                 label_copie = f"Pouvoir {source.template.nom} (copie de {cible.template.nom})"
@@ -470,7 +519,7 @@ class MoteurBataille:
         if source.stoppe:
             self.log.append(f"{source.template.nom} Pouvoir est annule, ignore")
             return
-        if not _verifier_condition(pouvoir.get("condition"), source):
+        if not _verifier_condition(pouvoir, source):
             self.log.append(
                 f"{source.template.nom} Pouvoir ({pouvoir['description']}) : condition non remplie"
             )
@@ -524,6 +573,10 @@ class MoteurBataille:
             detail = [
                 (c.template.nom, max(0, c.degats)) for c in camp.combattants
             ] + camp.detail_degats_camp
+            if degats != camp.degats_bruts():
+                # Les malus adverses ont fait passer le total sous 0 : le plancher
+                # apparait dans le detail pour que la somme affichee reste exacte.
+                detail.append(("plancher 0", degats - camp.degats_bruts()))
             self.log.append(
                 f"Le duo de {camp.joueur.nom} remporte la bataille, Degats = "
                 f"{_formater_detail(degats, detail)} : inflige {degats} a "

@@ -8,50 +8,47 @@ cas de double victoire).
 Chaque carte porte un `effet` (identifiant technique) et un `timing` :
 - "bataille"  : modifie la resolution de la bataille en cours (avant application des Degats)
 - "immediat"  : s'applique juste apres l'application des Degats
-- "tour_suivant" : contraint le choix des duos de la bataille suivante
+- "tour_suivant" : contraint la bataille suivante
 
 Le deck compte un exemplaire de chaque carte, melange en debut de partie ; une seule
 carte est revelee par bataille, soit 4 cartes vues par partie sur les 7 possibles.
 """
 import random
 
-BONUS_ACHARNEMENT = 2
-BONUS_BUTIN = 2
-BONUS_OVATION_PAR_COMBATTANT = 1
+BONUS_BAS_FONDS = 2
+BONUS_SOIN = 2
+BONUS_PLANIFICATION_PAR_BATAILLE = 1
 
 CARTES = [
     {
-        "id": "butin",
-        "nom": "Butin",
-        "effet": "butin",
-        "timing": "immediat",
-        "description": f"Le vainqueur gagne {BONUS_BUTIN} PV.",
+        "id": "a_la_loyale",
+        "nom": "À la loyale",
+        "effet": "aucun",
+        "timing": "aucun",
+        "description": "Aucun effet : seuls les Dégâts comptent.",
     },
     {
-        "id": "acharnement",
-        "nom": "Acharnement",
-        "effet": "acharnement",
+        "id": "bas_fonds",
+        "nom": "Dans les bas-fonds",
+        "effet": "bas_fonds",
         "timing": "bataille",
-        "description": f"Les Degats infliges par le vainqueur sont augmentes de {BONUS_ACHARNEMENT}.",
+        "description": f"Les Dégâts infligés par le vainqueur sont augmentés de {BONUS_BAS_FONDS}.",
+    },
+    {
+        "id": "soigner_les_blesses",
+        "nom": "Soigner les blessés",
+        "effet": "soin",
+        "timing": "immediat",
+        "description": f"Le vainqueur gagne {BONUS_SOIN} PV.",
     },
     {
         "id": "reperage",
-        "nom": "Reperage",
+        "nom": "Repérage",
         "effet": "reperage",
         "timing": "tour_suivant",
         "description": (
-            "A la bataille suivante, l'adversaire verrouille son duo en premier et en "
-            "revele un Combattant, tire au hasard, avant que le vainqueur ne choisisse."
-        ),
-    },
-    {
-        "id": "intimidation",
-        "nom": "Intimidation",
-        "effet": "intimidation",
-        "timing": "tour_suivant",
-        "description": (
-            "A la bataille suivante, l'adversaire verrouille son duo en premier et le "
-            "revele entierement avant que le vainqueur ne choisisse."
+            "À la bataille suivante, l'adversaire verrouille son duo en premier et révèle "
+            "celui de ses 2 Combattants qu'il choisit."
         ),
     },
     {
@@ -60,31 +57,30 @@ CARTES = [
         "effet": "second_souffle",
         "timing": "immediat",
         "description": (
-            "Les deux Combattants du duo vainqueur recuperent l'utilisation depensee "
-            "pour cette bataille."
+            "Le vainqueur rend une utilisation au Combattant de son équipe qu'il choisit."
         ),
     },
     {
-        "id": "ovation",
-        "nom": "Ovation",
-        "effet": "ovation",
+        "id": "planification",
+        "nom": "Planification",
+        "effet": "planification",
         "timing": "immediat",
         "description": (
-            f"Le vainqueur gagne {BONUS_OVATION_PAR_COMBATTANT} PV par Combattant de son "
-            "duo engage pour la premiere fois."
+            f"Patience : le vainqueur gagne {BONUS_PLANIFICATION_PAR_BATAILLE} PV par "
+            "bataille jouée, celle-ci comprise."
         ),
     },
     {
-        "id": "escarmouche",
-        "nom": "Escarmouche",
-        "effet": "escarmouche",
-        "timing": "aucun",
-        "description": "Aucun effet supplementaire : seuls les Degats comptent.",
+        "id": "depasser_ses_limites",
+        "nom": "Dépasser ses limites",
+        "effet": "depasser_ses_limites",
+        "timing": "tour_suivant",
+        "description": (
+            "À la bataille suivante, toutes les conditions des Pouvoirs du vainqueur sont "
+            "considérées comme validées."
+        ),
     },
 ]
-
-# Nombre de Combattants du duo que l'adversaire doit reveler, par effet d'information.
-REVELATIONS = {"reperage": 1, "intimidation": 2}
 
 
 def construire_deck_batailles():
@@ -96,4 +92,15 @@ def construire_deck_batailles():
 def bonus_degats(carte):
     """Bonus de Degats accorde au vainqueur par la carte bataille du tour, applique
     pendant la resolution (timing "bataille")."""
-    return BONUS_ACHARNEMENT if carte["effet"] == "acharnement" else 0
+    return BONUS_BAS_FONDS if carte["effet"] == "bas_fonds" else 0
+
+
+def bonus_pv(carte, tour):
+    """PV gagnes par le vainqueur juste apres l'application des Degats (timing
+    "immediat"). Planification porte le modificateur Patience : son gain croit avec le
+    numero de la bataille."""
+    if carte["effet"] == "soin":
+        return BONUS_SOIN
+    if carte["effet"] == "planification":
+        return BONUS_PLANIFICATION_PAR_BATAILLE * tour
+    return 0

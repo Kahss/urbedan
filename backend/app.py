@@ -61,6 +61,32 @@ def api_choix_duo():
     return jsonify(etat)
 
 
+@app.post("/api/partie/revelation")
+def api_revelation():
+    """Reperage : le joueur designe celui de ses 2 Combattants qu'il revele a l'IA."""
+    if partie is None:
+        return jsonify({"erreur": "Aucune partie en cours"}), 404
+    body = request.get_json(force=True) or {}
+    try:
+        etat = partie.soumettre_revelation(body.get("combattant_id"))
+    except ErreurPartie as e:
+        return jsonify({"erreur": str(e)}), 400
+    return jsonify(etat)
+
+
+@app.post("/api/partie/second-souffle")
+def api_second_souffle():
+    """Second souffle : le vainqueur designe le Combattant qui recupere une utilisation."""
+    if partie is None:
+        return jsonify({"erreur": "Aucune partie en cours"}), 404
+    body = request.get_json(force=True) or {}
+    try:
+        etat = partie.soumettre_second_souffle(body.get("combattant_id"))
+    except ErreurPartie as e:
+        return jsonify({"erreur": str(e)}), 400
+    return jsonify(etat)
+
+
 @app.post("/api/partie/ciblage")
 def api_ciblage():
     if partie is None:
