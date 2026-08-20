@@ -1,105 +1,98 @@
-"""Simule un grand nombre de parties d'Urban Eredan jouees entierement par l'IA (la
-meme heuristique de `engine/ia.py` des deux cotes) et dresse les statistiques de
-pourcentage de victoire de chaque Combattant.
+"""Simule un grand nombre de matchs d'Urban Eredan (version Eredice) joues entierement
+par l'IA des deux cotes (la meme heuristique que `engine/ia.py`) et dresse les
+statistiques de pourcentage de victoire de chaque Personnage.
 
-Un Combattant est considere comme ayant gagne des lors que l'equipe dont il fait partie
-a remporte la partie : il peut avoir perdu son propre duel (voire ne jamais avoir
-combattu, si la partie s'est terminee avant que son tour n'arrive), tant que son equipe
-a gagne, il compte comme gagnant.
+Un Personnage est considere comme gagnant des lors que l'equipe dont il fait partie
+remporte le match, conformement au critere d'equilibrage retenu pour le jeu.
 
 Usage :
-    python generate_metagame.py -n 10000
+    python generate_metagame.py -n 2000
 """
 import argparse
 import os
 import random
 import sys
+from collections import Counter
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(BASE_DIR, "backend"))
 
-from engine.game import NB_DUELS_MAX, Partie, charger_combattants  # noqa: E402
-from engine.ia import choisir_combattant_et_glyphe  # noqa: E402
+from engine.game import TAILLE_EQUIPE, Partie  # noqa: E402
+from engine.ia import choisir_action  # noqa: E402
+from engine.models import charger_personnages  # noqa: E402
 
-DATA_PATH = os.path.join(BASE_DIR, "data", "combattants.json")
-
-
-def jouer_choix_humain(partie):
-    """Fait choisir au joueur 'humain' de la partie son Combattant et son Glyphe pour
-    le duel en cours, via la meme heuristique que l'IA (cf. engine/ia.py), de maniere a
-    simuler un affrontement IA contre IA."""
-    role = "j1" if partie.j1 is partie.joueur_humain else "j2"
-    if getattr(partie, "combattant_" + role) is not None:
-        return
-    adversaire = partie.joueur_ia
-    instance, glyphe = choisir_combattant_et_glyphe(
-        partie.joueur_humain, role, partie.duel_numero, NB_DUELS_MAX,
-        partie.joueur_humain.pv, adversaire.pv,
-    )
-    partie.soumettre_combattant(instance.template.id, glyphe.id)
+DATA_PATH = os.path.join(BASE_DIR, "data", "personnages.json")
 
 
-def jouer_partie(templates, tous_les_ids):
-    """Joue une partie complete (equipes tirees au hasard dans tout le roster) et
-    retourne (ids equipe A, ids equipe B, vainqueur : 'humain' / 'ia' / None)."""
-    equipe_a = random.sample(tous_les_ids, 4)
+def jouer_match(templates, tous_les_ids):
+    """Joue un match complet (equipes tirees au hasard dans tout le roster), les deux
+    camps etant pilotes par l'heuristique de `engine/ia.py`.
+
+    Retourne (ids equipe humaine, ids equipe ia, vainqueur, nombre de rounds)."""
+    equipe_a = random.sample(tous_les_ids, TAILLE_EQUIPE)
     partie = Partie(templates, equipe_a)
-    equipe_b = [c.template.id for c in partie.joueur_ia.equipe]
+    equipe_b = [p.template.id for p in partie.joueur_ia.equipe]
 
     while not partie.terminee:
-        if partie.phase == "choix_combattant":
-            jouer_choix_humain(partie)
-        elif partie.phase == "duel_resolu":
-            partie.duel_suivant()
+        creneau = partie.creneau_courant()
+        if creneau is None:
+            break
+        de, perso, usage = choisir_action(partie, creneau.joueur)
+        partie.drafter(de.id, perso.template.id, usage)
 
-    return equipe_a, equipe_b, partie.vainqueur
+    return equipe_a, equipe_b, partie.vainqueur, partie.round_numero
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Simule des parties d'Urban Eredan jouees par l'IA et dresse les "
-        "statistiques de pourcentage de victoire par Combattant."
+        description="Simule des matchs d'Urban Eredan (Eredice) joues par l'IA et dresse "
+        "les statistiques de pourcentage de victoire par Personnage."
     )
-    parser.add_argument(
-        "-n", "--nombre-parties", type=int, default=10000,
-        help="Nombre de parties a simuler (defaut : 10000)",
-    )
+    parser.add_argument("-n", "--nombre-matchs", type=int, default=2000,
+                        help="Nombre de matchs a simuler (defaut : 2000)")
     args = parser.parse_args()
 
-    templates = charger_combattants(DATA_PATH)
+    templates = charger_personnages(DATA_PATH)
     tous_les_ids = list(templates.keys())
+    stats = {pid: {"matchs": 0, "victoires": 0} for pid in tous_les_ids}
+    rounds = []
+    issues = Counter()
 
-    stats = {cid: {"parties": 0, "victoires": 0} for cid in tous_les_ids}
-
-    palier = max(1, args.nombre_parties // 10)
-    for i in range(args.nombre_parties):
-        equipe_a, equipe_b, vainqueur = jouer_partie(templates, tous_les_ids)
-        for cid in equipe_a:
-            stats[cid]["parties"] += 1
+    palier = max(1, args.nombre_matchs // 10)
+    for i in range(args.nombre_matchs):
+        equipe_a, equipe_b, vainqueur, nb_rounds = jouer_match(templates, tous_les_ids)
+        rounds.append(nb_rounds)
+        issues[vainqueur or "nul"] += 1
+        for pid in equipe_a:
+            stats[pid]["matchs"] += 1
             if vainqueur == "humain":
-                stats[cid]["victoires"] += 1
-        for cid in equipe_b:
-            stats[cid]["parties"] += 1
+                stats[pid]["victoires"] += 1
+        for pid in equipe_b:
+            stats[pid]["matchs"] += 1
             if vainqueur == "ia":
-                stats[cid]["victoires"] += 1
+                stats[pid]["victoires"] += 1
         if (i + 1) % palier == 0:
-            print(f"... {i + 1}/{args.nombre_parties} parties simulees", file=sys.stderr)
+            print(f"... {i + 1}/{args.nombre_matchs} matchs simules", file=sys.stderr)
 
     lignes = []
-    for cid in tous_les_ids:
-        parties = stats[cid]["parties"]
-        victoires = stats[cid]["victoires"]
-        taux = (victoires / parties * 100) if parties else 0.0
-        lignes.append((templates[cid].nom, parties, victoires, taux))
+    for pid in tous_les_ids:
+        matchs = stats[pid]["matchs"]
+        victoires = stats[pid]["victoires"]
+        taux = (victoires / matchs * 100) if matchs else 0.0
+        lignes.append((templates[pid].nom, matchs, victoires, taux))
     lignes.sort(key=lambda ligne: ligne[3], reverse=True)
 
-    largeur_nom = max(len(nom) for nom, _, _, _ in lignes)
-    print(f"\nStatistiques sur {args.nombre_parties} parties simulees (IA contre IA)\n")
-    entete = f"{'Combattant':<{largeur_nom}}  {'Parties':>8}  {'Victoires':>9}  {'% Victoire':>10}"
+    print(f"\nStatistiques sur {args.nombre_matchs} matchs simules (IA contre IA)")
+    print(
+        f"Duree moyenne : {sum(rounds) / len(rounds):.2f} rounds "
+        f"(min {min(rounds)}, max {max(rounds)}) | issues : {dict(issues)}\n"
+    )
+    largeur = max(len(nom) for nom, _, _, _ in lignes)
+    entete = f"{'Personnage':<{largeur}}  {'Matchs':>7}  {'Victoires':>9}  {'% Victoire':>10}"
     print(entete)
     print("-" * len(entete))
-    for nom, parties, victoires, taux in lignes:
-        print(f"{nom:<{largeur_nom}}  {parties:>8}  {victoires:>9}  {taux:>9.2f}%")
+    for nom, matchs, victoires, taux in lignes:
+        print(f"{nom:<{largeur}}  {matchs:>7}  {victoires:>9}  {taux:>9.2f}%")
 
 
 if __name__ == "__main__":

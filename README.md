@@ -1,220 +1,218 @@
-# Urban Eredan — Prototype
+# Urban Eredan — Eredice (prototype)
 
-Prototype jouable en solo (vs IA) du jeu de societe Urban Eredan (`game.md`), avec un
-backend Python (moteur de regles + IA) et un frontend web (HTML/CSS/JS, jouable
-uniquement au clic).
+Prototype jouable en solo (vs IA) de la version **Eredice** d'Urban Eredan
+(`versions/eredice.md`) : deux equipes de 3 Personnages s'affrontent en 3v3, et toute la
+partie se joue autour d'un **draft de Des de pouvoir**. Backend Python (moteur de regles
++ IA), frontend web sans framework, jouable uniquement au clic.
 
 ## Lancer le jeu
 
-Un environnement virtuel Python existe deja dans `venv/`. Depuis la racine du projet :
+Le projet est gere par `uv` (cf. `pyproject.toml`) :
 
 ```
-venv\Scripts\python.exe -m pip install -r backend\requirements.txt
-venv\Scripts\python.exe backend\app.py
+uv run backend/app.py
 ```
 
-Puis ouvrir http://127.0.0.1:5000/ dans un navigateur.
+Ou avec l'environnement virtuel existant :
 
-Le serveur Flask sert a la fois l'API de jeu (`/api/...`) et les fichiers statiques du
-frontend (`frontend/`). Une seule partie est active a la fois (etat en memoire, adapte a
-un usage solo local).
+```
+.venv/bin/python backend/app.py
+```
+
+Puis ouvrir http://127.0.0.1:5000/.
+
+Le serveur Flask sert a la fois l'API (`/api/...`) et les fichiers statiques du frontend.
+Une seule partie est active a la fois (etat en memoire, adapte a un usage solo local).
+
+## Regles implementees
+
+- Chaque joueur demarre a **20 PV**. Le match s'arrete des qu'un joueur tombe a 0.
+- Les 6 Personnages des deux equipes forment une **piste d'initiative** commune, triee
+  par Initiative **croissante** : l'Initiative la plus basse drafte en premier. Les
+  valeurs d'Initiative ne servent qu'a ce placement initial ; ensuite, seules les
+  **places** comptent (un effet `initiative` deplace un Personnage de N places).
+- A chaque round :
+  1. Les **7 Des de pouvoir** sont tires (des identiques, faces rouge/rouge/bleu/bleu/
+     jaune/jaune : un tirage est donc uniforme sur les 3 couleurs).
+  2. La piste est parcourue creneau par creneau. A chaque creneau, le **proprietaire** du
+     Personnage concerne drafte un De du pool et l'affecte a **n'importe lequel de ses 3
+     Personnages** (le creneau designe qui joue, pas qui recoit).
+  3. Le De est soit **stocke** en ressource sur ce Personnage, soit **depense pour son
+     attaque de base** : sa valeur d'Attaque est alors infligee aux PV adverses. Une
+     seule attaque par round et par Personnage ; aucune contrainte de couleur.
+  4. Des que les Des stockes d'un Personnage payent le cout d'une de ses Capacites,
+     celle-ci **s'active obligatoirement**. Seuls les Des payant le cout sont defausses.
+  5. Apres les 6 creneaux, le De non drafte est defausse et un nouveau round commence.
+- Un plafond de **15 rounds** sert de garde-fou (victoire aux PV) : la spec ne prevoit
+  qu'une fin par KO, mais deux equipes tres defensives pourraient boucler indefiniment.
 
 ## Structure du projet
 
 ```
-data/combattants.json       Liste des Combattants jouables (editable a la main)
+data/personnages.json        Les 10 Personnages jouables (editable a la main)
+pouvoirs.csv                 Liste des mots-cles Effet / Condition / Multiplicateur
 backend/
-  app.py                    Serveur Flask (API REST)
+  app.py                     Serveur Flask (API REST)
   engine/
-    models.py               Glyphes, Combattants, Joueurs
-    powers.py                Moteur generique de resolution des Pouvoirs
-    ia.py                    Heuristique de choix de l'IA (Combattant + Glyphe)
-    game.py                  Orchestration d'une Partie (mise en place, duels, IA)
+    models.py                Des de pouvoir, Personnages, Joueurs
+    capacites.py             Resolution des Capacites (paiement, conditions, effets)
+    game.py                  Orchestration d'un match (piste, rounds, draft, fin)
+    ia.py                    Heuristique de draft de l'IA
 frontend/
   index.html / style.css / app.js   Interface (100% cliquable, sans framework)
+generate_metagame.py         Simulation IA vs IA et statistiques d'equilibrage
+versions/                    Specifications des variantes du jeu
 ```
 
-## Editer / ajouter des Combattants
+## API
 
-`data/combattants.json` peut etre modifie a la main puis rechargé automatiquement au
-lancement d'une nouvelle partie (pas besoin de redemarrer le serveur). Chaque Combattant
-ne possede plus qu'un seul Pouvoir :
+| Methode | Route | Corps | Role |
+| --- | --- | --- | --- |
+| `GET` | `/api/personnages` | — | Les 10 Personnages disponibles |
+| `POST` | `/api/partie` | `{"equipe": [id, id, id]}` | Nouvelle partie (l'IA tire 3 Personnages parmi les 7 restants) |
+| `GET` | `/api/partie` | — | Etat courant |
+| `POST` | `/api/partie/draft` | `{"de_id": N, "personnage_id": "...", "usage": "stock"\|"attaque"}` | Draft du creneau courant |
+
+Apres chaque action humaine, le backend joue automatiquement tous les creneaux de l'IA
+et enchaine les rounds jusqu'a ce que ce soit de nouveau au joueur d'agir : l'etat
+renvoye est donc toujours pret pour la prochaine decision humaine.
+
+## Editer / ajouter des Personnages
+
+`data/personnages.json` est relu a chaque nouvelle partie (pas besoin de redemarrer le
+serveur).
 
 ```json
 {
   "id": "identifiant_unique",
   "nom": "Nom affiche",
-  "puissance": 4,
-  "degats": 3,
-  "pouvoir": {
-    "description": "Texte affiche sur la carte",
-    "condition": null,
-    "modificateur": null,
-    "energie_min": 1,
-    "effets": [ { "type": "puissance", "cible": "soi", "valeur": 2 } ]
-  }
+  "archetype": "narratif, non lu par le moteur",
+  "description": "narratif, non lu par le moteur",
+  "initiative": 5,
+  "attaque": 2,
+  "capacites": [
+    {
+      "description": "Texte affiche sur la carte",
+      "cout": ["rouge", null],
+      "condition": null,
+      "multiplicateur": null,
+      "effets": [ { "type": "vampirisme", "valeur": 3 } ]
+    }
+  ]
 }
 ```
 
-- `energie_min` (optionnel, defaut 0) : cout minimum en Energie pour activer le Pouvoir,
-  note "X+" — le Pouvoir s'active des lors que l'Energie du Glyphe joue est superieure ou
-  egale a `energie_min` (`0` ou absent = Pouvoir toujours actif, meme avec un Glyphe
-  d'Energie 0).
-- `condition` (optionnel) : un des mots-cles Condition de `pouvoirs.csv` —
-  `courage`, `riposte`, `vengeance`, `domination`, `victoire`, `defaite`, `surpuissance`.
-- `modificateur` (optionnel) : un des mots-cles Modificateur —
-  `patience`, `impatience`, `par_energie`, `par_energie_adverse`, `par_energie_en_jeu`,
-  `contrecoup`. `par_energie` multiplie la valeur de l'effet par l'Energie jouee par le
-  Combattant lui-meme (ex : "+1 Puissance / Energie") ; `par_energie_adverse` multiplie
-  par l'Energie jouee par l'adversaire ce duel-ci ; `par_energie_en_jeu` multiplie par la
-  somme des deux Energies jouees (soi + adversaire). Dans tous les cas, combine a
-  `energie_min`, cela permet un Pouvoir qui necessite un minimum d'Energie propre pour
-  s'activer tout en scalant sur une Energie differente (la sienne, celle de l'adversaire,
-  ou le total des deux).
-- `effets` : liste d'effets, chacun avec un `type` :
-  - `puissance` / `degats` / `vie` : necessitent `cible` (`soi` ou `adversaire`) et `valeur`
-    (entier signe). `vie` modifie les PV du joueur (pas une statistique du Combattant).
-  - `stop_pouvoir` : aucun champ supplementaire (generique, voir plus bas).
-  - `copie_pouvoir` : aucun champ supplementaire (generique, voir plus bas).
-  - `protection` : aucun champ supplementaire.
-  - `echange` : aucun champ supplementaire (echange Puissance/Degats entre les 2
-    Combattants du duel).
-  - `vampirisme` : `valeur` = X (reduit les PV adverses de X, gagne X PV).
+- `initiative` : placement initial sur la piste (la plus **basse** drafte en premier).
+- `attaque` : degats infliges quand un De est depense pour l'attaque de base.
+- `capacites` : **1 ou 2** lignes. Chaque ligne a :
+  - `cout` : **1 a 3** cases. Chaque case vaut `"rouge"`, `"bleu"`, `"jaune"`, ou `null`
+    pour un **joker** (n'importe quelle couleur).
+  - `condition` (optionnelle), `multiplicateur` (optionnel) : mots-cles de
+    `pouvoirs.csv`.
+  - `effets` : liste d'effets, chacun avec un `type` de `pouvoirs.csv`.
 
-Un Pouvoir peut activer plusieurs `effets` (liste), mais un seul `condition` /
-`modificateur`.
-
-**L'Energie du Glyphe joue determine si l'unique Pouvoir du Combattant s'active**, en le
-comparant a son seuil `energie_min` : Energie jouee >= `energie_min` -> le Pouvoir
-s'active (avec, le cas echeant, une valeur multipliee par cette Energie via
-`par_energie`) ; sinon, il reste inactif. Un Combattant n'a donc jamais plus d'un Pouvoir
-actif par duel (hors effet de Copie pouvoir). Concevoir un personnage revient a choisir
-un seul Pouvoir, son cout minimum en Energie (0 = toujours disponible, 3 = ne
-s'active qu'en sacrifiant toute la Puissance du Glyphe 0/3) et, eventuellement, un
-scaling par Energie jouee au-dela de ce seuil.
-
-## Detail du calcul de Puissance / Degats
-
-A la resolution d'un duel, l'API renvoie pour chaque Combattant le detail complet du
-calcul (`puissance_txt`, `degats_txt`, affiches sur la carte du duel resolu), sous la
-forme `total = X (base) + Y (glyphe) + Z (Pouvoir N Nom) ...`. Chaque contribution
-(base, Glyphe, chaque Pouvoir ayant modifie la valeur, y compris un Echange ou une copie
-de pouvoir) apparait comme une ligne separee, dans l'ordre ou elle a ete appliquee. Cela
-permet de verifier precisement d'ou vient un nombre qui semblerait incoherent au premier
-abord (ex : un Combattant dont la Puissance ne semble pas inclure son Glyphe, alors
-qu'un Echange ulterieur la lui a simplement retiree).
+Un cout en **jokers purs** n'impose aucune contrainte de couleur : a valeur egale, il est
+nettement plus fort qu'un cout colore. C'est le principal levier d'equilibrage, avec la
+valeur par De et l'Attaque de base.
 
 ## Hypotheses et choix d'implementation
 
-Certaines regles de `game.md` / `pouvoirs.csv` laissaient place a interpretation ; les
-choix suivants ont ete valides ou tranches avec l'utilisateur avant developpement :
+Les points laisses ouverts par `versions/eredice.md` ont ete tranches comme suit (valides
+avec l'utilisateur avant developpement) :
 
-- **Selection d'equipe** : avant chaque partie, le joueur choisit manuellement ses 4
-  Combattants parmi tous ceux disponibles (20 fournis) ; l'IA tire au hasard 4
-  Combattants distincts parmi ceux restants.
-- **Un seul Pouvoir par Combattant** : chaque Combattant ne possede plus qu'un unique
-  Pouvoir, actif des lors que l'Energie du Glyphe joue atteint son seuil `energie_min`
-  (note "X+"). **Ordre de resolution** : au sein d'un duel, J1 resout son Pouvoir (s'il
-  est actif) avant que J2 ne resolve le sien.
-- **Stop pouvoir et Copie pouvoir sont generiques** : ils visent toujours l'unique
-  Pouvoir de l'adversaire, s'il est actif (Energie jouee >= son seuil `energie_min`). Si
-  l'adversaire n'a pas atteint ce seuil (Pouvoir inactif), il n'y a rien a annuler ni a
-  copier.
-- **Stop pouvoir** : agit retroactivement si le Pouvoir cible a deja ete resolu (le cas
-  lorsque J2 vise le Pouvoir de J1, deja joue), ou par anticipation sinon (J1 vise le
-  Pouvoir de J2 qui n'a pas encore joue). Cela fonctionne aussi pour annuler
-  retroactivement un Echange deja resolu (le calcul du Pouvoir Echange est trace comme
-  n'importe quel autre effet, via des deltas Puissance/Degats plutot qu'une permutation
-  directe non tracable).
-- **Protection** : annule toutes les modifications deja subies de la part de
-  l'adversaire (retroactif) et bloque toute nouvelle modification adverse (puissance,
-  degats, vie, stop pouvoir, copie pouvoir) pour le reste de la resolution du duel. Ne
-  bloque pas les degats de fin de duel (rupture des PV du vaincu), qui ne sont pas une
-  "modification de Pouvoir" mais l'application de la regle de base.
-- **Victoire / Defaite / Surpuissance / Contrecoup** : ces Pouvoirs dependent de l'issue
-  du duel (qui n'est connue qu'apres comparaison des Puissances totales). Ils sont donc
-  resolus dans une seconde passe, apres determination du/des vainqueur(s), et n'influent
-  donc jamais sur la comparaison de Puissance du duel en cours (uniquement sur les
-  Degats/PV/Vie).
-- **Patience** : multiplie la valeur de l'effet par le numero du duel courant dans la
-  partie (1 a 4). **Impatience** : multiplie par le nombre de duels restants a jouer,
-  celui-ci compris (`duels_max - duel_numero + 1`, soit 4 au duel 1, 1 au duel 4).
-- **Par energie** : multiplie la valeur de l'effet par l'Energie du Glyphe joue par le
-  Combattant qui possede ce Pouvoir (ex : Echo, Cobra, Iron, Riff). Combine a
-  `energie_min`, cela permet un Pouvoir qui necessite un minimum d'Energie pour
-  s'activer, et dont l'effet croit ensuite avec l'Energie investie au-dela de ce seuil.
-- **Par energie adverse** : multiplie la valeur de l'effet par l'Energie jouee par
-  l'adversaire ce duel-ci, independamment de la propre Energie du Combattant (ex :
-  Mirage, qui retourne l'investissement en Energie de l'adversaire contre lui).
-- **Par energie en jeu** : multiplie la valeur de l'effet par la somme des deux Energies
-  jouees ce duel-ci (la sienne et celle de l'adversaire) (ex : Surge, qui se nourrit du
-  chaos total du duel, peu importe qui l'a genere).
-- **Contrecoup** : l'effet, normalement dirige vers l'adversaire, s'applique a
-  soi-meme uniquement si le Combattant remporte le duel (sinon il ne se produit pas).
-- **Copie pouvoir** : copie la definition du Pouvoir actuellement actif de l'adversaire
-  (effets, condition, modificateur) et l'execute du point de vue du copieur (`soi` =
-  copieur, `adversaire` = adversaire du copieur). Limitations POC : copier un Pouvoir
-  conditionne par l'issue du duel (Victoire/Defaite/Surpuissance) ou par Contrecoup n'est
-  pas supporte (ex : Nova copiant le Pouvoir de Vex, conditionne par Defaite) ; copier un
-  Pouvoir qui contient lui-meme une Copie de pouvoir n'est pas supporte non plus (ex :
-  Nova face a Mime), pour eviter une recursion infinie puisque l'adversaire cible ne
-  change jamais d'une copie a l'autre ; copier un Pouvoir deja annule par un Stop pouvoir
-  echoue egalement (rien a copier).
-- **Mot-cle "Attaque"** (`pouvoirs.csv`) : `game.md` ne definit que les statistiques
-  Puissance et Degats pour un Combattant (pas d'"Attaque" separee). Le mot-cle
-  "+/- Attaque" est donc traite comme un synonyme de "+/- Puissance".
-- **Double victoire** (egalite de Puissance) : les deux Combattants remportent le duel et
-  infligent chacun leurs Degats ; le joueur J2 du duel devient J1 du duel suivant (et
-  inversement), conformement a `game.md`.
-- **Equipe visible** : le roster complet (les 4 Combattants, utilises ou non) de chaque
-  joueur est visible par l'autre pendant toute la partie ; la main de Glyphes de l'IA
-  (valeurs et nombre de cartes) reste totalement masquee jusqu'a la resolution du duel.
-- **Main de 2 Glyphes par manche** : chaque joueur pioche un premier Glyphe a la mise en
-  place de la partie (main de depart), puis un Glyphe supplementaire au debut de chaque
-  manche (duel), dans le deck commun (16 cartes, 4 exemplaires de chacun des 4 types de
-  Glyphe, partage par les deux joueurs, jamais reconstitue en cours de partie). Il a
-  donc 2 Glyphes disponibles pour choisir lequel associer au Combattant qu'il joue ce
-  duel-ci ; l'autre reste en main pour la manche suivante. Le joueur humain voit sa
-  propre main avant de choisir son Combattant et son Glyphe ; celle de l'IA reste cachee
-  jusqu'a la resolution du duel.
-- **Compteur de Glyphes restants** : l'interface rappelle, pour chacun des 4 types de
-  Glyphe, combien d'exemplaires restent potentiellement disponibles (sur les 5 de
-  depart), en comptant uniquement ceux deja joues (reveles en resolution de duel) — les
-  Glyphes actuellement dans une main (y compris celle, cachee, de l'IA) sont donc
-  toujours comptes comme "restants", puisque leur type n'est pas encore connu de
-  l'autre joueur.
+- **Draft libre** : le creneau de la piste designe le **joueur** qui drafte, pas le
+  Personnage qui recoit. Le joueur peut empiler ses 3 Des du round sur un seul
+  Personnage. La regle « une seule attaque par round et par Personnage » devient donc
+  reellement contraignante.
+- **Ordre du draft** : Initiative croissante (la plus basse en premier). Une equipe aux
+  Initiatives basses drafte donc tot et choisit ses couleurs avant l'adversaire : c'est un
+  avantage d'equipe, compense par des valeurs d'Attaque plus faibles.
+- **Usage d'un De** : choix exclusif entre stocker (progression vers une Capacite) et
+  depenser pour l'attaque de base. Un De depense en attaque n'alimente aucune Capacite.
+- **Defausse a l'activation** : seuls les Des payant le cout sont retires ; le surplus
+  reste stocke (indispensable pour un Personnage a 2 lignes de Capacites).
+- **Activation obligatoire et ordre de test** : un Personnage teste ses Capacites dans
+  leur **ordre de declaration** ; la premiere payable s'active, puis on recommence
+  (cascade bornee a 12 activations par De ajoute, pour se proteger d'une Capacite qui se
+  re-alimente via `de_bonus` / `de_cree` / `de_vole`). Consequence de design : une ligne
+  peu couteuse et sans condition rend inatteignable toute ligne plus couteuse declaree
+  apres elle.
+- **Choix du paiement** : parmi tous les paiements possibles, le moteur retient d'abord
+  ceux qui satisfont la condition (ce qui rend `monochrome` / `polychrome` jouables), puis
+  celui qui consomme les couleurs les plus abondantes de la reserve, puis les Des les plus
+  anciens. Le paiement est deterministe : aucune invite supplementaire au joueur.
+- **Effets de manipulation de Des** : ils ciblent automatiquement, sans invite —
+  `de_bonus` prend dans le pool la couleur la plus abondante, `de_vole` / `de_defausse`
+  visent le Personnage adverse qui stocke le plus de Des (egalite : le plus avance dans la
+  piste) et lui prennent son De le plus ancien.
+- **Modifications d'Attaque** : permanentes pour le reste du match ; l'Attaque effective
+  ne descend jamais sous 0.
+- **Modifications d'Initiative** : deplacements de places dans la piste. La piste est
+  modifiee immediatement, mais la sequence de draft du round en cours est figee a son
+  debut : l'effet se ressent des le round suivant.
+- **Egalites d'Initiative** au placement initial : tranchees au hasard a la mise en place.
+- **Pool epuise** : si une Capacite a consomme le De de rab (7 Des pour 6 creneaux), les
+  derniers creneaux du round peuvent se retrouver sans De ; ils sont alors perdus, ce qui
+  est journalise.
+- **Constitution des equipes** : le joueur choisit 3 Personnages parmi les 10 ; l'IA en
+  tire 3 distincts parmi les 7 restants. Les deux equipes sont entierement visibles.
+- **PV** : pas de plafond superieur (un soin peut depasser 20 PV) ; plancher a 0.
 
 ## IA
 
-L'IA (`engine/ia.py`) choisit, parmi ses Combattants disponibles et ses Glyphes en main,
-la combinaison qui maximise une estimation de la Puissance totale du duel (en cas
-d'egalite : les Degats, puis la Vie), plutot qu'un tirage purement aleatoire. Cette
-estimation ne compte que ce qui est certain au moment du choix :
-- Courage / Riposte / Vengeance / Domination sont evalues immediatement (role du duel,
-  PV courants) ; Victoire / Defaite / Surpuissance / Contrecoup dependent de l'issue du
-  duel (inconnue au moment du choix) et ne sont donc jamais comptes.
-- Patience / Impatience / Par energie sont calcules directement ; Par energie adverse /
-  Par energie en jeu utilisent l'Energie moyenne d'un Glyphe pioche au hasard (1,5),
-  l'Energie reelle de l'adversaire etant inconnue avant la resolution.
-- Stop pouvoir / Copie pouvoir / Protection / Echange dependent trop du Combattant et du
-  Glyphe adverses (inconnus) pour etre estimes utilement : ils ne modifient pas le
-  score.
+`engine/ia.py` evalue, a chaque creneau, toutes les actions possibles (chaque De du pool x
+chacun de ses 3 Personnages x stocker/attaquer) et retient la meilleure selon une
+estimation en « PV equivalents » :
 
-Les egalites de score sont tranchees au hasard, pour eviter un jeu totalement
-previsible.
+- **attaquer** vaut la valeur d'Attaque courante du Personnage (prime enorme si elle
+  acheve l'adversaire) ;
+- **stocker** vaut, si le De declenche immediatement une Capacite, la valeur estimee de
+  cette Capacite ; sinon la **valeur marginale** de la progression, soit la valeur de la
+  Capacite divisee par le nombre de Des encore manquants (un De vaut donc d'autant plus
+  cher que la Capacite est proche), decotee du risque de ne jamais la completer.
+
+Les conditions d'etat (`vengeance`, `domination`, `blesse`, position dans la piste) sont
+evaluees immediatement ; `monochrome` / `polychrome` dependent du paiement retenu et sont
+seulement decotees. Les egalites de score sont tranchees au hasard.
+
+## Equilibrage
+
+`generate_metagame.py` simule des matchs IA contre IA (equipes tirees au hasard dans tout
+le roster) et mesure, pour chaque Personnage, le pourcentage de matchs remportes par
+**l'equipe dont il fait partie** :
+
+```
+python generate_metagame.py -n 3000
+```
+
+Etat du roster livre, sur 3000 matchs : toutes les fourchettes de victoire sont comprises
+entre **42,8 % et 55,5 %**, pour une duree moyenne de **3,2 rounds**.
+
+Deux observations utiles pour la suite :
+
+- **Duree des matchs.** A 20 PV, avec 3 Des par joueur et par round et des Capacites
+  rentables (~2,5 PV par De), un match dure structurellement 3 a 4 rounds. Allonger les
+  parties suppose soit de monter les PV de depart, soit de baisser d'un tiers toutes les
+  valeurs de degats/soins et d'Attaque — ce dernier point rendant les Capacites a 3 Des
+  plus difficiles a rentabiliser.
+- **Sensibilite de l'equilibrage.** L'IA etant gloutonne, un seul point de degats sur une
+  Capacite peut faire basculer son comportement (elle canalise alors tous les Des d'une
+  couleur vers un Personnage) et deplacer son taux de victoire de 20 points. Les valeurs
+  livrees ont ete calees sur ce comportement : elles sont a revalider si l'heuristique de
+  l'IA change.
 
 ## Tests effectues
 
-- Simulation de 30 parties completes en choix aleatoires via le moteur Python (sans
-  crash).
-- Simulation d'une partie complete via l'API HTTP reelle (serveur Flask demarre),
-  verifiant le cycle pioche Glyphe -> choix Combattant (resolution automatique une fois
-  les deux choisis) -> duel suivant -> fin de partie, ainsi que le rejet propre
-  (HTTP 400) d'une action invalide.
-- Scenarios cibles verifiant individuellement : Protection (retroactive + blocage),
-  Stop pouvoir (retroactif), Contrecoup (redirection sur victoire), Surpuissance,
-  Patience/Impatience (base duel courant), regle "Energie = quel Pouvoir s'active" (et
-  non plus combien), genericite de Stop pouvoir et Copie pouvoir (y compris le cas
-  "l'adversaire n'a active aucun Pouvoir").
-- Verification manuelle du frontend (HTML/CSS/JS) par lecture de code ; a tester
-  visuellement dans un navigateur avant mise en usage reel.
+- **Simulations moteur** : 3000 matchs complets IA contre IA sans erreur, avec mesure du
+  taux de victoire par Personnage et de la duree des matchs.
+- **API HTTP reelle** (serveur Flask demarre) : cycle complet nouvelle partie -> draft ->
+  enchainement des rounds -> KO, et rejet propre (HTTP 400) d'une equipe invalide, d'un De
+  inexistant, d'un Personnage hors equipe et d'une seconde attaque du meme Personnage dans
+  le round.
+- **Frontend** : pilote via Chrome DevTools Protocol en headless (selection d'equipe,
+  clic sur un De du pool, boutons Stocker / Attaquer, enchainement des rounds), avec
+  verification visuelle par captures d'ecran de l'ecran de selection et de l'ecran de
+  match.
+- **Scenarios cibles** : deplacement d'initiative (Riff gagne 2 places), plafond de 15
+  rounds avec victoire aux PV et cas d'egalite, refus de la seconde attaque d'un
+  Personnage dans le meme round, accumulation des Des quand aucune Capacite n'est payable.

@@ -1,0 +1,357 @@
+{
+  "$schema_doc": "Voir README.md, section 'Editer / ajouter des Personnages'. initiative = placement initial sur la piste de draft (la plus BASSE drafte en premier) ; attaque = degats infliges quand un De est depense pour l'attaque de base ; capacites = 1 ou 2 lignes, chacune avec un cout de 1 a 3 cases (couleur 'rouge'/'bleu'/'jaune', ou null pour un joker acceptant n'importe quelle couleur), une condition eventuelle, un multiplicateur eventuel et une liste d'effets. Les champs 'archetype' et 'description' sont purement narratifs et ne sont pas lus par le moteur.",
+  "personnages": [
+    {
+      "id": "nitro",
+      "nom": "Nitro",
+      "archetype": "Le rider de BMX gonfle a l'energie",
+      "description": "Nitro carbure aux canettes energisantes et aux figures impossibles enchainees des les premieres secondes. Il ouvre toujours la piste d'initiative, et chaque canette jaune avalee le rend un peu plus explosif pour le reste du match.",
+      "initiative": 1,
+      "attaque": 2,
+      "capacites": [
+        {
+          "description": "+1 Attaque definitivement et 1 degat",
+          "cout": [
+            "jaune"
+          ],
+          "condition": null,
+          "multiplicateur": null,
+          "effets": [
+            {
+              "type": "attaque",
+              "cible": "soi",
+              "valeur": 1
+            },
+            {
+              "type": "degats",
+              "valeur": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "furet",
+      "nom": "Furet",
+      "archetype": "Le pickpocket agile du marche",
+      "description": "Furet se faufile entre les etals du marche couvert sans jamais se faire voir, et ce qu'il derobe n'est pas toujours ce qu'on croit. Il repart toujours avec le De que l'adversaire mettait de cote.",
+      "initiative": 2,
+      "attaque": 1,
+      "capacites": [
+        {
+          "description": "Vole un De stocke a l'adversaire et 2 degats",
+          "cout": [
+            "jaune",
+            null
+          ],
+          "condition": null,
+          "multiplicateur": null,
+          "effets": [
+            {
+              "type": "de_vole"
+            },
+            {
+              "type": "degats",
+              "valeur": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "riff",
+      "nom": "Riff",
+      "archetype": "Le DJ des block-parties",
+      "description": "Platines calees sur le toit d'un parking desaffecte, Riff a grandi au son des basses qui remontent des caves du quartier. Deux temps identiques et le morceau part ; les trois couleurs enchainees et c'est tout le tempo de la piste qui se recale sur le sien.",
+      "initiative": 3,
+      "attaque": 1,
+      "capacites": [
+        {
+          "description": "Deux Des de meme couleur : 4 degats",
+          "cout": [
+            null,
+            null
+          ],
+          "condition": "monochrome",
+          "multiplicateur": null,
+          "effets": [
+            {
+              "type": "degats",
+              "valeur": 4
+            }
+          ]
+        },
+        {
+          "description": "7 degats et gagne 2 places d'initiative",
+          "cout": [
+            "rouge",
+            "bleu",
+            "jaune"
+          ],
+          "condition": null,
+          "multiplicateur": null,
+          "effets": [
+            {
+              "type": "degats",
+              "valeur": 7
+            },
+            {
+              "type": "initiative",
+              "valeur": 2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "suture",
+      "nom": "Suture",
+      "archetype": "Le medecin de rue benevole",
+      "description": "Suture tient une infirmerie de fortune dans l'arriere-boutique d'une friperie, et soigne quiconque en a besoin sans poser de questions. Plus le match s'eternise, plus son geste devient sur : c'est quand tout va mal, et tard, qu'elle vaut le plus cher.",
+      "initiative": 4,
+      "attaque": 1,
+      "capacites": [
+        {
+          "description": "+2 PV",
+          "cout": [
+            "bleu"
+          ],
+          "condition": null,
+          "multiplicateur": null,
+          "effets": [
+            {
+              "type": "soin",
+              "valeur": 2
+            }
+          ]
+        },
+        {
+          "description": "Blesse : +1 PV par round ecoule",
+          "cout": [
+            null,
+            null
+          ],
+          "condition": "blesse",
+          "multiplicateur": "patience",
+          "effets": [
+            {
+              "type": "soin",
+              "valeur": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cobra",
+      "nom": "Cobra",
+      "archetype": "Le motard de nuit",
+      "description": "Personne ne sait qui se cache sous le casque de Cobra, seulement qu'on l'entend arriver avant de le voir. Il mord avant de reflechir, et ce qu'il prend a l'adversaire, il se le reinjecte aussitot.",
+      "initiative": 5,
+      "attaque": 1,
+      "capacites": [
+        {
+          "description": "Vampirisme 3",
+          "cout": [
+            "rouge",
+            null
+          ],
+          "condition": null,
+          "multiplicateur": null,
+          "effets": [
+            {
+              "type": "vampirisme",
+              "valeur": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mirage",
+      "nom": "Mirage",
+      "archetype": "L'illusionniste du marche aux puces",
+      "description": "Sur son etal de bric-a-brac, Mirage ne vend jamais rien : elle observe. Deux jaunes et elle tire du pool un De que personne n'avait vu venir ; un rouge et un bleu et le tour est joue.",
+      "initiative": 6,
+      "attaque": 1,
+      "capacites": [
+        {
+          "description": "Drafte un De bonus du pool et 4 degats",
+          "cout": [
+            "jaune",
+            "jaune"
+          ],
+          "condition": null,
+          "multiplicateur": null,
+          "effets": [
+            {
+              "type": "de_bonus"
+            },
+            {
+              "type": "degats",
+              "valeur": 4
+            }
+          ]
+        },
+        {
+          "description": "5 degats",
+          "cout": [
+            "rouge",
+            "bleu"
+          ],
+          "condition": null,
+          "multiplicateur": null,
+          "effets": [
+            {
+              "type": "degats",
+              "valeur": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "vex",
+      "nom": "Vex",
+      "archetype": "La voyante des quais",
+      "description": "Vex lit l'avenir dans les graffitis et les tickets de loterie perdus, installee sur son carton pres du canal. Quand l'adversaire prend l'avantage, sa malediction tombe ; sinon, elle rebat les des du destin et fait payer l'attente.",
+      "initiative": 7,
+      "attaque": 2,
+      "capacites": [
+        {
+          "description": "Vengeance : 6 degats",
+          "cout": [
+            "bleu",
+            null
+          ],
+          "condition": "vengeance",
+          "multiplicateur": null,
+          "effets": [
+            {
+              "type": "degats",
+              "valeur": 6
+            }
+          ]
+        },
+        {
+          "description": "2 degats par De depense et relance le pool",
+          "cout": [
+            null,
+            null
+          ],
+          "condition": null,
+          "multiplicateur": "par_de",
+          "effets": [
+            {
+              "type": "degats",
+              "valeur": 2
+            },
+            {
+              "type": "relance_pool"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "blaze",
+      "nom": "Blaze",
+      "archetype": "Le writer pyromane",
+      "description": "Blaze tague a la bombe et au chalumeau, et personne ne l'arrete tant que la piece n'est pas terminee. Il ne travaille qu'au rouge, et quand il en a deux, la moitie du mur part avec la fresque.",
+      "initiative": 8,
+      "attaque": 3,
+      "capacites": [
+        {
+          "description": "3 degats par De rouge depense",
+          "cout": [
+            "rouge",
+            "rouge",
+            "rouge"
+          ],
+          "condition": null,
+          "multiplicateur": "par_de",
+          "effets": [
+            {
+              "type": "degats",
+              "valeur": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "iron",
+      "nom": "Iron",
+      "archetype": "Le videur increvable",
+      "description": "Videur du Zenith Club depuis dix ans, Iron a arrete de compter les coups qu'il a encaisses a la place des autres. Il absorbe, encaisse, et quand la situation degenere vraiment, c'est lui qui ferme la porte — et toute l'equipe d'en face frappe moins fort.",
+      "initiative": 9,
+      "attaque": 3,
+      "capacites": [
+        {
+          "description": "+6 PV",
+          "cout": [
+            "bleu",
+            "bleu"
+          ],
+          "condition": null,
+          "multiplicateur": null,
+          "effets": [
+            {
+              "type": "soin",
+              "valeur": 6
+            }
+          ]
+        },
+        {
+          "description": "Blesse : -1 Attaque a toute l'equipe adverse et +3 PV",
+          "cout": [
+            null,
+            null,
+            null
+          ],
+          "condition": "blesse",
+          "multiplicateur": null,
+          "effets": [
+            {
+              "type": "attaque",
+              "cible": "equipe_adverse",
+              "valeur": -1
+            },
+            {
+              "type": "soin",
+              "valeur": 3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "verrou",
+      "nom": "Verrou",
+      "archetype": "La bloqueuse de roller derby",
+      "description": "Verrou n'a jamais marque le moindre point sur la piste de sa ligue de roller derby — son travail, c'est d'empecher les autres de passer. Elle ferme la trajectoire, et le De que l'adversaire gardait precieusement finit par terre.",
+      "initiative": 10,
+      "attaque": 3,
+      "capacites": [
+        {
+          "description": "Defausse un De stocke a l'adversaire et 4 degats",
+          "cout": [
+            null,
+            null
+          ],
+          "condition": null,
+          "multiplicateur": null,
+          "effets": [
+            {
+              "type": "de_defausse"
+            },
+            {
+              "type": "degats",
+              "valeur": 4
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

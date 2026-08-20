@@ -1,21 +1,21 @@
-Capacités,Type,Effet
-+/- Dégâts,Effet,Augmente / réduit les dégâts perso / ennemis de X
-+/- Puissance,Effet,Augmente / réduit la puissance perso / ennemis de X
-+/- Attaque,Effet,Augmente / réduit l'attaque perso / ennemis de X
-+/- Vie,Effet,Augmente / réduit la vie perso / ennemis de X
-Stop pouvoir X,Effet,Annule le pouvoir X. Priorité au défenseur
-Protection,Effet,Annule modification de puissance / dégâts / attaque / pouvoir
-Échange puissance / dégâts,Effet,Echange les puissances / dégâts des deux combattants avant modification
-Copie pouvoir X,Effet,Copie le pouvoir X adverse
-Vampirisme X,Effet,Réduit de X les pv adverses et gagne X pv
-Victoire,Condition,En cas de victoire
-Défaite,Condition,En cas de défaite
-Surpuissance,Condition,En cas de victoire avec une puissance totale supérieure ou égale au double de la puissance totale adverse
-Courage,Condition,Si joué en premier
-Riposte,Condition,Si joué en second
-Vengeance,Condition,Si l'adversaire a plus de vie
-Domination,Condition,Si l'adversaire a moins de vie
-Patience,Modificateur,Applique l'effet autant de fois que le tour actuel
-Impatience,Modificateur,"Applique l'effet autant de fois que le nombre de tour qu'il reste à jouer, celui-ci compris"
-Par énergie,Modificateur,Multiplié par l'énergie jouée
-Contrecoup,Modificateur,Appliqué à soi-même en cas de victoire
+Mot cle,Type,Champs,Description
+degats,Effet,valeur,Reduit les PV du joueur adverse de X
+soin,Effet,valeur,Augmente ses propres PV de X (pas de plafond)
+vampirisme,Effet,valeur,Reduit de X les PV adverses et gagne X PV
+attaque,Effet,cible / valeur,"Modifie definitivement la valeur d'Attaque de +/- X. cible : soi, equipe, equipe_adverse. L'Attaque effective ne descend jamais sous 0"
+initiative,Effet,valeur,"Deplace le Personnage de X places vers l'avant de la piste d'initiative (valeur negative : vers l'arriere). Effectif des le round suivant, la sequence de draft du round etant figee a son debut"
+de_bonus,Effet,,Drafte immediatement un De supplementaire dans le pool central (couleur la plus abondante) et le stocke sur ce Personnage
+de_cree,Effet,couleur,Cree un De de la couleur indiquee et le stocke sur ce Personnage (sans passer par le pool)
+de_vole,Effet,,Vole un De stocke chez le Personnage adverse le plus charge et le stocke sur ce Personnage
+de_defausse,Effet,,Defausse un De stocke chez le Personnage adverse le plus charge
+relance_pool,Effet,,Relance tous les Des encore disponibles dans le pool central
+vengeance,Condition,,Si le joueur adverse a plus de PV
+domination,Condition,,Si le joueur adverse a moins de PV
+blesse,Condition,,Si ses propres PV sont descendus a la moitie du total de depart ou moins (10 sur 20)
+monochrome,Condition,,Si tous les Des payant le cout sont de la meme couleur
+polychrome,Condition,,Si tous les Des payant le cout sont de couleurs differentes
+tete_de_piste,Condition,,Si le Personnage occupe l'une des 2 premieres places de la piste d'initiative
+queue_de_piste,Condition,,Si le Personnage occupe l'une des 2 dernieres places de la piste d'initiative
+par_de,Multiplicateur,,Multiplie la valeur des effets par le nombre de Des payant le cout
+patience,Multiplicateur,,Multiplie la valeur des effets par le numero du round en cours
+par_perso_charge,Multiplicateur,,Multiplie la valeur des effets par le nombre de Personnages de son equipe stockant au moins un De
