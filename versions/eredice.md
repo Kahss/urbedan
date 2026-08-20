@@ -1,0 +1,27 @@
+# Version avec draft de dés pour déclencher les capacités
+
+- Dans cette version, deux équipes de 3 personnages s'affrontent dans un match en 3v3, contrairement à la succession de duels de la version précédente
+- Les personnages ont les caractéristiques suivantes :
+  - Initiative : permet de déterminer l'ordre initial du draft
+  - Attaque : valeur de dégâts infligés par une attaque de base
+  - 1 ou 2 lignes de capacités, avec une capacité définis par les éléments suivants :
+    - coût en dés : entre 1 et 3 cases colorées correspondant aux dés à rassembler pour activer l'effet du personnage. Une case peut aussi être vide, ce qui signifie que ça peut être un dé de n'importe quelle couleur
+    - condition éventuelle
+    - effet
+    - multiplicateur éventuel
+    - Les capacités peuvent influer sur l'ensemble des composants de la partie : ordre d'initiative, PV des joueurs, ressources en jeu, dégâts... 
+- Voici à quoi ressemble une partie :
+  - premier tour : les équipes de personnages sont révélées
+  - Elles sont visuellement organisées au centre de la table par ordre croissant d'initiative
+  - La boucle suivante s'exécute ensuite jusqu'à ce qu'un des deux joueurs soit KO (PV = 0)
+    - Les 7 dés de pouvoir sont tirés
+    - En suivant la piste d'initiative, les joueurs draftent les dés un à un
+    - Lorsqu'un dé est drafté, il est de suite assigné à un personnage de son équipe
+    - Si le fait d'ajouter ce dé sur le personnage permet de remplir une condition d'activation d'une capacité, le joueur doit activer la capacité concernée
+    - Un dé peut aussi être utilisé pour déclencher l'attaque de base d'un personnage. Auquel cas, sa valeur d'Attaque est infligée en tant que dégâts à l'adversaire. Il n'y a pas de contrainte sur le type de dés utilisé pour une attaque. Une seule attaque est autorisée par round et par personnage
+    - Les ressources allouées à la capacité activée sont remises à zéro après son activation
+    - Une fois que 6 dés ont été draftés (un par personnage dans la piste d'initiative), une nouvelle manche commence
+  - Les joueurs ont 20 PV
+- Dés pouvoirs
+  - Les 7 dés sont identiques et possèdent les faces suivantes :
+  - rouge, rouge, bleu, bleu, jaune, jaune
