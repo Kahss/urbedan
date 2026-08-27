@@ -2,9 +2,9 @@
 import json
 import random
 
-from .batailles import LIBELLE_CARAC, Pioches
+from .batailles import Deck, LIBELLE_CARAC
 from .capacites import CONDITIONS_FIN_DE_DUEL
-from .ia import choisir_combattant, choisir_pioche
+from .ia import choisir_combattant
 from .models import CombattantEnEquipe, CombattantTemplate, Joueur
 
 NB_DUELS_MAX = 4
@@ -48,8 +48,9 @@ class Partie:
         self.joueur_humain.pv = PV_DEPART
         self.joueur_ia.pv = PV_DEPART
 
-        # Les 2 pioches de cartes Bataille, remelangees au debut de chaque duel.
-        self.pioches = Pioches()
+        # La pioche de cartes Bataille, commune aux deux joueurs et persistante pour
+        # toute la partie : elle n'est remelangee que lorsqu'elle est epuisee.
+        self.deck = Deck()
 
         self.duel_numero = 1
         self.j1 = random.choice([self.joueur_humain, self.joueur_ia])
@@ -263,24 +264,8 @@ class Partie:
         data["statut"] = statut
         return data
 
-    def choisir_pioche_ia(self, role):
-        """Applique l'heuristique de l'IA pour le role donne : quelle pioche choisir. Rendue
-        publique car generate_metagame.py s'en sert pour piloter les deux camps."""
-        return choisir_pioche(
-            self.pioches.sommets(),
-            self.pioches.cartes_en_pioche(),
-            self._caracs(role),
-            self._caracs(ROLE_OPPOSE[role]),
-            role,
-            self.initiative[role],
-            self.initiative[ROLE_OPPOSE[role]],
-        )
-
     # ------------------------------------------------------------------ duel
     def _initialiser_duel(self):
-        # Le deck complet est remelange et recoupe en deux pioches : chaque duel repart du
-        # meme ensemble de cartes, sans memoire du duel precedent.
-        self.pioches.remelanger()
         self.combattant_j1 = None
         self.combattant_j2 = None
         # Capacites passives : figees des que les deux Combattants sont engages.
@@ -295,15 +280,15 @@ class Partie:
         self.batailles = {"j1": [], "j2": []}
         self.nulles = []
         self.journal_batailles = []
-        # Les batailles se piochent en commencant par J1, puis a tour de role.
-        self.role_actif = "j1"
         self.phase = "choix_combattant"
         self.dernier_resultat = None
         self._avancer()
 
     def _avancer(self):
         """Fait jouer l'IA tant que c'est a elle d'agir, et rend la main des qu'une
-        decision revient au joueur humain (ou que le duel est resolu)."""
+        decision revient au joueur humain (ou que le duel est resolu). Une fois en phase
+        batailles, il n'y a plus de decision a prendre : la revelation des cartes est
+        automatique et attend simplement l'action explicite du joueur."""
         while True:
             if self.phase == "choix_combattant":
                 if self.combattant_j1 is None:
@@ -318,12 +303,6 @@ class Partie:
                     continue
                 self._preparer_passifs()
                 self.phase = "batailles"
-                continue
-
-            if self.phase == "batailles":
-                if not self._joueur(self.role_actif).est_ia:
-                    return
-                self._jouer_bataille(self.choisir_pioche_ia(self.role_actif))
                 continue
 
             return
@@ -356,25 +335,20 @@ class Partie:
         self._avancer()
         return self.etat_dict()
 
-    def soumettre_pioche(self, index):
-        """Le joueur humain choisit l'une des 2 pioches de cartes Bataille."""
+    def reveler_carte(self):
+        """Revele automatiquement la prochaine carte Bataille de la pioche commune."""
         if self.phase != "batailles":
             raise ErreurPartie("Ce n'est pas la phase de resolution des batailles")
-        if self._joueur(self.role_actif) is not self.joueur_humain:
-            raise ErreurPartie("Ce n'est pas a toi de piocher")
-        if index not in (0, 1):
-            raise ErreurPartie("Pioche inconnue")
 
-        self._jouer_bataille(index)
+        self._jouer_bataille()
         self._avancer()
         return self.etat_dict()
 
     # -------------------------------------------------------------- batailles
-    def _jouer_bataille(self, index):
-        """Revele la carte du dessus de la pioche choisie, resout sa condition et
-        l'attribue au vainqueur ; si la bataille est nulle, la carte est ecartee."""
-        role_choix = self.role_actif
-        carte = self.pioches.piocher(index)
+    def _jouer_bataille(self):
+        """Revele la carte du dessus de la pioche, resout sa condition et l'attribue au
+        vainqueur ; si la bataille est nulle, la carte est ecartee."""
+        carte = self.deck.piocher()
         gagnant_role = carte.resoudre(self._caracs("j1"), self._caracs("j2"))
 
         # Initiative : le Combattant remporte les batailles que la condition ne tranche pas.
@@ -391,8 +365,6 @@ class Partie:
 
         self.journal_batailles.append({
             "numero": len(self.journal_batailles) + 1,
-            "pioche": index + 1,
-            "choisie_par": self._camp(role_choix),
             "carte": carte.to_dict(revele=True),
             "valeurs": {
                 "j1": carte.detail(self._caracs("j1")),
@@ -407,8 +379,6 @@ class Partie:
 
         if self._duel_termine():
             self._conclure_duel()
-        else:
-            self.role_actif = ROLE_OPPOSE[role_choix]
 
     def _score(self):
         return {"j1": len(self.batailles["j1"]), "j2": len(self.batailles["j2"])}
@@ -578,7 +548,6 @@ class Partie:
 
     # --------------------------------------------------------------- etat
     def etat_dict(self):
-        sommets = self.pioches.sommets()
         return {
             "phase": self.phase,
             "duel_numero": self.duel_numero,
@@ -590,8 +559,6 @@ class Partie:
             "joueur_ia": self.joueur_ia.to_dict(),
             "combattant_j1": self.combattant_j1.template.id if self.combattant_j1 else None,
             "combattant_j2": self.combattant_j2.template.id if self.combattant_j2 else None,
-            "role_actif": self.role_actif if self.phase == "batailles" else None,
-            "joueur_actif": self._camp(self.role_actif) if self.phase == "batailles" else None,
             "score": self._score(),
             "caracs_duel": self.caracs_duel,
             "annulations": self.annulations,
@@ -607,14 +574,8 @@ class Partie:
             "capacites_passives": self.capacites_passives,
             "cartes_revelees": self._cartes_revelees(),
             "journal_batailles": self.journal_batailles,
-            "pioches": [
-                {
-                    "index": index,
-                    "verso": sommet.verso if sommet else None,
-                    "restantes": len(self.pioches.piles[index]),
-                }
-                for index, sommet in enumerate(sommets)
-            ],
+            "deck_restantes": self.deck.cartes_restantes(),
+            "compteur_couleurs": dict(self.deck.compteurs),
             "dernier_resultat": self.dernier_resultat,
             "terminee": self.terminee,
             "vainqueur": self.vainqueur,

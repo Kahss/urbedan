@@ -31,7 +31,7 @@ def api_combattants():
 
 @app.get("/api/batailles")
 def api_batailles():
-    """Le catalogue des 21 cartes Bataille du deck, pour la legende du frontend."""
+    """Le catalogue des 15 cartes Bataille du deck, pour la legende du frontend."""
     return jsonify(catalogue())
 
 
@@ -76,14 +76,13 @@ def api_choix_combattant():
 
 
 @app.post("/api/partie/bataille")
-def api_choix_pioche():
-    """Le joueur humain choisit l'une des 2 pioches de cartes Bataille (index 0 ou 1) :
-    la carte du dessus est revelee et sa condition immediatement resolue."""
+def api_reveler_carte():
+    """Revele la prochaine carte Bataille de la pioche commune et resout immediatement
+    sa condition."""
     if partie is None:
         return jsonify({"erreur": "Aucune partie en cours"}), 404
-    body = request.get_json(force=True) or {}
     try:
-        etat = partie.soumettre_pioche(body.get("pioche"))
+        etat = partie.reveler_carte()
     except ErreurPartie as e:
         return jsonify({"erreur": str(e)}), 400
     return jsonify(etat)

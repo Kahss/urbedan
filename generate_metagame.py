@@ -39,12 +39,6 @@ def jouer_choix_humain(partie):
     partie.soumettre_combattant(instance.template.id)
 
 
-def jouer_pioche_humaine(partie):
-    """Fait choisir au joueur 'humain' l'une des 2 pioches de cartes Bataille, avec la
-    meme heuristique que l'IA."""
-    partie.soumettre_pioche(partie.choisir_pioche_ia(role_humain(partie)))
-
-
 def jouer_partie(templates, tous_les_ids):
     """Joue une partie complete (equipes tirees au hasard dans tout le roster) et
     retourne (ids equipe A, ids equipe B, vainqueur : 'humain' / 'ia' / None)."""
@@ -55,8 +49,8 @@ def jouer_partie(templates, tous_les_ids):
     while not partie.terminee:
         if partie.phase == "choix_combattant":
             jouer_choix_humain(partie)
-        elif partie.phase == "batailles" and partie.role_actif == role_humain(partie):
-            jouer_pioche_humaine(partie)
+        elif partie.phase == "batailles":
+            partie.reveler_carte()
         elif partie.phase == "duel_resolu":
             partie.duel_suivant()
 

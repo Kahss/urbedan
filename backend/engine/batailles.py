@@ -6,18 +6,14 @@ condition qui designe le vainqueur de la bataille a partir de ces caracteristiqu
 la condition ne separe pas les deux Combattants, la bataille est nulle et personne ne
 marque.
 
-Le dos d'une carte porte **une seule couleur**, choisie parmi les caracteristiques que
-sa condition utilise : c'est l'unique information disponible avant de piocher. L'indice
-est donc partiel et parfois trompeur — un dos rouge annonce le plus souvent "Force la
-plus haute", mais peut aussi cacher "Force la plus basse", une somme ou un departage ou
-la Force n'est que secondaire.
+Les cartes sont revelees a l'aveugle : aucune information (couleur ou autre) n'est
+disponible avant qu'une carte ne soit effectivement revelee.
 
-Le deck compte 21 cartes distinctes, structurees de facon symetrique : chaque
-caracteristique est la caracteristique principale de 6 cartes (3 "la plus haute", 1 "la
-plus basse", 1 somme avec la suivante, 1 departage par la suivante), auxquelles
-s'ajoutent 3 cartes globales qui lisent les trois caracteristiques. Aucune
-caracteristique n'est donc structurellement meilleure qu'une autre, et les dos se
-repartissent exactement en 7 rouges, 7 verts et 7 bleus.
+Le deck compte 15 cartes distinctes, structurees de facon symetrique : chaque
+caracteristique est la caracteristique principale de 4 cartes (3 "la plus haute", 1
+somme avec la suivante), auxquelles s'ajoutent 3 cartes globales, grises, qui lisent
+les trois caracteristiques. Aucune caracteristique n'est donc structurellement
+meilleure qu'une autre.
 """
 import itertools
 import random
@@ -28,44 +24,37 @@ COULEUR_PAR_CARAC = {"force": "rouge", "dexterite": "vert", "sagesse": "bleu"}
 CARAC_PAR_COULEUR = {couleur: carac for carac, couleur in COULEUR_PAR_CARAC.items()}
 LIBELLE_CARAC = {"force": "Force", "dexterite": "Dexterite", "sagesse": "Sagesse"}
 
-# Modeles de carte : nom, type de condition et caracteristiques lues, couleur du dos.
+# Modeles de carte : nom, type de condition et caracteristiques lues, couleur (affichee
+# une fois la carte revelee, et utilisee pour le compteur de cartes sorties).
 # Les types de condition :
 #   max              : la caracteristique la plus haute l'emporte
-#   min              : la plus basse l'emporte
 #   somme            : la somme de deux caracteristiques la plus haute l'emporte
-#   max_departage    : la plus haute l'emporte ; a egalite, une seconde caracteristique
 #   total            : le total des trois caracteristiques le plus haut l'emporte
 #   meilleure        : la meilleure des trois caracteristiques la plus haute l'emporte
 #   pire             : celui dont la plus petite des trois caracteristiques est la plus
 #                      faible perd la bataille (donc : la plus petite la plus haute gagne)
 # Les caracteristiques tournent en cycle (force -> dexterite -> sagesse -> force) pour
-# que les trois groupes de 6 cartes soient rigoureusement equivalents.
+# que les trois groupes de 4 cartes soient rigoureusement equivalents.
 MODELES = [
-    # --- Force (rouge) : somme avec Dexterite, departage par Sagesse ---
-    {"nom": "Bras de fer", "type": "max", "carac": "force", "verso": "rouge"},
-    {"nom": "Mur porteur", "type": "max", "carac": "force", "verso": "rouge"},
-    {"nom": "Rideau de fer", "type": "max", "carac": "force", "verso": "rouge"},
-    {"nom": "Passage etroit", "type": "min", "carac": "force", "verso": "rouge"},
-    {"nom": "Escalade sauvage", "type": "somme", "caracs": ("force", "dexterite"), "verso": "vert"},
-    {"nom": "Poigne et sang-froid", "type": "max_departage", "carac": "force", "departage": "sagesse", "verso": "bleu"},
-    # --- Dexterite (vert) : somme avec Sagesse, departage par Force ---
-    {"nom": "Toits mouilles", "type": "max", "carac": "dexterite", "verso": "vert"},
-    {"nom": "Slalom de beton", "type": "max", "carac": "dexterite", "verso": "vert"},
-    {"nom": "Cable tendu", "type": "max", "carac": "dexterite", "verso": "vert"},
-    {"nom": "Piege a reflexes", "type": "min", "carac": "dexterite", "verso": "vert"},
-    {"nom": "Ligne de fuite", "type": "somme", "caracs": ("dexterite", "sagesse"), "verso": "bleu"},
-    {"nom": "Cavale sur les toits", "type": "max_departage", "carac": "dexterite", "departage": "force", "verso": "rouge"},
-    # --- Sagesse (bleu) : somme avec Force, departage par Dexterite ---
-    {"nom": "Lecture du quartier", "type": "max", "carac": "sagesse", "verso": "bleu"},
-    {"nom": "Signal brouille", "type": "max", "carac": "sagesse", "verso": "bleu"},
-    {"nom": "Plan du reseau", "type": "max", "carac": "sagesse", "verso": "bleu"},
-    {"nom": "Exces de prudence", "type": "min", "carac": "sagesse", "verso": "bleu"},
-    {"nom": "Frappe premeditee", "type": "somme", "caracs": ("sagesse", "force"), "verso": "rouge"},
-    {"nom": "Bluff dans l'impasse", "type": "max_departage", "carac": "sagesse", "departage": "dexterite", "verso": "vert"},
+    # --- Force (rouge) : somme avec Dexterite ---
+    {"nom": "Bras de fer", "type": "max", "carac": "force", "couleur": "rouge"},
+    {"nom": "Mur porteur", "type": "max", "carac": "force", "couleur": "rouge"},
+    {"nom": "Rideau de fer", "type": "max", "carac": "force", "couleur": "rouge"},
+    {"nom": "Escalade sauvage", "type": "somme", "caracs": ("force", "dexterite"), "couleur": "rouge"},
+    # --- Dexterite (vert) : somme avec Sagesse ---
+    {"nom": "Toits mouilles", "type": "max", "carac": "dexterite", "couleur": "vert"},
+    {"nom": "Slalom de beton", "type": "max", "carac": "dexterite", "couleur": "vert"},
+    {"nom": "Cable tendu", "type": "max", "carac": "dexterite", "couleur": "vert"},
+    {"nom": "Ligne de fuite", "type": "somme", "caracs": ("dexterite", "sagesse"), "couleur": "vert"},
+    # --- Sagesse (bleu) : somme avec Force ---
+    {"nom": "Lecture du quartier", "type": "max", "carac": "sagesse", "couleur": "bleu"},
+    {"nom": "Signal brouille", "type": "max", "carac": "sagesse", "couleur": "bleu"},
+    {"nom": "Plan du reseau", "type": "max", "carac": "sagesse", "couleur": "bleu"},
+    {"nom": "Frappe premeditee", "type": "somme", "caracs": ("sagesse", "force"), "couleur": "bleu"},
     # --- Cartes globales : elles lisent les trois caracteristiques ---
-    {"nom": "Melee generale", "type": "total", "verso": "vert"},
-    {"nom": "Coup d'eclat", "type": "meilleure", "verso": "bleu"},
-    {"nom": "Maillon faible", "type": "pire", "verso": "rouge"},
+    {"nom": "Melee generale", "type": "total", "couleur": "gris"},
+    {"nom": "Coup d'eclat", "type": "meilleure", "couleur": "gris"},
+    {"nom": "Maillon faible", "type": "pire", "couleur": "gris"},
 ]
 
 _compteur_carte = itertools.count(1)
@@ -74,13 +63,11 @@ _compteur_carte = itertools.count(1)
 def caracs_utilisees(modele):
     """Les caracteristiques que la condition du modele lit reellement."""
     type_condition = modele["type"]
-    if type_condition in ("max", "min"):
+    if type_condition == "max":
         return (modele["carac"],)
     if type_condition == "somme":
         return tuple(modele["caracs"])
-    if type_condition == "max_departage":
-        return (modele["carac"], modele["departage"])
-    return CARACS  # total / meilleure
+    return CARACS  # total / meilleure / pire
 
 
 def libelle_condition(modele):
@@ -88,16 +75,9 @@ def libelle_condition(modele):
     type_condition = modele["type"]
     if type_condition == "max":
         return f"{LIBELLE_CARAC[modele['carac']]} la plus haute"
-    if type_condition == "min":
-        return f"{LIBELLE_CARAC[modele['carac']]} la plus basse"
     if type_condition == "somme":
         gauche, droite = modele["caracs"]
         return f"{LIBELLE_CARAC[gauche]} + {LIBELLE_CARAC[droite]} la plus haute"
-    if type_condition == "max_departage":
-        return (
-            f"{LIBELLE_CARAC[modele['carac']]} la plus haute ; a egalite, "
-            f"{LIBELLE_CARAC[modele['departage']]} la plus haute"
-        )
     if type_condition == "total":
         return "Total des trois caracteristiques le plus haut"
     if type_condition == "meilleure":
@@ -112,12 +92,8 @@ def _cle(modele, caracs):
     type_condition = modele["type"]
     if type_condition == "max":
         return (caracs[modele["carac"]],)
-    if type_condition == "min":
-        return (-caracs[modele["carac"]],)
     if type_condition == "somme":
         return (sum(caracs[c] for c in modele["caracs"]),)
-    if type_condition == "max_departage":
-        return (caracs[modele["carac"]], caracs[modele["departage"]])
     if type_condition == "total":
         return (sum(caracs[c] for c in CARACS),)
     if type_condition == "meilleure":
@@ -128,33 +104,18 @@ def _cle(modele, caracs):
 
 
 def _valider_modeles():
-    """Le dos ne peut annoncer qu'une couleur effectivement lue par la condition, et le
-    deck doit rester rigoureusement symetrique entre les trois caracteristiques."""
-    if len(MODELES) % len(CARACS) != 0:
-        raise ValueError(f"{len(MODELES)} cartes : le deck doit etre divisible par {len(CARACS)}")
+    """Le deck doit rester rigoureusement symetrique entre les trois caracteristiques."""
     if len({m["nom"] for m in MODELES}) != len(MODELES):
         raise ValueError("Deux cartes Bataille portent le meme nom")
-    for modele in MODELES:
-        couleurs_possibles = {COULEUR_PAR_CARAC[c] for c in caracs_utilisees(modele)}
-        if modele["verso"] not in couleurs_possibles:
-            raise ValueError(
-                f"{modele['nom']} : le dos {modele['verso']} n'est pas une couleur lue par la condition"
-            )
-    # Chaque type de condition doit se repartir identiquement entre les trois caracs.
-    for type_condition in ("max", "min"):
-        par_carac = {carac: 0 for carac in CARACS}
-        for modele in MODELES:
-            if modele["type"] == type_condition:
-                par_carac[modele["carac"]] += 1
-        if len(set(par_carac.values())) != 1:
-            raise ValueError(f"Conditions '{type_condition}' inegalement reparties : {par_carac}")
-    # Chaque couleur doit apparaitre au dos du meme nombre de cartes : le choix d'une
-    # pioche plutot que l'autre ne doit favoriser aucune caracteristique a priori.
+    # Chaque couleur de caracteristique doit apparaitre sur le meme nombre de cartes : aucune
+    # caracteristique n'est structurellement favorisee.
     par_couleur = {couleur: 0 for couleur in COULEUR_PAR_CARAC.values()}
+    par_couleur["gris"] = 0
     for modele in MODELES:
-        par_couleur[modele["verso"]] += 1
-    if len(set(par_couleur.values())) != 1:
-        raise ValueError(f"Dos inegalement repartis : {par_couleur}")
+        par_couleur[modele["couleur"]] += 1
+    couleurs_caracs = set(COULEUR_PAR_CARAC.values())
+    if len({par_couleur[c] for c in couleurs_caracs}) != 1:
+        raise ValueError(f"Couleurs inegalement reparties : {par_couleur}")
 
 
 _valider_modeles()
@@ -165,7 +126,7 @@ class CarteBataille:
         self.id = next(_compteur_carte)
         self.modele = modele
         self.nom = modele["nom"]
-        self.verso = modele["verso"]
+        self.couleur = modele["couleur"]
 
     def resoudre(self, caracs_j1, caracs_j2):
         """Retourne "j1", "j2", ou None si la bataille est nulle."""
@@ -182,13 +143,14 @@ class CarteBataille:
         return [(LIBELLE_CARAC[carac], caracs[carac]) for carac in caracs_utilisees(self.modele)]
 
     def to_dict(self, revele=True):
-        """Le dos est toujours transmis ; le recto (nom, condition) ne l'est qu'une fois
-        la carte revelee, jamais tant qu'elle dort au sommet d'une pioche."""
-        data = {"id": self.id, "verso": self.verso, "revele": revele}
+        """Aucune information n'est transmise tant que la carte n'est pas revelee : ni
+        nom, ni condition, ni couleur."""
+        data = {"id": self.id, "revele": revele}
         if revele:
             data["nom"] = self.nom
             data["condition"] = libelle_condition(self.modele)
             data["caracs_lues"] = list(caracs_utilisees(self.modele))
+            data["couleur"] = self.couleur
         return data
 
 
@@ -205,46 +167,35 @@ def catalogue():
         {
             "nom": modele["nom"],
             "condition": libelle_condition(modele),
-            "verso": modele["verso"],
+            "couleur": modele["couleur"],
             "caracs_lues": list(caracs_utilisees(modele)),
         }
         for modele in MODELES
     ]
 
 
-class Pioches:
-    """Les 2 pioches de cartes Bataille posees au centre de la table. Le deck complet est
-    melange puis coupe en deux au debut de chaque duel : chaque duel repart donc du meme
-    ensemble de cartes, sans memoire de celles sorties au duel precedent. A son tour, un
-    joueur choisit l'une des deux pioches, en ne connaissant que la couleur au dos de sa
-    carte du dessus. Un duel ne pouvant reveler que 7 cartes, une pioche ne peut pas
-    s'epuiser en cours de duel."""
+class Deck:
+    """La pioche unique de cartes Bataille, commune aux deux joueurs et persistante pour
+    toute la partie (les 4 duels) : elle n'est remelangee que lorsqu'elle est epuisee et
+    qu'il faut encore piocher, jamais entre deux duels. Les cartes sont revelees a
+    l'aveugle, sans aucune information avant reveal ; `compteurs` suit, par couleur, le
+    nombre de cartes deja sorties depuis le dernier remelange."""
 
     def __init__(self):
-        self.piles = [[], []]
-        self.remelanger()
+        self._remplir()
 
-    def remelanger(self):
-        """Reconstitue les deux pioches a partir du deck complet melange."""
-        deck = construire_deck()
-        coupe = len(deck) // 2
-        self.piles = [deck[:coupe], deck[coupe:]]
+    def _remplir(self):
+        self.cartes = construire_deck()
+        self.compteurs = {"rouge": 0, "vert": 0, "bleu": 0, "gris": 0}
 
-    def sommets(self):
-        """La carte du dessus de chaque pioche (None si la pioche est vide)."""
-        return [pile[-1] if pile else None for pile in self.piles]
+    def piocher(self):
+        """Retire et retourne la carte du dessus de la pioche ; la remelange d'abord si
+        elle est epuisee."""
+        if not self.cartes:
+            self._remplir()
+        carte = self.cartes.pop()
+        self.compteurs[carte.couleur] += 1
+        return carte
 
-    def piocher(self, index):
-        """Retire et retourne la carte du dessus de la pioche demandee."""
-        if index not in (0, 1):
-            raise IndexError("Pioche inconnue")
-        if not self.piles[index]:
-            raise IndexError("Pioche vide")
-        return self.piles[index].pop()
-
-    def cartes_en_pioche(self):
-        """Les cartes encore endormies dans les deux pioches, toutes pioches confondues.
-        Leur liste est une information publique (le deck est connu et les cartes revelees
-        pendant le duel sont visibles de tous) : seule leur repartition entre les deux
-        pioches est cachee."""
-        return [carte for pile in self.piles for carte in pile]
+    def cartes_restantes(self):
+        return len(self.cartes)

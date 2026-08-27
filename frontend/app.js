@@ -15,6 +15,9 @@ const CARACS = [
 let combattantsDisponibles = [];
 const equipeSelectionnee = new Set();
 let etatCourant = null;
+// Totaux de cartes par couleur (rouge/vert/bleu/gris), calcules une fois depuis le
+// catalogue du deck : utilises pour afficher "sorties / total" pendant un duel.
+let totauxCouleurs = { rouge: 0, vert: 0, bleu: 0, gris: 0 };
 
 // Un seul appel a l'API peut faire jouer plusieurs batailles (celle du joueur, puis celle
 // de l'IA) : on les rejoue une par une, animation comprise, avant d'afficher l'etat final.
@@ -127,27 +130,40 @@ function creerCarteCombattant(data, { selectionnable = false, selectionnee = fal
   return carte;
 }
 
-function creerDosPioche(pioche, { cliquable = false, onClick = null } = {}) {
+function creerDosDeck(restantes, { cliquable = false, onClick = null } = {}) {
   const carte = document.createElement("div");
-  carte.className = `carte-bataille dos dos-${pioche.verso || "vide"}`;
+  carte.className = "carte-bataille dos";
   if (cliquable) carte.classList.add("cliquable");
   carte.innerHTML =
     `<span class="dos-marque">?</span>` +
-    `<span class="dos-couleur">${pioche.verso || "vide"}</span>` +
-    `<span class="dos-restantes">${pioche.restantes} carte${pioche.restantes > 1 ? "s" : ""}</span>`;
+    `<span class="dos-restantes">${restantes} carte${restantes > 1 ? "s" : ""}</span>`;
   if (cliquable && onClick) carte.addEventListener("click", onClick);
   return carte;
 }
 
+function compteurCouleursHtml(compteur, totaux) {
+  const libelles = { rouge: "Force", vert: "Dexterite", bleu: "Sagesse", gris: "Globales" };
+  return ["rouge", "vert", "bleu", "gris"]
+    .map((couleur) => {
+      const total = (totaux && totaux[couleur]) || 0;
+      const sorties = (compteur && compteur[couleur]) || 0;
+      return (
+        `<span class="pastille-couleur puce-${couleur}" title="${libelles[couleur]}">` +
+        `${sorties} / ${total}</span>`
+      );
+    })
+    .join("");
+}
+
 function creerCarteRevelee(entree, { animee = false } = {}) {
   const el = document.createElement("div");
-  el.className = `carte-bataille recto bord-${entree.carte.verso}`;
+  el.className = `carte-bataille recto bord-${entree.carte.couleur}`;
   const issue = entree.gagnant_nom ? entree.gagnant_nom : "Bataille nulle";
   const classeIssue = entree.gagnant_camp === "humain" ? "gain" : entree.gagnant_camp === "ia" ? "perte" : "nulle";
   if (animee) {
-    // Deux temps : la carte sort de la pioche choisie, puis file vers le camp qui
-    // remporte la bataille (ou grise sur place si la bataille est nulle).
-    el.classList.add("animee", `depuis-pioche-${entree.pioche}`, `attribution-${classeIssue}`);
+    // Deux temps : la carte sort de la pioche, puis file vers le camp qui remporte la
+    // bataille (ou grise sur place si la bataille est nulle).
+    el.classList.add("animee", `attribution-${classeIssue}`);
   }
   el.innerHTML =
     `<span class="revelee-libelle">Bataille ${entree.numero}</span>` +
@@ -196,15 +212,18 @@ function renderLegendeCapacites(vocabulaire) {
 }
 
 function renderLegendeDeck(cartes) {
+  totauxCouleurs = { rouge: 0, vert: 0, bleu: 0, gris: 0 };
+  cartes.forEach((carte) => { totauxCouleurs[carte.couleur] += 1; });
+
   const liste = document.getElementById("legende-deck-liste");
   vider(liste);
   cartes.forEach((carte) => {
     const el = document.createElement("div");
-    el.className = `legende-carte bord-${carte.verso}`;
+    el.className = `legende-carte bord-${carte.couleur}`;
     el.innerHTML =
       `<span class="legende-nom">${carte.nom}</span>` +
       `<span class="legende-condition">${carte.condition}</span>` +
-      `<span class="legende-verso puce-${carte.verso}">dos ${carte.verso}</span>`;
+      `<span class="legende-couleur puce-${carte.couleur}">${carte.couleur}</span>`;
     liste.appendChild(el);
   });
 }
@@ -329,7 +348,7 @@ function renderTableauBord(etat, options = {}) {
   document.getElementById("duel-numero-texte").textContent =
     `Duel ${Math.min(etat.duel_numero, etat.duels_max)} / ${etat.duels_max}`;
   document.getElementById("premier-joueur-texte").textContent =
-    etat.j1 === "humain" ? "Tu es J1 : tu engages et tu pioches en premier" : "L'IA est J1 : elle engage et pioche en premier";
+    etat.j1 === "humain" ? "Tu es J1 : tu engages en premier" : "L'IA est J1 : elle engage en premier";
 }
 
 // Le slot ("j1" / "j2") occupe par ce Combattant dans le duel en cours, s'il y combat.
@@ -390,12 +409,8 @@ async function soumettreCombattant(id) {
   await appliquerEtat(etat);
 }
 
-async function soumettrePioche(index) {
-  const etat = await api("/partie/bataille", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pioche: index }),
-  });
+async function reveler() {
+  const etat = await api("/partie/bataille", { method: "POST" });
   await appliquerEtat(etat);
 }
 
@@ -430,6 +445,17 @@ function renderZoneCentrale(etat, options = {}) {
     j1: entrees.filter((e) => e.gagnant_role === "j1").length,
     j2: entrees.filter((e) => e.gagnant_role === "j2").length,
   };
+
+  // Compteur de cartes deja sorties par couleur : visible quelle que soit la phase (y
+  // compris pendant la selection du Combattant, ou l'information peut orienter le choix),
+  // reconstitue a l'instant `jusqua` pendant l'animation d'un duel en cours.
+  const compteurVisuel = { ...(etat.compteur_couleurs || {}) };
+  enAttente.forEach((e) => {
+    const couleur = e.carte.couleur;
+    compteurVisuel[couleur] = (compteurVisuel[couleur] || 0) - 1;
+  });
+  const compteur = document.getElementById("compteur-couleurs");
+  if (compteur) compteur.innerHTML = compteurCouleursHtml(compteurVisuel, totauxCouleurs);
 
   const slotHumain = roleHumain(etat);
   const slotIa = roleIa(etat);
@@ -515,7 +541,7 @@ function renderZoneCentrale(etat, options = {}) {
         : "Bataille nulle";
       ligne.innerHTML =
         `<span class="bataille-numero">${entree.numero}</span>` +
-        `<span class="puce-${entree.carte.verso}" title="dos ${entree.carte.verso}"></span>` +
+        `<span class="puce-${entree.carte.couleur}" title="${entree.carte.couleur}"></span>` +
         `<span class="bataille-titre">${entree.carte.nom}<em>${entree.carte.condition}</em></span>` +
         `<span class="bataille-detail">${valeurs}</span>` +
         `<span class="bataille-issue">${issue}</span>`;
@@ -534,31 +560,18 @@ function renderZoneCentrale(etat, options = {}) {
     zonePioches.classList.remove("cache");
     const conteneurPioches = document.getElementById("pioches");
     vider(conteneurPioches);
-    const aMoi = etat.joueur_actif === "humain" && !enAnimation && !enAttente.length;
+    const peutReveler = !enAnimation && !enAttente.length;
     document.getElementById("libelle-pioches").textContent = enAnimation
       ? `Bataille ${derniere.numero} : ${derniere.carte.condition}`
-      : aMoi
-        ? "A toi : choisis la pioche dont tu veux reveler la carte du dessus."
-        : "L'IA choisit sa pioche...";
-    etat.pioches.forEach((pioche, rang) => {
-      // La derniere carte revelee est posee entre les deux pioches, face visible.
-      if (rang === 1 && derniere) {
-        conteneurPioches.appendChild(creerCarteRevelee(derniere, { animee: enAnimation }));
-      }
-      // Etat de la pioche a l'instant reconstitue : les cartes tirees plus tard y dorment
-      // encore, et son dos est celui que le joueur voyait alors.
-      const aVenir = enAttente.find((e) => e.pioche === pioche.index + 1);
-      conteneurPioches.appendChild(
-        creerDosPioche(
-          {
-            index: pioche.index,
-            verso: aVenir ? aVenir.carte.verso : pioche.verso,
-            restantes: pioche.restantes + enAttente.filter((e) => e.pioche === pioche.index + 1).length,
-          },
-          { cliquable: aMoi && pioche.restantes > 0, onClick: () => soumettrePioche(pioche.index) }
-        )
-      );
-    });
+      : "Clique sur la pioche pour reveler la prochaine carte Bataille.";
+
+    const restantesVisuel = etat.deck_restantes + enAttente.length;
+    conteneurPioches.appendChild(
+      creerDosDeck(restantesVisuel, { cliquable: peutReveler, onClick: reveler })
+    );
+    if (derniere) {
+      conteneurPioches.appendChild(creerCarteRevelee(derniere, { animee: enAnimation }));
+    }
   } else if (phase === "duel_resolu") {
     zoneResultat.classList.remove("cache");
     const journal = document.getElementById("journal-resolution");

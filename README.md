@@ -2,21 +2,23 @@
 
 Prototype jouable en solo (vs IA) du jeu de societe Urban Eredan (`game.md`), dans la
 variante decrite par `versions/battles.md` : un duel ne se resout plus par une comparaison
-de Puissance, mais en remportant **3 batailles** revelees une par une depuis deux pioches
-communes. Backend Python (moteur de regles + IA), frontend web (HTML/CSS/JS, jouable
-uniquement au clic).
+de Puissance, mais en remportant **3 batailles** revelees automatiquement, une par une,
+depuis une pioche commune. Backend Python (moteur de regles + IA), frontend web
+(HTML/CSS/JS, jouable uniquement au clic).
 
 ## Ce qui change par rapport a la version de reference
 
 - Les cartes **Glyphes** et l'**Energie** disparaissent ; les Pouvoirs sont remplaces par
   un systeme de **Capacites** (une par Combattant, cf. plus bas).
 - Un Combattant n'a plus de Puissance : il porte trois caracteristiques, **Force**
-  (rouge), **Dexterite** (vert) et **Sagesse** (bleu), chacune de 0 a 5, plus ses Degats
+  (rouge), **Dexterite** (vert) et **Sagesse** (bleu), chacune de 0 a 7, plus ses Degats
   et sa Capacite.
-- Un deck de **21 cartes Bataille**, **remelange et recoupe en 2 pioches au debut de chaque
-  duel**, est pose au centre de la table. Le recto porte la condition qui designe le
-  vainqueur de la bataille ; le verso ne montre qu'**une couleur**, choisie parmi les
-  caracteristiques que la condition utilise.
+- Un deck de **15 cartes Bataille** forme une **pioche unique et persistante pour toute la
+  partie**, posee au centre de la table : elle n'est remelangee que lorsqu'elle est
+  epuisee. Chaque carte porte la condition qui designe le vainqueur de la bataille ; aucune
+  information n'est visible avant qu'une carte ne soit revelee (pioche a l'aveugle, sans
+  choix). Un compteur a l'ecran suit, par couleur, combien de cartes sont deja sorties
+  depuis le dernier remelange.
 - Le premier Combattant a remporter **3 batailles** remporte le duel et inflige ses
   Degats. Une bataille que la condition ne tranche pas est **nulle** : personne ne marque.
 - Sur l'ecran de selection, un bouton **Equipe aleatoire** tire 4 Combattants au hasard :
@@ -44,47 +46,39 @@ data/combattants.json       Liste des Combattants jouables (editable a la main)
 backend/
   app.py                    Serveur Flask (API REST)
   engine/
-    batailles.py            Les 21 cartes Bataille, leur resolution et les 2 pioches
+    batailles.py            Les 15 cartes Bataille, leur resolution et la pioche
     capacites.py            Le vocabulaire des Capacites (condition / effet / multiplicateur)
     models.py               Combattants, Joueurs
-    ia.py                   Heuristique de l'IA (Combattant + choix de pioche)
+    ia.py                   Heuristique de l'IA (choix du Combattant)
     game.py                 Orchestration d'une Partie (mise en place, duels, batailles)
 frontend/
   index.html / style.css / app.js   Interface (100% cliquable, sans framework)
 generate_metagame.py        Simulation IA contre IA : % de victoire par Combattant
 ```
 
-## Les 21 cartes Bataille
+## Les 15 cartes Bataille
 
 Definies dans `backend/engine/batailles.py` (`MODELES`), avec leur nom, leur condition et
-la couleur de leur dos. Le deck est structure de facon symetrique : chaque caracteristique
-est la caracteristique principale de 6 cartes, et les 3 dernieres cartes lisent les trois
-caracteristiques.
+leur couleur (visible seulement une fois la carte revelee). Le deck est structure de facon
+symetrique : chaque caracteristique est la caracteristique principale de 4 cartes, et les
+3 dernieres cartes, grises, lisent les trois caracteristiques.
 
 | Type de condition | Exemplaires | Exemple |
 | --- | --- | --- |
 | `max` : la caracteristique la plus haute l'emporte | 3 par caracteristique | Bras de fer — Force la plus haute |
-| `min` : la plus basse l'emporte | 1 par caracteristique | Passage etroit — Force la plus basse |
 | `somme` : la somme de deux caracteristiques la plus haute | 1 par caracteristique | Escalade sauvage — Force + Dexterite la plus haute |
-| `max_departage` : la plus haute, puis une seconde caracteristique en cas d'egalite | 1 par caracteristique | Poigne et sang-froid — Force la plus haute ; a egalite, Sagesse |
 | `total` : le total des trois le plus haut | 1 | Melee generale |
 | `meilleure` : la meilleure des trois la plus haute | 1 | Coup d'eclat |
 | `pire` : celui dont la plus petite des trois est la plus faible **perd** | 1 | Maillon faible |
 
 Les caracteristiques tournent en cycle (Force → Dexterite → Sagesse → Force) pour les
-sommes et les departages, de sorte que les trois groupes de 6 cartes soient rigoureusement
-equivalents : aucune caracteristique n'est structurellement meilleure qu'une autre.
+sommes, de sorte que les trois groupes de 4 cartes soient rigoureusement equivalents :
+aucune caracteristique n'est structurellement meilleure qu'une autre.
 
-**Le dos** d'une carte est une des couleurs que sa condition lit, fixee une fois pour
-toutes (comme une carte imprimee). Les dos se repartissent exactement en **7 rouges,
-7 verts et 7 bleus** : le choix d'une pioche plutot que l'autre ne favorise a priori
-aucune caracteristique. Un dos rouge cache ainsi 3 fois « Force la plus haute », mais
-aussi « Force la plus basse », « Sagesse + Force la plus haute », « Dexterite la plus
-haute, a egalite Force » et « Maillon faible » : l'indice oriente sans jamais garantir.
-
-`Maillon faible` est le contrepoids des cartes `min` : ces dernieres recompensent un 0,
-tandis que `Maillon faible` le punit. Une caracteristique laissee a 0 reste payante, mais
-plus gratuitement.
+**Aucune information** n'est disponible avant qu'une carte ne soit revelee : la pioche se
+fait entierement a l'aveugle, il n'y a plus de choix a faire. La couleur d'une carte
+(rouge/vert/bleu pour les 4 cartes de chaque caracteristique, gris pour les 3 cartes
+globales) n'est affichee qu'apres reveal, et sert au compteur de cartes sorties.
 
 ## Les Capacites
 
@@ -125,13 +119,13 @@ et des 4 multiplicateurs apparait au moins une fois :
 | Combattant | Force / Dexterite / Sagesse | Total | Degats | Capacite |
 | --- | --- | --- | --- | --- |
 | Riff | 2 / 4 / 4 | 10 | 3 | Premier : +1 Degat |
-| Nova | 2 / 1 / 5 | 8 | 3 | Annule la Sagesse adverse |
+| Nova | 0 / 1 / 7 | 8 | 3 | Annule la Sagesse adverse |
 | Grind | 4 / 5 / 1 | 10 | 2 | Confiance : +2 Degats |
 | Blaze | 4 / 3 / 2 | 9 | 3 | Vengeance : +3 Degats |
-| Iron | 5 / 0 / 4 | 9 | 3 | -2 Degats adverses |
-| Cobra | 2 / 5 / 1 | 8 | 5 | Confiance : Vampirisme 1 |
+| Iron | 7 / 0 / 2 | 9 | 3 | -2 Degats adverses |
+| Cobra | 1 / 7 / 0 | 8 | 5 | Confiance : Vampirisme 1 |
 | Echo | 1 / 5 / 4 | 10 | 2 | Initiative |
-| Vex | 1 / 2 / 5 | 8 | 4 | Defaite : -2 PV adverses |
+| Vex | 0 / 1 / 7 | 8 | 4 | Defaite : -2 PV adverses |
 | Mirage | 2 / 2 / 4 | 8 | 4 | Second : Annule la Dexterite adverse |
 | Surge | 3 / 2 / 3 | 8 | 5 | +1 Degat par duel joue |
 | Jab | 5 / 4 / 0 | 9 | 4 | Second : +3 Degats |
@@ -141,16 +135,16 @@ et des 4 multiplicateurs apparait au moins une fois :
 | Nitro | 3 / 5 / 0 | 8 | 5 | +1 Degat par duel restant |
 | Cascade | 5 / 3 / 1 | 9 | 3 | Defaite : +2 PV |
 | Mime | 3 / 4 / 2 | 9 | 2 | Annule la Force adverse |
-| Verrou | 5 / 2 / 2 | 9 | 2 | -1 Degat adverse par bataille perdue |
+| Verrou | 7 / 0 / 2 | 9 | 2 | -1 Degat adverse par bataille perdue |
 | Furet | 1 / 5 / 2 | 8 | 5 | Victoire : Vampirisme 1 |
-| Suture | 1 / 3 / 5 | 9 | 2 | Defaite : +1 PV par duel joue |
+| Suture | 0 / 2 / 7 | 9 | 2 | Defaite : +1 PV par duel joue |
 | Toph | 5 / 1 / 3 | 9 | 4 | Vengeance : Initiative |
 | Loup | 5 / 1 / 2 | 8 | 3 | Victoire : Vampirisme 2 |
 
 Une Capacite est un cout comme un autre : elle se paie sur les caracteristiques et les
 Degats. `Annule une couleur` est ainsi le contrepoids des profils extremes que le deck
-favorise — un 5 remporte trois cartes de sa couleur, mais tombe a 0 devant Nova, Mirage ou
-Mime.
+favorise — un 7 (le maximum) remporte trois cartes de sa couleur, mais tombe a 0 devant
+Nova, Mirage ou Mime.
 
 ## Editer / ajouter des Combattants
 
@@ -175,7 +169,7 @@ lancement d'une nouvelle partie (pas besoin de redemarrer le serveur).
 }
 ```
 
-- `force` / `dexterite` / `sagesse` : entiers de 0 a 5 (le moteur refuse toute valeur hors
+- `force` / `dexterite` / `sagesse` : entiers de 0 a 7 (le moteur refuse toute valeur hors
   de cet intervalle au chargement).
 - `degats` : PV retires a l'adversaire quand le Combattant remporte son duel.
 - `capacite` : `condition` et `multiplicateur` peuvent valoir `null` ; `effet` est
@@ -185,29 +179,45 @@ lancement d'une nouvelle partie (pas besoin de redemarrer le serveur).
 
 ### Equilibrer un Combattant
 
-Trois leviers se compensent : les **caracteristiques** et la **Capacite** determinent la
-frequence a laquelle un Combattant gagne ses duels, les **Degats** paient cette frequence.
-Le roster fourni se tient entre 8 et 10 de total : en dessous, un Combattant perd trop
-souvent pour que ses Degats (plafonnes a 5) puissent compenser. Trois proprietes guident la
+Trois leviers se compensent : les **caracteristiques** (0 a 7 chacune) et la **Capacite**
+determinent la frequence a laquelle un Combattant gagne ses duels, les **Degats** paient
+cette frequence. Le roster fourni se tient generalement entre 8 et 10 de total : en
+dessous, un Combattant perd trop souvent pour que ses Degats (plafonnes a 5) puissent
+compenser — sauf s'il s'agit justement d'un profil **situationnel** (cf. plus bas), qui ne
+tire pas sa valeur de son propre taux de victoire. Trois proprietes guident la
 repartition :
 
-- **Les valeurs extremes valent mieux que les valeurs moyennes** : un 5 remporte les
-  3 cartes « la plus haute » de sa couleur, et un 0 remporte celle « la plus basse » — au
-  prix de `Maillon faible`, qui fait perdre la bataille a celui dont la plus petite
-  caracteristique est la plus faible, et au prix des Capacites `annule_couleur`, qui font
-  tomber une caracteristique a 0.
-- **Un total eleve, ou une Capacite forte, doit se payer en Degats** : le roster fourni va
-  de 2 Degats (profils qui gagnent 44 a 79 % de leurs duels) a 5 Degats (profils a 36 a
-  40 %).
+- **Les valeurs extremes valent mieux que les valeurs moyennes** : un 7 (le maximum)
+  remporte les 3 cartes « la plus haute » de sa couleur, et un 0 remporte celle « la plus
+  basse » — au prix de `Maillon faible`, qui fait perdre la bataille a celui dont la plus
+  petite caracteristique est la plus faible, et au prix des Capacites `annule_couleur`, qui
+  font tomber une caracteristique a 0.
+- **Un total eleve, ou une Capacite forte, doit se payer en Degats** — sauf pour un profil
+  situationnel, qui n'a pas vocation a gagner ses duels (voir ci-dessous).
 - **Une Capacite multipliee coute cher** : `patience` et `impatience` valent 2,5 fois
   l'effet en moyenne, `par bataille remportee`/`perdue` environ 1,5 fois. Reservez-les aux
   profils fragiles, qui ont de la marge sur leurs Degats pour les payer.
 
-Le roster fourni (22 Combattants) a ete regle de cette facon : chaque Combattant inflige
-en moyenne autant de PV qu'il en subit, a **0,23 PV par duel** pres (mesure par simulation
-sur les 462 rencontres ordonnees possibles, dans les 4 numeros de duel et les 4 historiques
-de duel precedent). Les Combattants gagnent de 36 % (Verve) a 79 % (Mime) de leurs duels :
-c'est le prix paye en Degats qui remet tout le monde a egalite, pas le taux de victoire.
+**Personnages situationnels.** Un Combattant peut ne pas etre concu pour gagner ses propres
+duels : une Capacite conditionnee par `defaite`, ou qui reduit les Degats ou une
+caracteristique de l'adversaire (`degats_adverse`, `annule_couleur`), rapporte a l'equipe
+meme quand le Combattant perd. Iron, Vex, Verrou et Suture, par exemple, tirent leur poids
+d'un effet qui ne depend pas d'une victoire personnelle — leur total de caracteristiques ou
+leur taux de victoire en duel n'a donc pas a etre remonte vers la moyenne.
+
+L'equilibrage se juge desormais sur le **taux de victoire des equipes** dont un Combattant
+a fait partie (mesure par `generate_metagame.py`, cf. section suivante), pas sur son propre
+taux de victoire en duel : la fourchette cible est **40 % a 60 %**, volontairement large
+pour laisser leur place aux profils situationnels ci-dessus.
+
+*Note historique* : le roster (avant l'introduction du plafond a 7 caracteristiques et de
+la fourchette elargie a 40-60 %) avait ete regle sur un plafond de 5 par caracteristique et
+une fourchette cible de 45-55 % : chaque Combattant infligeait alors en moyenne autant de
+PV qu'il en subissait, a **0,23 PV par duel** pres (mesure sur les 462 rencontres ordonnees
+possibles), et les Combattants gagnaient de 36 % a 79 % de leurs propres duels — deja a
+l'epoque, c'etait le prix paye en Degats qui remettait tout le monde a egalite au niveau de
+l'equipe, pas le taux de victoire individuel en duel. Ces chiffres n'ont pas ete
+recalcules depuis les retouches de roster ci-dessus.
 
 ## IA
 
@@ -215,22 +225,12 @@ c'est le prix paye en Degats qui remet tout le monde a egalite, pas le taux de v
 
 - **Choix du Combattant** : tire au hasard parmi ceux qui n'ont pas encore combattu ;
   l'IA ne contre-choisit pas le Combattant adverse.
-- **Choix de la pioche** : c'est la seule decision reellement informee du duel. L'IA ne
-  connait de chaque pioche que la couleur au dos de sa carte du dessus, mais elle connait
-  la composition du deck et voit les cartes deja revelees : elle sait donc exactement
-  quelles cartes dorment encore dans les deux pioches, sans savoir laquelle est ou. Pour
-  chaque pioche, elle resout toutes les cartes encore en jeu portant cette couleur contre
-  les caracteristiques des deux Combattants engages — celles du duel, une couleur
-  eventuellement annulee par une Capacite — et l'Initiative eventuelle des deux camps, puis
-  retient la pioche de meilleure esperance (+1 bataille gagnee, -1 perdue, 0 nulle). Les
-  egalites sont tranchees au hasard.
 
-L'IA ne tient pas compte des Capacites dans le choix de son Combattant (elle le tire au
-hasard) : seules celles qui changent la resolution des batailles entrent dans son calcul.
-
-Le joueur humain dispose de la meme information : le deck est liste sur l'ecran de
-selection, et le rapport de bataille du duel en cours rappelle quelles cartes sont deja
-sorties.
+La revelation des cartes Bataille est automatique et ne laisse plus de decision a prendre,
+ni pour l'IA ni pour le joueur humain : la pioche se fait entierement a l'aveugle. Le
+joueur humain dispose neanmoins d'une information publique : le deck est liste sur l'ecran
+de selection, et le compteur de couleurs affiche, pendant le duel, combien de cartes de
+chaque couleur sont deja sorties.
 
 ## Hypotheses et choix d'implementation
 
@@ -244,19 +244,17 @@ l'utilisateur avant developpement :
   plus de batailles remporte le duel ; a egalite, double victoire (les deux infligent
   leurs Degats, conformement a `game.md`). En pratique, ~7 % des duels sont tranches par
   ce plafond.
-- **Dos d'une carte multi-caracteristiques** : une couleur unique, choisie parmi celles que
-  la condition lit et **figee** par carte (fidele a un jeu physique imprime).
-- **Remelange a chaque duel** : les 21 cartes sont remelangees et recoupees en 2 pioches au
-  debut de chaque duel. Chaque duel repart du meme ensemble de cartes, et une pioche ne
-  peut pas s'epuiser en cours de duel (7 cartes revelees au maximum, 10 par pioche).
-- **Ordre des batailles** : en commencant par J1, puis strictement a tour de role — celui
-  qui remporte une bataille ne rejoue pas.
+- **Pioche unique et persistante** : les 15 cartes forment une seule pioche, commune aux
+  deux joueurs, qui n'est remelangee que lorsqu'elle est epuisee et qu'il faut encore
+  piocher — jamais systematiquement entre deux duels. Le plafond de 7 cartes par duel reste
+  bien en dessous des 15 cartes du deck : un duel ne peut donc jamais a lui seul epuiser la
+  pioche plus d'une fois.
 - **Choix des Combattants** : J1 engage face visible, J2 choisit ensuite en le connaissant
-  (comme `game.md`). J1 est compense par le fait de piocher la premiere carte Bataille.
+  (comme `game.md`).
 - **Degats fixes** : le vainqueur inflige exactement ses Degats, que le duel finisse 3-0 ou
   3-2.
-- **Equipe visible** : le roster complet des deux joueurs est visible en permanence ; seuls
-  le contenu des pioches (hors couleur du dos) reste cache.
+- **Equipe visible** : le roster complet des deux joueurs est visible en permanence ; seul
+  l'ordre des cartes dans la pioche reste cache.
 - **Capacites** : le systeme decrit par `versions/battles.md` laissait le moment
   d'application ouvert. Les effets qui changent la resolution des batailles (`initiative`,
   `annule_couleur`) sont figes a l'engagement des deux Combattants ; les autres
@@ -281,14 +279,14 @@ l'utilisateur avant developpement :
 
 ## Lisibilite de la resolution
 
-Chaque bataille est jouee a l'ecran une par une, meme lorsqu'un seul clic en declenche
-deux (celle du joueur puis celle de l'IA) : la carte sort de la pioche choisie en pivotant,
-reste un instant face visible, puis file vers le camp qui la remporte (ou grise sur place
-si la bataille est nulle), pendant que le marqueur de bataille correspondant s'allume et
-que la ligne du rapport de bataille apparait. Le frontend reconstitue l'etat du duel a
-chaque etape (score, rapport, dos des pioches tels qu'ils etaient alors) : le resultat du
-duel n'est affiche qu'apres la derniere bataille. L'animation est desactivee si le systeme
-declare `prefers-reduced-motion`.
+Chaque bataille est jouee a l'ecran une par une : un clic sur la pioche revele la carte,
+qui pivote, reste un instant face visible, puis file vers le camp qui la remporte (ou
+grise sur place si la bataille est nulle), pendant que le marqueur de bataille
+correspondant s'allume et que la ligne du rapport de bataille apparait. Le frontend
+reconstitue l'etat du duel a chaque etape (score, rapport, cartes restantes et compteur de
+couleurs tels qu'ils etaient alors) : le resultat du duel n'est affiche qu'apres la
+derniere bataille. L'animation est desactivee si le systeme declare
+`prefers-reduced-motion`.
 
 Les Capacites sont rendues lisibles de la meme facon : la Capacite de chaque Combattant est
 imprimee sur sa carte avec son statut dans le duel en cours (`active`, `inactive`, ou
@@ -306,9 +304,13 @@ uv run python generate_metagame.py -n 3000
 ```
 
 Simule des parties completes IA contre IA (la meme heuristique des deux cotes, equipes
-tirees au hasard) et affiche le pourcentage de victoire par Combattant. Sur le roster
-fourni, les 22 Combattants tiennent dans une fourchette de 3,5 points (45,5 % a 49,0 % sur
-12 000 parties, le solde etant les 5 % de parties nulles).
+tirees au hasard) et affiche, pour chaque Combattant, le pourcentage de parties gagnees par
+les equipes dont il a fait partie (pas son taux de victoire en duel, cf. « Equilibrer un
+Combattant » ci-dessus) — c'est ce pourcentage qui doit rester dans la fourchette cible de
+**40 % a 60 %**. Sur une version anterieure du roster (plafond de 5 par caracteristique,
+fourchette cible 45-55 %), les 22 Combattants tenaient dans une fourchette de 3,5 points
+(45,5 % a 49,0 % sur 12 000 parties, le solde etant les 5 % de parties nulles) ; ce chiffre
+n'a pas ete recalcule depuis.
 
 ## Tests effectues
 

@@ -13,6 +13,7 @@
   --rouge: #ff5252;
   --vert: #46d16b;
   --bleu: #4d94ff;
+  --gris: #b7bac4;
   --shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
 }
 
@@ -382,6 +383,7 @@ button:disabled {
 .txt-rouge { color: var(--rouge); }
 .txt-vert { color: var(--vert); }
 .txt-bleu { color: var(--bleu); }
+.txt-gris { color: var(--gris); }
 
 .caracs-combattant {
   display: flex;
@@ -411,7 +413,7 @@ button:disabled {
 .caracs-combattant.grand .carac { padding: 8px 0; font-size: 1.2rem; }
 .caracs-combattant.grand .carac b { font-size: 1.5rem; }
 
-.puce-rouge::before, .puce-vert::before, .puce-bleu::before {
+.puce-rouge::before, .puce-vert::before, .puce-bleu::before, .puce-gris::before {
   content: "";
   position: absolute;
   left: 6px;
@@ -425,14 +427,15 @@ button:disabled {
 .puce-rouge::before { background: var(--rouge); }
 .puce-vert::before { background: var(--vert); }
 .puce-bleu::before { background: var(--bleu); }
+.puce-gris::before { background: var(--gris); }
 
-/* ---------- Pioches de cartes Bataille ---------- */
+/* ---------- Pioche de cartes Bataille ---------- */
 .zone-pioches { width: 100%; text-align: center; }
 .zone-pioches.cache { display: none; }
 
 .libelle-pioches { color: var(--text-dim); margin: 4px 0 10px; }
 
-.pioches { display: flex; justify-content: center; gap: 24px; }
+.pioches { display: flex; justify-content: center; align-items: center; gap: 24px; }
 
 .carte-bataille {
   width: 132px;
@@ -449,24 +452,33 @@ button:disabled {
   box-shadow: var(--shadow);
 }
 
+/* Le dos d'une carte ne porte plus aucune information : un seul style generique, quelle
+   que soit la carte qui dort au sommet de la pioche. */
 .carte-bataille.dos { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.04) 0 6px, transparent 6px 12px); }
-.carte-bataille.dos-rouge { border-color: var(--rouge); box-shadow: 0 0 16px rgba(255, 82, 82, 0.35); }
-.carte-bataille.dos-vert { border-color: var(--vert); box-shadow: 0 0 16px rgba(70, 209, 107, 0.35); }
-.carte-bataille.dos-bleu { border-color: var(--bleu); box-shadow: 0 0 16px rgba(77, 148, 255, 0.35); }
 
 .carte-bataille.cliquable { cursor: pointer; transition: transform 0.12s ease; }
 .carte-bataille.cliquable:hover { transform: translateY(-4px); }
 
 .dos-marque { font-size: 2.4rem; font-weight: 900; color: var(--text-dim); }
-.dos-couleur { text-transform: uppercase; letter-spacing: 2px; font-size: 0.75rem; }
-.carte-bataille.dos-rouge .dos-couleur { color: var(--rouge); }
-.carte-bataille.dos-vert .dos-couleur { color: var(--vert); }
-.carte-bataille.dos-bleu .dos-couleur { color: var(--bleu); }
 .dos-restantes { color: var(--text-dim); font-size: 0.7rem; }
 
 .bord-rouge { border-left: 4px solid var(--rouge); }
 .bord-vert { border-left: 4px solid var(--vert); }
 .bord-bleu { border-left: 4px solid var(--bleu); }
+.bord-gris { border-left: 4px solid var(--gris); }
+
+/* ---------- Compteur de cartes Bataille sorties, par couleur ---------- */
+/* Visible quelle que soit la phase (y compris pendant la selection du Combattant), pour
+   pouvoir orienter le choix en fonction de ce qui reste dans la pioche. */
+.libelle-compteur-couleurs { color: var(--text-dim); font-size: 0.7rem; text-align: center; margin: 0 0 6px; }
+.compteur-couleurs { display: flex; justify-content: center; gap: 14px; margin-bottom: 14px; }
+
+.pastille-couleur {
+  position: relative;
+  padding-left: 16px;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
 
 /* ---------- Marqueurs de batailles remportees ---------- */
 .marqueurs { display: flex; gap: 7px; justify-content: center; margin: 10px 0 4px; }
@@ -510,7 +522,7 @@ button:disabled {
 
 .ligne-bataille:first-child { border-top: none; }
 .bataille-numero { color: var(--text-dim); text-align: center; }
-.ligne-bataille > .puce-rouge, .ligne-bataille > .puce-vert, .ligne-bataille > .puce-bleu {
+.ligne-bataille > .puce-rouge, .ligne-bataille > .puce-vert, .ligne-bataille > .puce-bleu, .ligne-bataille > .puce-gris {
   position: relative;
   width: 10px;
   height: 10px;
@@ -555,7 +567,7 @@ button:disabled {
 
 .legende-nom { font-weight: 600; font-size: 0.85rem; }
 .legende-condition { color: var(--text-dim); font-size: 0.75rem; }
-.legende-verso { position: relative; padding-left: 16px; font-size: 0.68rem; color: var(--text-dim); margin-top: 2px; }
+.legende-couleur { position: relative; padding-left: 16px; font-size: 0.68rem; color: var(--text-dim); margin-top: 2px; }
 .bataille-valeurs { white-space: nowrap; }
 .carte-duel .bloc-stat.degats .valeur-grosse { color: var(--accent); }
 
@@ -580,8 +592,6 @@ button:disabled {
    pause face visible, puis file vers le camp qui remporte la bataille — ou grise sur
    place si la bataille est nulle. */
 .carte-bataille.animee { transform-style: preserve-3d; }
-.carte-bataille.animee.depuis-pioche-1 { --origine: -156px; }
-.carte-bataille.animee.depuis-pioche-2 { --origine: 156px; }
 
 .carte-bataille.animee.attribution-gain {
   animation: revelation 0.4s cubic-bezier(0.2, 0.8, 0.3, 1) both,

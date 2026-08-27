@@ -1,7 +1,7 @@
 """Modeles de donnees pour Urban Eredan : Combattants, Joueurs.
 
 Dans cette version, un Combattant n'a plus de Puissance ni de Pouvoir : il porte trois
-caracteristiques (Force, Dexterite, Sagesse), chacune de 0 a 5, avec lesquelles il
+caracteristiques (Force, Dexterite, Sagesse), chacune de 0 a 7, avec lesquelles il
 dispute les batailles du duel, ses Degats, et une **capacite** qui lui permet d'influer
 sur le cours du duel (cf. engine/capacites.py). Les cartes Glyphes et l'Energie ont
 disparu.
@@ -23,8 +23,8 @@ class CombattantTemplate:
         self.capacite = charger_capacite(data.get("capacite"), self.nom)
         for carac in CARACS:
             valeur = getattr(self, carac)
-            if not 0 <= valeur <= 5:
-                raise ValueError(f"{self.nom} : {carac} = {valeur}, attendu entre 0 et 5")
+            if not 0 <= valeur <= 7:
+                raise ValueError(f"{self.nom} : {carac} = {valeur}, attendu entre 0 et 7")
 
     @property
     def caracs(self):

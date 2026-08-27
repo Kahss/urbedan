@@ -1,5 +1,5 @@
 {
-  "$schema_doc": "Voir README.md section 'Editer / ajouter des Combattants'. Un Combattant porte trois caracteristiques (force / dexterite / sagesse, chacune de 0 a 5) avec lesquelles il dispute les batailles du duel, une valeur de degats, et une capacite (condition facultative + effet obligatoire + multiplicateur facultatif) decrite dans backend/engine/capacites.py. Le total des trois caracteristiques, les degats et la puissance de la capacite se compensent : plus un Combattant gagne souvent ou dispose d'une capacite forte, moins il frappe fort. Les champs 'archetype' et 'description' ne sont lus ni par le moteur ni par le frontend.",
+  "$schema_doc": "Voir README.md section 'Editer / ajouter des Combattants'. Un Combattant porte trois caracteristiques (force / dexterite / sagesse, chacune de 0 a 7) avec lesquelles il dispute les batailles du duel, une valeur de degats, et une capacite (condition facultative + effet obligatoire + multiplicateur facultatif) decrite dans backend/engine/capacites.py. Le total des trois caracteristiques, les degats et la puissance de la capacite se compensent : plus un Combattant gagne souvent ou dispose d'une capacite forte, moins il frappe fort. L'equilibrage se juge sur le taux de victoire des equipes dont le Combattant a fait partie (cf. generate_metagame.py), pas sur son propre taux de victoire en duel : un profil situationnel (capacite conditionnee par 'defaite', reduction de degats/caracteristiques adverses) peut se tenir en bas de fourchette sans etre desequilibre. Les champs 'archetype' et 'description' ne sont lus ni par le moteur ni par le frontend.",
   "combattants": [
     {
       "id": "riff",
@@ -24,9 +24,9 @@
       "nom": "Nova",
       "archetype": "La hackeuse activiste",
       "description": "Nova a coupe le courant de tout un pate d'immeubles a quinze ans, juste pour voir ce que ca ferait. Aujourd'hui elle infiltre les automatismes adverses en plein duel, les desactive, puis retourne leurs propres protocoles contre eux. Elle ne frappe jamais fort la premiere fois : elle prefere demonter le systeme de l'interieur avant de porter le coup de grace.",
-      "force": 2,
+      "force": 0,
       "dexterite": 1,
-      "sagesse": 5,
+      "sagesse": 7,
       "degats": 3,
       "capacite": {
         "condition": null,
@@ -78,9 +78,9 @@
       "nom": "Iron",
       "archetype": "Le videur increvable",
       "description": "Videur du Zenith Club depuis dix ans, Iron a arrete de compter les coups qu'il a encaisses a la place des autres. Rien ne l'ebranle : il absorbe, encaisse, et laisse l'adversaire s'epuiser contre sa garde plutot que de forcer le passage. Quand la situation degenere vraiment, c'est lui qui ferme la porte, dans tous les sens du terme.",
-      "force": 5,
+      "force": 7,
       "dexterite": 0,
-      "sagesse": 4,
+      "sagesse": 2,
       "degats": 3,
       "capacite": {
         "condition": null,
@@ -96,9 +96,9 @@
       "nom": "Cobra",
       "archetype": "Le motard de nuit",
       "description": "Personne ne sait qui se cache sous le casque de Cobra, seulement qu'on l'entend arriver avant de le voir. Il roule sans filet, mord avant de reflechir, et plus la course s'envenime, plus il plante les crocs profondement. Sa plus grande victoire l'a laisse a moitie inconscient au bord de la route — il dit que ca en valait le coup.",
-      "force": 2,
-      "dexterite": 5,
-      "sagesse": 1,
+      "force": 1,
+      "dexterite": 7,
+      "sagesse": 0,
       "degats": 5,
       "capacite": {
         "condition": "confiance",
@@ -131,9 +131,9 @@
       "nom": "Vex",
       "archetype": "La voyante des quais",
       "description": "Vex lit l'avenir dans les graffitis et les tickets de loterie perdus, installee sur son carton pres du canal. Elle tire une etrange force de ses propres defaites, se relance encore plus fort a chaque victoire, et plus l'ecart de Puissance avec l'adversaire est grand en sa faveur, plus la malediction qu'elle jette ensuite est cruelle.",
-      "force": 1,
-      "dexterite": 2,
-      "sagesse": 5,
+      "force": 0,
+      "dexterite": 1,
+      "sagesse": 7,
       "degats": 4,
       "capacite": {
         "condition": "defaite",
@@ -311,8 +311,8 @@
       "nom": "Verrou",
       "archetype": "La bloqueuse de roller derby",
       "description": "Verrou n'a jamais marque le moindre point sur la piste de sa ligue de roller derby — et personne ne le lui a jamais reproche, parce que son travail c'est d'empecher les autres de passer. Elle place son epaule au bon moment, ferme la trajectoire, et l'adversaire se retrouve arrete net, sans jamais comprendre comment.",
-      "force": 5,
-      "dexterite": 2,
+      "force": 7,
+      "dexterite": 0,
       "sagesse": 2,
       "degats": 2,
       "capacite": {
@@ -347,9 +347,9 @@
       "nom": "Suture",
       "archetype": "Le medecin de rue benevole",
       "description": "Suture tient une infirmerie de fortune dans l'arriere-boutique d'une friperie, et soigne quiconque en a besoin sans poser de questions. Plus un affrontement s'eternise, plus son geste devient sur : ce n'est jamais au premier duel qu'elle est la plus efficace, mais a mesure que le tournoi avance et que l'experience s'accumule.",
-      "force": 1,
-      "dexterite": 3,
-      "sagesse": 5,
+      "force": 0,
+      "dexterite": 2,
+      "sagesse": 7,
       "degats": 2,
       "capacite": {
         "condition": "defaite",
