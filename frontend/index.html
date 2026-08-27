@@ -19,13 +19,17 @@
     <h2>Choisis ton equipe (3 Personnages)</h2>
     <p class="aide">
       L'<b>Initiative</b> place le Personnage sur la piste de draft : la plus
-      <b>basse</b> drafte en premier. L'<b>Attaque</b> est infligee aux PV adverses quand
-      tu depenses un De pour l'attaque de base. Les <b>Capacites</b> s'activent
-      obligatoirement des que les Des stockes payent leur cout.
+      <b>basse</b> drafte en premier. Les Des de pouvoir ont 6 faces : 2 rouges, 1 bleue,
+      1 jaune et 2 <b>epee</b> (⚔). Une face couleur se <b>stocke</b> pour payer le cout
+      d'une Capacite -- si le Personnage choisi n'a aucune Capacite de cette couleur, le
+      De est <b>perdu</b> ; une <b>epee</b> se depense pour l'<b>Attaque</b> de base
+      (sans limite par manche). Les <b>Capacites</b> s'activent obligatoirement des que
+      les Des stockes payent leur cout.
     </p>
     <div id="grille-selection" class="grille-personnages"></div>
     <div class="barre-action">
       <span id="compteur-selection">0 / 3 selectionnes</span>
+      <button id="btn-equipe-aleatoire" class="secondaire">Equipe aleatoire</button>
       <button id="btn-lancer-partie" disabled>Lancer la partie</button>
     </div>
   </section>

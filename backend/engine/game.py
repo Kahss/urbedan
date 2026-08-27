@@ -3,10 +3,11 @@ d'initiative, rounds de draft de Des, fin de match."""
 import random
 from collections import Counter
 
-from .capacites import capacites_activables, resoudre_activations
-from .ia import choisir_action
+from .capacites import capacites_activables, couleur_utile, resoudre_activations
+from .ia import arbitrer_capacite, choisir_action
 from .models import (
     COULEURS,
+    FACE_EPEE,
     NB_DES_POOL,
     PV_DEPART,
     De,
@@ -60,7 +61,18 @@ class Partie:
         self.pool = []
         self.sequence = []
         self.index_sequence = 0
+        # Journal structure : un preambule, puis un bloc par round contenant des
+        # entrees ordonnees (actions de draft et evenements). Les consequences d'une
+        # action (activation de Capacite, PV, manipulation de Des) sont imbriquees dans
+        # cette action, pour que l'interface puisse montrer qui a joue quoi sans avoir a
+        # relire toute la liste.
+        self.preambule = []
         self.journal = []
+        self._action_courante = None
+        # Choix de Capacite en attente d'une reponse du joueur humain. Tant qu'il n'est
+        # pas tranche, la cascade d'activations et le creneau de draft sont suspendus
+        # (cf. `_arbitre_activation` et `choisir_capacite`).
+        self.choix_capacite = None
         self.terminee = False
         self.vainqueur = None
 
@@ -70,11 +82,26 @@ class Partie:
             + " -> ".join(f"{p.template.nom} ({p.joueur.nom})" for p in self.piste)
         )
         self._demarrer_round()
-        self._boucle()
+        self._avancer()
 
     # ------------------------------------------------------------------ journal
-    def log(self, message):
-        self.journal.append(message)
+    def _conteneur_journal(self):
+        """Ou ecrire : dans les consequences de l'action en cours de resolution, sinon
+        dans les entrees du round courant, sinon dans le preambule."""
+        if self._action_courante is not None:
+            return self._action_courante["consequences"]
+        if self.journal:
+            return self.journal[-1]["entrees"]
+        return self.preambule
+
+    def log(self, message, type="info", **champs):
+        """Ajoute une entree au journal. `type` sert au rendu (icone, couleur) et
+        `champs` transporte les donnees structurees utiles a l'affichage (delta de PV,
+        Personnage concerne...) en plus du texte lisible tel quel."""
+        entree = {"type": type, "texte": message, **champs}
+        if self._action_courante is None:
+            entree["genre"] = "evenement"
+        self._conteneur_journal().append(entree)
 
     # -------------------------------------------------------- acces pour capacites
     def adversaire(self, joueur):
@@ -101,16 +128,23 @@ class Partie:
         avant = joueur.pv
         joueur.pv = max(0, joueur.pv + delta)
         signe = "+" if delta > 0 else ""
-        self.log(f"{source} : {joueur.nom} {signe}{delta} PV ({avant} -> {joueur.pv})")
+        self.log(
+            f"{source} : {joueur.nom} {signe}{delta} PV ({avant} -> {joueur.pv})",
+            "pv", joueur=joueur.nom, delta=delta, avant=avant, apres=joueur.pv, source=source,
+        )
         self._verifier_fin()
 
     def retirer_du_pool_meilleure_couleur(self):
         """Retire du pool un De de la couleur la plus abondante (egalite : ordre
-        rouge > bleu > jaune). Retourne None si le pool est vide."""
+        rouge > bleu > jaune). Retourne None si le pool est vide ou ne contient plus que
+        des epees (jamais stockables)."""
         if not self.pool:
             return None
         compte = Counter(d.couleur for d in self.pool)
-        couleur = min(COULEURS, key=lambda c: (-compte[c], COULEURS.index(c)))
+        disponibles = [c for c in COULEURS if compte[c] > 0]
+        if not disponibles:
+            return None
+        couleur = min(disponibles, key=lambda c: (-compte[c], COULEURS.index(c)))
         de = next(d for d in self.pool if d.couleur == couleur)
         self.pool.remove(de)
         return de
@@ -129,18 +163,18 @@ class Partie:
         # donc la piste, mais ne prend effet qu'au round suivant.
         self.sequence = list(self.piste)
         self.index_sequence = 0
-        for perso in self.piste:
-            perso.a_attaque = False
-        self.log(
-            f"--- Round {self.round_numero} --- Des tires : "
-            + ", ".join(d.couleur for d in self.pool)
-        )
+        self.journal.append({
+            "numero": self.round_numero,
+            "des_tires": [d.couleur for d in self.pool],
+            "entrees": [],
+        })
 
     def _terminer_round(self):
         if self.pool:
             self.log(
-                "Fin du round, De(s) non drafte(s) defausse(s) : "
-                + ", ".join(d.couleur for d in self.pool)
+                "Des non draftes, defausses en fin de round : "
+                + ", ".join(d.couleur for d in self.pool),
+                "fin_round", des=[d.couleur for d in self.pool],
             )
         if self.round_numero >= ROUNDS_MAX:
             self._fin_par_pv()
@@ -158,7 +192,8 @@ class Partie:
             self.vainqueur = None
         self.log(
             f"Limite de {ROUNDS_MAX} rounds atteinte : victoire aux PV "
-            f"(humain {pv_h} / ia {pv_i})"
+            f"(humain {pv_h} / ia {pv_i})",
+            "fin_match",
         )
 
     def _verifier_fin(self):
@@ -172,7 +207,7 @@ class Partie:
             self.vainqueur = "ia"
         else:
             self.vainqueur = "humain"
-        self.log("KO : la partie est terminee.")
+        self.log("KO : la partie est terminee.", "fin_match")
 
     # ---------------------------------------------------------------- boucle
     def creneau_courant(self):
@@ -184,15 +219,18 @@ class Partie:
         creneau = self.creneau_courant()
         return creneau.joueur if creneau else None
 
-    def _boucle(self):
-        """Avance la partie jusqu'a ce que ce soit au joueur humain d'agir (ou que la
-        partie soit terminee) : saute les creneaux impossibles (pool vide), enchaine les
-        rounds et joue automatiquement les creneaux de l'IA."""
+    def _avancer(self):
+        """Avance jusqu'au prochain creneau jouable : enchaine les rounds et saute les
+        creneaux impossibles (pool epuise). S'arrete des que le creneau courant est
+        jouable, quel que soit son proprietaire, ou que la partie est terminee.
+
+        L'IA n'est volontairement PAS jouee ici : ses creneaux sont resolus un par un via
+        `jouer_creneau_ia()`, pour que l'interface puisse animer chacun de ses choix."""
         garde = 0
         while not self.terminee:
             garde += 1
             if garde > 1000:
-                self.log("Garde-fou : boucle de jeu interrompue.")
+                self.log("Garde-fou : boucle de jeu interrompue.", "fin_match")
                 self.terminee = True
                 return
             if self.index_sequence >= len(self.sequence):
@@ -201,26 +239,88 @@ class Partie:
             creneau = self.sequence[self.index_sequence]
             if not self.pool:
                 self.log(
-                    f"Pool epuise : le creneau de {creneau.template.nom} est perdu."
+                    f"Pool epuise : le creneau de {creneau.template.nom} est perdu.",
+                    "creneau_perdu",
                 )
                 self.index_sequence += 1
                 continue
-            if not creneau.joueur.est_ia:
-                return
-            self._jouer_ia(creneau)
+            return
 
-    def _jouer_ia(self, creneau):
-        de, perso, usage = choisir_action(self, creneau.joueur)
-        self._appliquer_draft(creneau.joueur, de, perso, usage)
-        self.index_sequence += 1
+    # ----------------------------------------------------- choix de Capacite
+    def _arbitre_activation(self, perso, options):
+        """Arbitre appele par la cascade quand plusieurs Capacites d'un meme Personnage
+        sont payables en meme temps. L'IA tranche seule ; pour le joueur humain, on
+        enregistre le choix a faire et on suspend la cascade (retour None)."""
+        if perso.joueur.est_ia:
+            return arbitrer_capacite(perso, options, self)
+        self.choix_capacite = {
+            "personnage": perso,
+            "action": self._action_courante,
+            "options": options,
+        }
+        self.log(
+            f"{perso.template.nom} : {len(options)} Capacites payables, a toi de choisir",
+            "choix", personnage=perso.template.nom, personnage_id=perso.template.id,
+        )
+        return None
 
-    # ---------------------------------------------------------------- actions
-    def drafter(self, de_id, personnage_id, usage):
-        """Action du joueur humain : drafter un De du pool et l'affecter a l'un de ses
-        Personnages, soit en ressource (`stock`), soit pour declencher son attaque de
-        base (`attaque`)."""
+    def choisir_capacite(self, indice):
+        """Tranche le choix en attente et reprend la cascade la ou elle a ete suspendue.
+
+        Les activations qui suivent restent imbriquees dans l'action de draft d'origine :
+        c'est bien ce De qui les a declenchees."""
         if self.terminee:
             raise ErreurPartie("La partie est terminee")
+        choix = self.choix_capacite
+        if choix is None:
+            raise ErreurPartie("Aucun choix de Capacite en attente")
+        if indice not in [i for i, _, _ in choix["options"]]:
+            raise ErreurPartie("Cette Capacite n'est pas activable maintenant")
+        self.choix_capacite = None
+        self._action_courante = choix["action"]
+        try:
+            resoudre_activations(
+                self, choix["personnage"], self._arbitre_activation, indice
+            )
+        finally:
+            self._action_courante = None
+        self._terminer_creneau()
+        return self.etat_dict()
+
+    # ---------------------------------------------------------------- actions
+    def _terminer_creneau(self):
+        """Passe au creneau suivant -- sauf si un choix de Capacite est en attente : le
+        creneau reste alors ouvert jusqu'a ce qu'il soit tranche."""
+        if self.choix_capacite is not None:
+            return
+        self.index_sequence += 1
+        self._avancer()
+
+    def jouer_creneau_ia(self):
+        """Resout le creneau courant de l'IA, et un seul."""
+        if self.terminee:
+            raise ErreurPartie("La partie est terminee")
+        if self.choix_capacite is not None:
+            raise ErreurPartie("Une Capacite doit d'abord etre choisie")
+        creneau = self.creneau_courant()
+        if creneau is None or not creneau.joueur.est_ia:
+            raise ErreurPartie("Ce n'est pas le creneau de l'IA")
+        de, perso, usage = choisir_action(self, creneau.joueur)
+        self._appliquer_draft(creneau.joueur, de, perso, usage, creneau)
+        self._terminer_creneau()
+        return self.etat_dict()
+
+    def drafter(self, de_id, personnage_id, usage):
+        """Action du joueur humain : drafter un De du pool et l'affecter a l'un de ses
+        Personnages, selon l'usage choisi :
+        - `stock` : le De (couleur) devient une ressource stockee sur ce Personnage --
+          sauf si aucune de ses Capacites n'a de case de cette couleur (ni de joker),
+          auquel cas le De est perdu.
+        - `attaque` : le De (epee) declenche l'attaque de base de ce Personnage."""
+        if self.terminee:
+            raise ErreurPartie("La partie est terminee")
+        if self.choix_capacite is not None:
+            raise ErreurPartie("Une Capacite doit d'abord etre choisie")
         creneau = self.creneau_courant()
         if creneau is None or creneau.joueur.est_ia:
             raise ErreurPartie("Ce n'est pas ton creneau de draft")
@@ -234,30 +334,52 @@ class Partie:
             raise ErreurPartie("Ce Personnage n'appartient pas a ton equipe")
         if usage not in ("stock", "attaque"):
             raise ErreurPartie("Usage invalide (attendu : 'stock' ou 'attaque')")
-        if usage == "attaque" and perso.a_attaque:
-            raise ErreurPartie(f"{perso.template.nom} a deja attaque ce round")
+        if usage == "stock" and de.couleur == FACE_EPEE:
+            raise ErreurPartie("Une epee ne peut pas etre stockee")
+        if usage == "attaque" and de.couleur != FACE_EPEE:
+            raise ErreurPartie("Seule une epee peut declencher une attaque")
 
-        self._appliquer_draft(joueur, de, perso, usage)
-        self.index_sequence += 1
-        self._boucle()
+        self._appliquer_draft(joueur, de, perso, usage, creneau)
+        self._terminer_creneau()
         return self.etat_dict()
 
-    def _appliquer_draft(self, joueur, de, perso, usage):
-        self.pool.remove(de)
-        if usage == "attaque":
-            perso.a_attaque = True
-            self.log(
-                f"{joueur.nom} depense un De {de.couleur} : attaque de base de "
-                f"{perso.template.nom}"
-            )
-            self.modifier_pv(self.adversaire(joueur), -perso.attaque, f"Attaque de {perso.template.nom}")
-        else:
-            perso.des_stockes.append(de)
-            self.log(
-                f"{joueur.nom} assigne un De {de.couleur} a {perso.template.nom} "
-                f"({len(perso.des_stockes)} De(s) stocke(s))"
-            )
-            resoudre_activations(self, perso)
+    def _appliquer_draft(self, joueur, de, perso, usage, creneau):
+        """Applique un draft et l'enregistre comme une action du journal : tout ce que ce
+        De declenche (Capacites, PV, manipulation de Des) est imbrique dans cette action
+        via `_action_courante`."""
+        action = {
+            "genre": "action",
+            "joueur": joueur.nom,
+            "creneau": creneau.template.nom,
+            "de": de.couleur,
+            "personnage": perso.template.nom,
+            "personnage_id": perso.template.id,
+            "usage": usage,
+            "consequences": [],
+        }
+        self.journal[-1]["entrees"].append(action)
+        self._action_courante = action
+        try:
+            self.pool.remove(de)
+            if usage == "attaque":
+                action["degats"] = perso.attaque
+                self.modifier_pv(
+                    self.adversaire(joueur), -perso.attaque,
+                    f"Attaque de {perso.template.nom}",
+                )
+            elif couleur_utile(perso, de.couleur):
+                perso.des_stockes.append(de)
+                action["des_stockes"] = len(perso.des_stockes)
+                resoudre_activations(self, perso, self._arbitre_activation)
+            else:
+                action["perdu"] = True
+                self.log(
+                    f"{perso.template.nom} : De {de.couleur} perdu "
+                    "(aucune de ses Capacites ne l'utilise)",
+                    "de_perdu", personnage=perso.template.nom, couleur=de.couleur,
+                )
+        finally:
+            self._action_courante = None
 
     # ------------------------------------------------------------------- etat
     def _declencheurs(self, perso):
@@ -271,6 +393,26 @@ class Partie:
                 declencheurs.append(couleur)
             perso.des_stockes.remove(temoin)
         return declencheurs
+
+    def _choix_dict(self):
+        """Le choix de Capacite attendu du joueur humain, ou None. Les options portent le
+        paiement exact qui serait defausse, pour que le joueur decide en connaissance."""
+        choix = self.choix_capacite
+        if choix is None:
+            return None
+        return {
+            "personnage_id": choix["personnage"].template.id,
+            "nom": choix["personnage"].template.nom,
+            "options": [
+                {
+                    "indice": indice,
+                    "description": capacite.get("description", ""),
+                    "cout": capacite.get("cout", []),
+                    "paiement": [d.couleur for d in paiement],
+                }
+                for indice, capacite, paiement in choix["options"]
+            ],
+        }
 
     def _personnage_dict(self, perso):
         data = perso.to_dict(position_piste=self.position_piste(perso))
@@ -313,8 +455,10 @@ class Partie:
             ],
             "creneau_courant": creneau.template.id if creneau else None,
             "joueur_courant": creneau.joueur.nom if creneau else None,
+            "choix_capacite": self._choix_dict(),
             "joueur_humain": self._joueur_dict(self.joueur_humain),
             "joueur_ia": self._joueur_dict(self.joueur_ia),
+            "preambule": self.preambule,
             "journal": self.journal,
             "terminee": self.terminee,
             "vainqueur": self.vainqueur,

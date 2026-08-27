@@ -12,10 +12,12 @@ import random
 
 COULEURS = ("rouge", "bleu", "jaune")
 
-# Les 7 Des de pouvoir sont identiques : 6 faces, 2 par couleur (rouge, rouge, bleu,
-# bleu, jaune, jaune). Un lancer est donc uniforme sur les 3 couleurs, mais les faces
-# sont modelisees telles quelles pour rester fidele au materiel physique.
-FACES_DE = ("rouge", "rouge", "bleu", "bleu", "jaune", "jaune")
+# Les 7 Des de pouvoir sont identiques, 6 faces : 2 rouge, 1 bleu, 1 jaune, 2 epee. Les
+# faces couleur servent a payer le cout des Capacites (stockage) ; les faces epee ne
+# servent qu'a declencher l'attaque de base d'un Personnage et ne peuvent pas etre
+# stockees (cf. `Partie.drafter`).
+FACE_EPEE = "epee"
+FACES_DE = ("rouge", "rouge", "bleu", "jaune", FACE_EPEE, FACE_EPEE)
 
 NB_DES_POOL = 7
 
@@ -65,15 +67,14 @@ class PersonnageTemplate:
 
 
 class PersonnageEnJeu:
-    """Instance d'un Personnage dans une partie : suit ses Des stockes, son bonus
-    d'Attaque acquis en cours de partie et s'il a deja attaque ce round."""
+    """Instance d'un Personnage dans une partie : suit ses Des stockes et son bonus
+    d'Attaque acquis en cours de partie."""
 
     def __init__(self, template, joueur):
         self.template = template
         self.joueur = joueur
-        self.des_stockes = []        # liste de De (ressources accumulees)
+        self.des_stockes = []        # liste de De (ressources accumulees, jamais d'epee)
         self.bonus_attaque = 0      # modifications permanentes d'Attaque
-        self.a_attaque = False      # une seule attaque par round et par personnage
         self.activations = 0        # nombre total de capacites activees dans la partie
 
     @property
@@ -94,7 +95,6 @@ class PersonnageEnJeu:
             "bonus_attaque": self.bonus_attaque,
             "capacites": self.template.capacites,
             "des_stockes": [d.to_dict() for d in self.des_stockes],
-            "a_attaque": self.a_attaque,
             "proprietaire": self.joueur.nom,
             "position_piste": position_piste,
         }

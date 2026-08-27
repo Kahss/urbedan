@@ -1,5 +1,5 @@
 {
-  "$schema_doc": "Voir README.md, section 'Editer / ajouter des Personnages'. initiative = placement initial sur la piste de draft (la plus BASSE drafte en premier) ; attaque = degats infliges quand un De est depense pour l'attaque de base ; capacites = 1 ou 2 lignes, chacune avec un cout de 1 a 3 cases (couleur 'rouge'/'bleu'/'jaune', ou null pour un joker acceptant n'importe quelle couleur), une condition eventuelle, un multiplicateur eventuel et une liste d'effets. Les champs 'archetype' et 'description' sont purement narratifs et ne sont pas lus par le moteur.",
+  "$schema_doc": "Voir README.md, section 'Editer / ajouter des Personnages'. initiative = placement initial sur la piste de draft (la plus BASSE drafte en premier) ; attaque = degats infliges quand une epee est depensee pour l'attaque de base ; capacites = 1 ou 2 lignes, chacune avec un cout de 1 a 3 cases (couleur 'rouge'/'bleu'/'jaune', ou null pour un joker acceptant n'importe quelle couleur -- jamais 'epee', qui n'est jamais stockable), une condition eventuelle, un multiplicateur eventuel et une liste d'effets. Les champs 'archetype' et 'description' sont purement narratifs et ne sont pas lus par le moteur.",
   "personnages": [
     {
       "id": "nitro",
@@ -248,6 +248,47 @@
             },
             {
               "type": "relance_pool"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "loup",
+      "nom": "Loup",
+      "archetype": "La Mort en personne, chasseur de primes",
+      "description": "Sous la fourrure et les cicatrices, ce n'est pas un loup de conte : c'est la Mort elle-meme, calme et methodique, qui siffle un air menacant en refermant la traque. Une fois qu'il a decide d'une cible, il ne la rate jamais -- et quand elle faiblit enfin, plus rien ne l'arrete.",
+      "initiative": 7,
+      "attaque": 3,
+      "capacites": [
+        {
+          "description": "Il ne rate jamais sa cible : vampirisme 2",
+          "cout": [
+            null,
+            null
+          ],
+          "condition": null,
+          "multiplicateur": null,
+          "effets": [
+            {
+              "type": "vampirisme",
+              "valeur": 2
+            }
+          ]
+        },
+        {
+          "description": "Domination : 2 degats par De depense",
+          "cout": [
+            null,
+            null,
+            null
+          ],
+          "condition": "domination",
+          "multiplicateur": "par_de",
+          "effets": [
+            {
+              "type": "degats",
+              "valeur": 2
             }
           ]
         }

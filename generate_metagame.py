@@ -18,7 +18,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(BASE_DIR, "backend"))
 
 from engine.game import TAILLE_EQUIPE, Partie  # noqa: E402
-from engine.ia import choisir_action  # noqa: E402
+from engine.ia import arbitrer_capacite, choisir_action  # noqa: E402
 from engine.models import charger_personnages  # noqa: E402
 
 DATA_PATH = os.path.join(BASE_DIR, "data", "personnages.json")
@@ -37,8 +37,19 @@ def jouer_match(templates, tous_les_ids):
         creneau = partie.creneau_courant()
         if creneau is None:
             break
-        de, perso, usage = choisir_action(partie, creneau.joueur)
-        partie.drafter(de.id, perso.template.id, usage)
+        if creneau.joueur.est_ia:
+            partie.jouer_creneau_ia()
+        else:
+            de, perso, usage = choisir_action(partie, creneau.joueur)
+            partie.drafter(de.id, perso.template.id, usage)
+            # Le camp "humain" est ici pilote par l'IA : les choix entre Capacites
+            # payables simultanement, que le moteur laisse au joueur, sont donc tranches
+            # avec la meme heuristique que ceux de l'IA.
+            while partie.choix_capacite is not None:
+                choix = partie.choix_capacite
+                partie.choisir_capacite(
+                    arbitrer_capacite(choix["personnage"], choix["options"], partie)
+                )
 
     return equipe_a, equipe_b, partie.vainqueur, partie.round_numero
 

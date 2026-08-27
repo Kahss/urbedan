@@ -2,7 +2,10 @@
 
 Une Capacite est definie par :
 - `cout` : 1 a 3 cases. Chaque case est une couleur ("rouge", "bleu", "jaune") ou
-  `null` (joker : un De de n'importe quelle couleur).
+  `null` (joker : un De de n'importe quelle couleur). Les faces epee ne peuvent jamais
+  payer un cout : elles ne sont jamais stockees (cf. `Partie.drafter`). Un De couleur
+  stocke sur un Personnage dont aucune Capacite n'a de case de cette couleur (ni de
+  joker) est perdu au lieu d'etre stocke (cf. `couleur_utile`).
 - `condition` (optionnelle) : mot-cle qui doit etre verifie pour que la Capacite
   s'active.
 - `multiplicateur` (optionnel) : mot-cle qui multiplie la valeur des effets.
@@ -11,8 +14,11 @@ Une Capacite est definie par :
 Regles de resolution retenues pour ce POC (cf. README.md) :
 - L'activation est OBLIGATOIRE : des qu'un De ajoute sur un Personnage permet de payer
   le cout d'une de ses Capacites (condition incluse), celle-ci s'active immediatement.
-- Un Personnage teste ses Capacites dans leur ordre de declaration : la premiere
-  payable s'active. On recommence ensuite le test (cascade) tant qu'une Capacite est
+- Quand une seule Capacite est payable, elle s'active sans invite. Quand plusieurs le
+  sont en meme temps, le choix revient au proprietaire du Personnage : l'IA tranche
+  seule (cf. `ia.arbitrer_capacite`), le joueur humain est consulte et la cascade est
+  suspendue jusqu'a sa reponse.
+- Apres chaque activation, on recommence le test (cascade) tant qu'une Capacite est
   payable, dans la limite de MAX_CASCADE activations par De ajoute.
 - Seuls les Des payant le cout sont defausses ; le surplus reste stocke.
 - Choix du paiement : parmi tous les paiements possibles, on retient d'abord ceux qui
@@ -37,6 +43,16 @@ from collections import Counter
 from .models import COULEURS, De, PV_DEPART
 
 MAX_CASCADE = 12
+
+
+def couleur_utile(perso, couleur):
+    """True si au moins une Capacite du Personnage a, dans son cout, un joker (None) ou
+    une case de cette couleur -- un De de cette couleur peut donc un jour lui servir.
+    Sinon, le stocker serait sans effet (cf. `Partie._appliquer_draft`)."""
+    return any(
+        couleur in capacite.get("cout", []) or None in capacite.get("cout", [])
+        for capacite in perso.template.capacites
+    )
 
 
 # ------------------------------------------------------------------- paiement
@@ -158,53 +174,62 @@ def _appliquer_effet(partie, perso, effet, mult):
             cible.bonus_attaque += valeur
         libelle = ", ".join(f"{c.template.nom} (Attaque {c.attaque})" for c in cibles)
         signe = "+" if valeur >= 0 else ""
-        partie.log(f"{nom} : {signe}{valeur} Attaque -> {libelle}")
+        partie.log(f"{signe}{valeur} Attaque -> {libelle}", "attaque", valeur=valeur,
+                   cibles=[c.template.nom for c in cibles])
 
     elif type_effet == "initiative":
         avant = partie.position_piste(perso)
         apres = partie.deplacer_piste(perso, valeur)
         if apres == avant:
-            partie.log(f"{nom} : deplacement d'initiative impossible (deja en position {avant + 1})")
+            partie.log(
+                f"deplacement d'initiative impossible ({nom} est deja en position {avant + 1})",
+                "initiative",
+            )
         else:
             partie.log(
-                f"{nom} : passe de la position {avant + 1} a la position {apres + 1} "
-                "de la piste d'initiative (effectif des le round suivant)"
+                f"{nom} passe de la position {avant + 1} a la position {apres + 1} de la "
+                "piste d'initiative (effectif des le round suivant)",
+                "initiative", de_position=avant + 1, a_position=apres + 1,
             )
 
     elif type_effet == "de_bonus":
         de = partie.retirer_du_pool_meilleure_couleur()
         if de is None:
-            partie.log(f"{nom} : aucun De disponible dans le pool")
+            partie.log(f"{nom} : aucun De disponible dans le pool", "de")
         else:
             perso.des_stockes.append(de)
-            partie.log(f"{nom} drafte un De bonus ({de.couleur}) depuis le pool")
+            partie.log(f"{nom} drafte un De bonus depuis le pool", "de",
+                       couleur=de.couleur, sens="gain")
 
     elif type_effet == "de_cree":
         couleur = effet.get("couleur") or COULEURS[0]
         de = De(couleur)
         perso.des_stockes.append(de)
-        partie.log(f"{nom} cree un De {couleur} et le stocke")
+        partie.log(f"{nom} cree un De et le stocke", "de", couleur=couleur, sens="gain")
 
     elif type_effet == "de_vole":
         victime = _cible_adverse_chargee(perso, partie)
         if victime is None:
-            partie.log(f"{nom} : aucun De stocke a voler chez l'adversaire")
+            partie.log(f"{nom} : aucun De stocke a voler chez l'adversaire", "de")
         else:
             de = victime.des_stockes.pop(0)
             perso.des_stockes.append(de)
-            partie.log(f"{nom} vole un De {de.couleur} a {victime.template.nom}")
+            partie.log(f"{nom} vole un De a {victime.template.nom}", "de",
+                       couleur=de.couleur, sens="vol", victime=victime.template.nom)
 
     elif type_effet == "de_defausse":
         victime = _cible_adverse_chargee(perso, partie)
         if victime is None:
-            partie.log(f"{nom} : aucun De stocke a defausser chez l'adversaire")
+            partie.log(f"{nom} : aucun De stocke a defausser chez l'adversaire", "de")
         else:
             de = victime.des_stockes.pop(0)
-            partie.log(f"{nom} defausse un De {de.couleur} de {victime.template.nom}")
+            partie.log(f"{nom} defausse un De de {victime.template.nom}", "de",
+                       couleur=de.couleur, sens="defausse", victime=victime.template.nom)
 
     elif type_effet == "relance_pool":
         nombre = partie.relancer_pool()
-        partie.log(f"{nom} relance les {nombre} De(s) restant(s) du pool")
+        libelle = "le De restant" if nombre == 1 else f"les {nombre} Des restants"
+        partie.log(f"{nom} relance {libelle} du pool", "de", sens="relance")
 
     else:
         partie.log(f"{nom} : effet inconnu '{type_effet}', ignore")
@@ -220,8 +245,14 @@ def _activer(partie, perso, capacite, paiement):
     couleurs = "+".join(d.couleur for d in paiement)
     suffixe = f" (x{mult})" if mult != 1 else ""
     partie.log(
-        f"CAPACITE {perso.template.nom} : {capacite.get('description', '')} "
-        f"[paye {couleurs}]{suffixe}"
+        f"{perso.template.nom} : {capacite.get('description', '')} "
+        f"[paye {couleurs}]{suffixe}",
+        "capacite",
+        personnage=perso.template.nom,
+        personnage_id=perso.template.id,
+        description=capacite.get("description", ""),
+        cout_paye=[d.couleur for d in paiement],
+        multiplicateur=mult,
     )
     for effet in capacite.get("effets", []):
         if partie.terminee:
@@ -229,22 +260,47 @@ def _activer(partie, perso, capacite, paiement):
         _appliquer_effet(partie, perso, effet, mult)
 
 
-def resoudre_activations(partie, perso):
-    """Active obligatoirement, en cascade, toutes les Capacites payables du Personnage.
+def activations_payables(perso, partie):
+    """Les Capacites actuellement payables du Personnage, sous forme de triplets
+    (indice, capacite, paiement retenu)."""
+    options = []
+    for indice, capacite in enumerate(perso.template.capacites):
+        paiement = trouver_paiement(perso, capacite, partie)
+        if paiement is not None:
+            options.append((indice, capacite, paiement))
+    return options
 
-    Appele apres chaque ajout de De sur ce Personnage. La cascade est bornee par
-    MAX_CASCADE pour se proteger d'une boucle (une Capacite qui se re-alimente elle
-    meme via `de_bonus` / `de_cree` / `de_vole`)."""
+
+def resoudre_activations(partie, perso, arbitre, choix_impose=None):
+    """Active obligatoirement, en cascade, les Capacites payables du Personnage.
+
+    Appele apres chaque ajout de De sur ce Personnage. Quand plusieurs Capacites sont
+    payables simultanement, `arbitre(perso, options)` tranche : il retourne l'indice a
+    activer, ou None pour suspendre la cascade (le proprietaire doit etre consulte).
+    `choix_impose` force l'indice active au premier tour, ce qui permet de reprendre une
+    cascade suspendue une fois la reponse connue.
+
+    La cascade est bornee par MAX_CASCADE pour se proteger d'une boucle (une Capacite
+    qui se re-alimente elle meme via `de_bonus` / `de_cree` / `de_vole`)."""
+    impose = choix_impose
     for _ in range(MAX_CASCADE):
         if partie.terminee:
             return
-        for capacite in perso.template.capacites:
-            paiement = trouver_paiement(perso, capacite, partie)
-            if paiement is not None:
-                _activer(partie, perso, capacite, paiement)
-                break
-        else:
+        options = activations_payables(perso, partie)
+        if not options:
             return
+        if impose is not None:
+            indice, impose = impose, None
+        elif len(options) == 1:
+            indice = options[0][0]
+        else:
+            indice = arbitre(perso, options)
+            if indice is None:
+                return  # cascade suspendue : en attente d'un choix du proprietaire
+        choisie = next((o for o in options if o[0] == indice), None)
+        if choisie is None:
+            return  # indice devenu invalide : rien a activer
+        _activer(partie, perso, choisie[1], choisie[2])
     partie.log(
         f"{perso.template.nom} : limite de {MAX_CASCADE} activations en cascade atteinte"
     )
@@ -253,7 +309,4 @@ def resoudre_activations(partie, perso):
 def capacites_activables(perso, partie):
     """Indices des Capacites du Personnage actuellement payables (pour l'IA et
     l'affichage)."""
-    return [
-        i for i, capacite in enumerate(perso.template.capacites)
-        if trouver_paiement(perso, capacite, partie) is not None
-    ]
+    return [indice for indice, _, _ in activations_payables(perso, partie)]

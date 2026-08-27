@@ -13,6 +13,7 @@
   --rouge: #d9463f;
   --bleu: #3f7bd9;
   --jaune: #d9ac2a;
+  --epee: #aab2c4;
   --joker: #6b7386;
 }
 
@@ -68,9 +69,11 @@ button:disabled { background: var(--bord); color: var(--texte-doux); cursor: not
 .de-rouge { background: var(--rouge); }
 .de-bleu  { background: var(--bleu); }
 .de-jaune { background: var(--jaune); }
+.de-epee  { background: var(--epee); font-size: 1rem; color: #14161c; }
 .de-joker { background: transparent; border: 2px dashed var(--joker); color: var(--joker); }
 
 .de-petit { width: 1.15rem; height: 1.15rem; border-radius: 4px; border-width: 1px; font-size: 0; }
+.de-petit.de-epee { font-size: 0.7rem; }
 
 .pool { display: flex; gap: 0.55rem; flex-wrap: wrap; }
 .pool .de.cliquable { cursor: pointer; }
@@ -80,6 +83,11 @@ button:disabled { background: var(--bord); color: var(--texte-doux); cursor: not
 .bloc-pool, .bloc-piste { margin: 1rem 0; }
 .consigne { margin: 0.6rem 0 0; color: var(--accent); min-height: 1.2rem; }
 .consigne.erreur { color: var(--ia); }
+
+/* Invite de choix quand plusieurs Capacites d'un Personnage sont payables en meme temps. */
+.consigne.choix { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; color: var(--jaune); }
+.consigne.choix button { padding: 0.45rem 0.8rem; font-size: 0.85rem; }
+.consigne.choix .erreur-choix { flex-basis: 100%; color: var(--ia); }
 
 /* ------------------------------------------------------- tableau de bord */
 
@@ -140,6 +148,9 @@ button:disabled { background: var(--bord); color: var(--texte-doux); cursor: not
 .carte-personnage.selectionnable:hover { border-color: var(--accent); }
 .carte-personnage.selectionnee { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
 .carte-personnage.declencheur { border-color: var(--jaune); }
+/* Personnage dont on attend un choix de Capacite : anneau plus marque que l'indice de
+   declenchement, pour que l'oeil aille directement a la carte concernee. */
+.carte-personnage.en-choix { border-color: var(--jaune); box-shadow: inset 0 0 0 1px var(--jaune); }
 .carte-personnage h5 { margin: 0; font-size: 1.05rem; }
 .carte-personnage .archetype { color: var(--texte-doux); font-size: 0.78rem; margin: 0.1rem 0 0.5rem; }
 
@@ -157,6 +168,7 @@ button:disabled { background: var(--bord); color: var(--texte-doux); cursor: not
 .capacite .cout { display: inline-flex; gap: 0.2rem; margin-right: 0.4rem; vertical-align: middle; }
 .capacite .meta { color: var(--texte-doux); font-size: 0.75rem; }
 .capacite.prete { color: var(--jaune); }
+.capacite.en-choix { color: var(--jaune); font-weight: 600; }
 
 .reserve { display: flex; align-items: center; gap: 0.3rem; margin: 0.45rem 0 0; min-height: 1.3rem; }
 .reserve .libelle { color: var(--texte-doux); font-size: 0.75rem; margin-right: 0.2rem; }
@@ -174,13 +186,13 @@ button:disabled { background: var(--bord); color: var(--texte-doux); cursor: not
 
 .actions-perso { display: flex; gap: 0.4rem; margin-top: 0.55rem; }
 .actions-perso button { padding: 0.35rem 0.6rem; font-size: 0.8rem; }
-.actions-perso button.secondaire { background: var(--fond-carte-clair); color: var(--texte); }
+button.secondaire { background: var(--fond-carte-clair); color: var(--texte); }
 
 /* --------------------------------------------------------- zone de jeu */
 
 .zone-jeu {
   display: grid;
-  grid-template-columns: minmax(240px, 1fr) minmax(240px, 1.1fr) minmax(240px, 1fr);
+  grid-template-columns: minmax(230px, 1fr) minmax(290px, 1.5fr) minmax(230px, 1fr);
   gap: 1rem;
   margin-top: 1rem;
   align-items: start;
@@ -189,16 +201,93 @@ button:disabled { background: var(--bord); color: var(--texte-doux); cursor: not
   background: #0e1015;
   border: 1px solid var(--bord);
   border-radius: 10px;
-  padding: 0.6rem 0.8rem;
-  max-height: 60vh;
+  padding: 0.5rem 0.7rem;
+  max-height: 68vh;
   overflow-y: auto;
   font-size: 0.82rem;
-  line-height: 1.45;
+  line-height: 1.4;
 }
-.journal p { margin: 0.15rem 0; color: var(--texte-doux); }
-.journal p.round { color: var(--accent); font-weight: 700; margin-top: 0.6rem; }
-.journal p.capacite-log { color: var(--jaune); }
-.journal p.pv { color: var(--texte); }
+
+/* Un bloc par round : en-tete rappelant le tirage, puis une entree par action. */
+.round-bloc { margin-bottom: 0.7rem; }
+.round-entete {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: sticky;
+  top: -0.5rem;
+  background: #0e1015;
+  padding: 0.35rem 0 0.3rem;
+  border-bottom: 1px solid var(--bord);
+  margin-bottom: 0.35rem;
+}
+.round-titre { color: var(--accent); font-weight: 700; letter-spacing: 0.04em; }
+.des-tires { display: flex; gap: 0.15rem; }
+
+/* Une action de draft : liseré coloré du joueur qui a joue. */
+.entree { margin: 0.25rem 0; }
+.entree.action {
+  border-left: 3px solid var(--bord);
+  background: rgba(255, 255, 255, 0.025);
+  border-radius: 0 6px 6px 0;
+  padding: 0.3rem 0.5rem 0.35rem;
+}
+.entree.action.humain { border-left-color: var(--humain); }
+.entree.action.ia { border-left-color: var(--ia); }
+
+.action-entete { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; }
+.action-entete .de-petit { width: 1.4rem; height: 1.4rem; border-radius: 5px; }
+.qui {
+  font-weight: 700;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+}
+.action.humain .qui { background: rgba(79, 209, 139, 0.16); color: var(--humain); }
+.action.ia .qui { background: rgba(255, 122, 107, 0.16); color: var(--ia); }
+.mini { color: var(--texte-doux); font-size: 0.72rem; }
+.fleche { color: var(--texte-doux); }
+.cible { font-weight: 600; }
+.badge-attaque { background: rgba(255, 122, 107, 0.16); color: var(--ia); }
+.badge-perdu { background: rgba(170, 178, 196, 0.16); color: var(--texte-doux); }
+
+/* Consequences imbriquees : une ligne par effet, avec une colonne d'icones alignee. */
+.consequences { list-style: none; margin: 0.3rem 0 0; padding: 0; }
+.consequences li { display: flex; gap: 0.4rem; margin: 0.12rem 0; color: var(--texte-doux); }
+.consequences .icone { flex: 0 0 1rem; text-align: center; opacity: 0.75; }
+.consequences .c-capacite { color: var(--jaune); }
+.consequences .c-pv { color: var(--texte); }
+.consequences .cout { vertical-align: baseline; }
+.delta { font-weight: 700; }
+.delta.perte { color: var(--ia); }
+.delta.gain { color: var(--humain); }
+
+.entree.evenement { display: flex; gap: 0.4rem; color: var(--texte-doux); padding-left: 0.2rem; }
+.entree.evenement .icone { flex: 0 0 1rem; text-align: center; opacity: 0.6; }
+.entree.evenement.preambule { font-size: 0.78rem; }
+.entree.evenement.fin-match { color: var(--accent); font-weight: 700; }
+
+/* De en vol : clone anime du pool vers le Personnage cible. */
+.de-en-vol {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
+}
+
+/* Carte dont une Capacite vient de se declencher. */
+@keyframes pulsation {
+  0% { box-shadow: 0 0 0 0 rgba(217, 172, 42, 0.55); border-color: var(--jaune); }
+  70% { box-shadow: 0 0 0 10px rgba(217, 172, 42, 0); border-color: var(--jaune); }
+  100% { box-shadow: 0 0 0 0 rgba(217, 172, 42, 0); }
+}
+.carte-personnage.pulse { animation: pulsation 0.9s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .carte-personnage.pulse { animation: none; }
+}
 
 .barre-action { display: flex; align-items: center; gap: 1rem; }
 

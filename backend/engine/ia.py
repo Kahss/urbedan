@@ -1,15 +1,16 @@
 """Heuristique de draft de l'IA (version Eredice).
 
 A son creneau, l'IA evalue toutes les actions possibles -- chaque De encore dans le pool
-x chacun de ses 3 Personnages x les deux usages possibles (stocker la ressource ou
-depenser le De pour l'attaque de base) -- et retient la meilleure selon une estimation
-simple, exprimee en "PV equivalents" :
+x chacun de ses 3 Personnages -- et retient la meilleure selon une estimation simple,
+exprimee en "PV equivalents" :
 
-- attaque de base : la valeur d'Attaque courante du Personnage (avec une prime enorme si
-  elle acheve l'adversaire) ;
-- stocker : si le De declenche immediatement une Capacite, la valeur estimee de cette
-  Capacite ; sinon, une fraction de la valeur de la Capacite dont il rapproche le
-  Personnage (0 si le De n'avance aucune Capacite).
+- une epee ne peut que declencher l'attaque de base (valeur d'Attaque courante du
+  Personnage, avec une prime enorme si elle acheve l'adversaire) ;
+- un De couleur ne peut que servir de ressource (stocker : si le De declenche
+  immediatement une Capacite, la valeur estimee de cette Capacite -- la mieux valorisee
+  si le De en rend plusieurs payables, puisque c'est celle que l'IA activera ; sinon, une
+  fraction de la valeur de la Capacite dont il rapproche le Personnage ; si aucune
+  Capacite du Personnage n'utilise cette couleur, le De serait perdu, valeur nulle).
 
 L'estimation ne regarde qu'un coup a l'avance (pas de simulation des cascades ni de la
 reponse adverse) : suffisant pour un POC et pour faire tourner les simulations
@@ -19,8 +20,8 @@ totalement previsible.
 import random
 from collections import Counter
 
-from .capacites import trouver_paiement
-from .models import PV_DEPART, De
+from .capacites import activations_payables
+from .models import FACE_EPEE, PV_DEPART, De
 
 # Valeur d'un point d'effet, exprimee en PV equivalents.
 POIDS_EFFETS = {
@@ -133,14 +134,17 @@ def _valeur_stock(perso, couleur, partie):
     temoin = De(couleur)
     perso.des_stockes.append(temoin)
     try:
-        for capacite in perso.template.capacites:
-            if trouver_paiement(perso, capacite, partie) is not None:
-                # Declenchement immediat : le cout est paye et la condition verifiee.
-                return _valeur_capacite(
-                    capacite, perso, partie, len(capacite.get("cout", []))
-                )
+        options = activations_payables(perso, partie)
     finally:
         perso.des_stockes.remove(temoin)
+    if options:
+        # Declenchement immediat : le cout est paye et la condition verifiee. Si le De
+        # rend plusieurs Capacites payables, c'est la mieux valorisee qui sera activee
+        # (cf. `arbitrer_capacite`) : c'est donc elle qu'il faut estimer ici.
+        return max(
+            _valeur_capacite(capacite, perso, partie, len(paiement))
+            for _, capacite, paiement in options
+        )
 
     # Aucun declenchement : on valorise la progression vers la Capacite la plus proche.
     # Valeur marginale d'un De = valeur de la Capacite / nombre de Des encore manquants
@@ -159,6 +163,19 @@ def _valeur_stock(perso, couleur, partie):
     return meilleure
 
 
+def arbitrer_capacite(perso, options, partie):
+    """Indice de la Capacite que l'IA active quand plusieurs sont payables en meme temps.
+
+    Le paiement retenu est deja connu et la condition deja verifiee : l'estimation est
+    donc exacte sur le multiplicateur et n'a pas a etre decotee. Egalites au hasard."""
+    scores = [
+        (_valeur_capacite(capacite, perso, partie, len(paiement)), indice)
+        for indice, capacite, paiement in options
+    ]
+    meilleur = max(score for score, _ in scores)
+    return random.choice([i for score, i in scores if score >= meilleur - 1e-9])
+
+
 def choisir_action(partie, joueur):
     """Retourne (De, PersonnageEnJeu, usage) pour le creneau courant de `joueur`."""
     adversaire = partie.adversaire(joueur)
@@ -166,12 +183,15 @@ def choisir_action(partie, joueur):
 
     for de in partie.pool:
         for perso in joueur.equipe:
-            if not perso.a_attaque:
+            if de.couleur == FACE_EPEE:
                 score = float(perso.attaque)
                 if perso.attaque >= adversaire.pv:
                     score += 1000.0  # coup de grace
                 actions.append((score, de, perso, "attaque"))
-            actions.append((_valeur_stock(perso, de.couleur, partie), de, perso, "stock"))
+            else:
+                actions.append(
+                    (_valeur_stock(perso, de.couleur, partie), de, perso, "stock")
+                )
 
     meilleur = max(score for score, _, _, _ in actions)
     candidats = [a for a in actions if a[0] >= meilleur - 1e-9]

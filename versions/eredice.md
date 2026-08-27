@@ -18,10 +18,11 @@
     - En suivant la piste d'initiative, les joueurs draftent les dés un à un
     - Lorsqu'un dé est drafté, il est de suite assigné à un personnage de son équipe
     - Si le fait d'ajouter ce dé sur le personnage permet de remplir une condition d'activation d'une capacité, le joueur doit activer la capacité concernée
-    - Un dé peut aussi être utilisé pour déclencher l'attaque de base d'un personnage. Auquel cas, sa valeur d'Attaque est infligée en tant que dégâts à l'adversaire. Il n'y a pas de contrainte sur le type de dés utilisé pour une attaque. Une seule attaque est autorisée par round et par personnage
+    - Une face épée déclenche l'attaque de base d'un personnage : sa valeur d'Attaque est infligée en tant que dégâts à l'adversaire. Les épées ne servent qu'à ça et ne peuvent pas être stockées sur une carte. Il n'y a pas de limite au nombre d'attaques par round et par personnage (autant que d'épées qui lui sont assignées)
+    - Les faces couleur (rouge/bleu/jaune) ne peuvent plus déclencher d'attaque : elles servent uniquement à être stockées, pour payer le coût des capacités. Si aucune des capacités du personnage choisi n'a de case de cette couleur (ni de case joker), le dé est perdu au lieu d'être stocké
     - Les ressources allouées à la capacité activée sont remises à zéro après son activation
     - Une fois que 6 dés ont été draftés (un par personnage dans la piste d'initiative), une nouvelle manche commence
   - Les joueurs ont 20 PV
 - Dés pouvoirs
   - Les 7 dés sont identiques et possèdent les faces suivantes :
-  - rouge, rouge, bleu, bleu, jaune, jaune
+  - rouge, rouge, bleu, jaune, épée, épée

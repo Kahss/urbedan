@@ -52,7 +52,36 @@ def api_draft():
         return jsonify({"erreur": "Aucune partie en cours"}), 404
     body = request.get_json(force=True) or {}
     try:
-        etat = partie.drafter(body.get("de_id"), body.get("personnage_id"), body.get("usage"))
+        etat = partie.drafter(
+            body.get("de_id"), body.get("personnage_id"), body.get("usage"),
+        )
+    except ErreurPartie as e:
+        return jsonify({"erreur": str(e)}), 400
+    return jsonify(etat)
+
+
+@app.post("/api/partie/choix")
+def api_choix_capacite():
+    """Tranche le choix du joueur quand plusieurs Capacites d'un meme Personnage sont
+    payables en meme temps : la cascade d'activations reprend ensuite son cours."""
+    if partie is None:
+        return jsonify({"erreur": "Aucune partie en cours"}), 404
+    body = request.get_json(force=True) or {}
+    try:
+        etat = partie.choisir_capacite(body.get("indice"))
+    except ErreurPartie as e:
+        return jsonify({"erreur": str(e)}), 400
+    return jsonify(etat)
+
+
+@app.post("/api/partie/ia")
+def api_creneau_ia():
+    """Resout un seul creneau de l'IA. Le frontend appelle cette route en boucle tant que
+    `joueur_courant` vaut "ia", ce qui lui permet d'animer chaque choix separement."""
+    if partie is None:
+        return jsonify({"erreur": "Aucune partie en cours"}), 404
+    try:
+        etat = partie.jouer_creneau_ia()
     except ErreurPartie as e:
         return jsonify({"erreur": str(e)}), 400
     return jsonify(etat)
