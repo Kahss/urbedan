@@ -138,6 +138,19 @@ function toggleSelection(id) {
   renderGrilleSelection();
 }
 
+function selectionnerEquipeAleatoire() {
+  const idsMelanges = combattantsDisponibles.map((c) => c.id);
+  for (let i = idsMelanges.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [idsMelanges[i], idsMelanges[j]] = [idsMelanges[j], idsMelanges[i]];
+  }
+  equipeSelectionnee.clear();
+  idsMelanges.slice(0, 4).forEach((id) => equipeSelectionnee.add(id));
+  renderGrilleSelection();
+}
+
+document.getElementById("btn-selection-aleatoire").addEventListener("click", selectionnerEquipeAleatoire);
+
 document.getElementById("btn-lancer-partie").addEventListener("click", async () => {
   const etat = await api("/partie", {
     method: "POST",

@@ -376,13 +376,13 @@ button:disabled {
   margin-top: 16px;
 }
 
-.actions-pioche button.secondaire {
+button.secondaire {
   background: transparent;
   border: 2px solid var(--border);
   color: var(--text);
 }
 
-.actions-pioche button.secondaire:hover:not(:disabled) {
+button.secondaire:hover:not(:disabled) {
   border-color: var(--accent-2);
   background: transparent;
 }
