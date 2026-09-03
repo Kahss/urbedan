@@ -1,10 +1,9 @@
 """Orchestration d'une Partie d'Urban Eredan : mise en place, tour de jeu, IA."""
 import json
 import random
-from collections import Counter
 
-from .ia import choisir_combattant_et_glyphe
-from .models import GLYPH_DISTRIBUTION, CombattantEnEquipe, CombattantTemplate, Joueur, construire_deck_glyphes
+from .ia import choisir_combattant, decider_piocher_ou_arreter
+from .models import CombattantEnEquipe, CombattantTemplate, Joueur, construire_deck_cartes_puissance
 from .powers import resoudre_duel
 
 NB_DUELS_MAX = 4
@@ -40,15 +39,19 @@ class Partie:
         self.joueur_humain.pv = PV_DEPART
         self.joueur_ia.pv = PV_DEPART
 
-        self.deck_glyphes = construire_deck_glyphes()
-
         self.duel_numero = 1
         self.j1 = None
         self.j2 = None
         self.combattant_j1 = None
         self.combattant_j2 = None
-        self.glyphe_j1 = None
-        self.glyphe_j2 = None
+        self.deck_cartes = []
+        self.cartes_j1 = []
+        self.cartes_j2 = []
+        self.arrete_j1 = False
+        self.arrete_j2 = False
+        self.force_j1 = False
+        self.force_j2 = False
+        self.tour_pioche = None
         self.phase = "choix_combattant"
         self.dernier_resultat = None
         self.historique = []
@@ -57,53 +60,102 @@ class Partie:
 
         self.j1 = random.choice([self.joueur_humain, self.joueur_ia])
         self.j2 = self.joueur_ia if self.j1 is self.joueur_humain else self.joueur_humain
-        self._distribuer_main_initiale()
-        self._piocher_glyphes_manche()
         self._auto_choix_ia_si_necessaire()
 
     # ------------------------------------------------------------------ IA
     def _auto_choix_ia_si_necessaire(self):
         if self.j1.est_ia and self.combattant_j1 is None:
-            self._choix_ia(self.j1, "j1", "combattant_j1", "glyphe_j1")
+            self._choix_ia(self.j1, "j1", "combattant_j1")
         if self.j2.est_ia and self.combattant_j2 is None and self.combattant_j1 is not None:
-            self._choix_ia(self.j2, "j2", "combattant_j2", "glyphe_j2")
+            self._choix_ia(self.j2, "j2", "combattant_j2")
 
-    def _choix_ia(self, joueur, role, attr_combattant, attr_glyphe):
-        """L'IA choisit, via une heuristique simple (cf. ia.py), le Combattant et le
-        Glyphe de sa main qui maximisent la Puissance totale estimee pour ce duel."""
+    def _choix_ia(self, joueur, role, attr_combattant):
+        """L'IA choisit, via une heuristique simple (cf. ia.py), le Combattant qui
+        maximise la Puissance totale estimee pour ce duel."""
         adversaire = self.joueur_ia if joueur is self.joueur_humain else self.joueur_humain
-        instance, glyphe = choisir_combattant_et_glyphe(
-            joueur, role, self.duel_numero, NB_DUELS_MAX, joueur.pv, adversaire.pv
-        )
-        joueur.main_glyphes.remove(glyphe)
+        instance = choisir_combattant(joueur, role, self.duel_numero, NB_DUELS_MAX, joueur.pv, adversaire.pv)
         setattr(self, attr_combattant, instance)
-        setattr(self, attr_glyphe, glyphe)
+
+    def _auto_pioche_ia_si_necessaire(self):
+        """Fait jouer automatiquement l'IA tant que c'est son tour de decider de
+        piocher ou de s'arreter (meme pattern que le choix de Combattant)."""
+        while self.phase == "pioche" and not (self.arrete_j1 and self.arrete_j2):
+            joueur_du_tour = self.j1 if self.tour_pioche == "j1" else self.j2
+            if not joueur_du_tour.est_ia:
+                return
+            action = decider_piocher_ou_arreter(
+                self._cartes(self.tour_pioche), self._malus(self.tour_pioche), list(self.deck_cartes)
+            )
+            self._appliquer_decision_pioche(self.tour_pioche, action)
 
     # ---------------------------------------------------------------- pioche
-    def _distribuer_main_initiale(self):
-        """A la mise en place de la partie, chaque joueur recoit un premier Glyphe en
-        main (avant meme la pioche de la premiere manche)."""
-        self.joueur_humain.main_glyphes.append(self.deck_glyphes.pop())
-        self.joueur_ia.main_glyphes.append(self.deck_glyphes.pop())
+    def _cartes(self, slot):
+        return self.cartes_j1 if slot == "j1" else self.cartes_j2
 
-    def _piocher_glyphes_manche(self):
-        """Au debut de chaque manche, chaque joueur pioche un Glyphe supplementaire
-        dans le deck commun, qui s'ajoute a celui deja en main (non joue lors de la
-        manche precedente) : il choisira lequel des deux jouer sur son Combattant."""
-        self.joueur_humain.main_glyphes.append(self.deck_glyphes.pop())
-        self.joueur_ia.main_glyphes.append(self.deck_glyphes.pop())
+    def _malus(self, slot):
+        return sum(c.malus for c in self._cartes(slot))
+
+    def _est_arrete(self, slot):
+        return self.arrete_j1 if slot == "j1" else self.arrete_j2
+
+    def _demarrer_pioche(self):
+        self.deck_cartes = construire_deck_cartes_puissance()
+        self.cartes_j1 = []
+        self.cartes_j2 = []
+        self.arrete_j1 = False
+        self.arrete_j2 = False
+        self.force_j1 = False
+        self.force_j2 = False
+        self.tour_pioche = "j1"
+        self.phase = "pioche"
+        self._auto_pioche_ia_si_necessaire()
+
+    def _appliquer_decision_pioche(self, slot, action):
+        if action == "piocher":
+            if not self.deck_cartes:
+                raise ErreurPartie("Le tas de Cartes Puissance est epuise")
+            carte = self.deck_cartes.pop()
+            self._cartes(slot).append(carte)
+            if self._malus(slot) >= 3:
+                self._forcer_arret(slot)
+        elif action == "arreter":
+            self._marquer_arrete(slot)
+        else:
+            raise ErreurPartie("Action de pioche inconnue")
+
+        if self.arrete_j1 and self.arrete_j2:
+            self._resoudre_duel_courant()
+            return
+
+        autre = "j2" if slot == "j1" else "j1"
+        if not self._est_arrete(autre):
+            self.tour_pioche = autre
+        # sinon le joueur qui vient de jouer garde la main (l'autre a deja fini)
+
+    def _marquer_arrete(self, slot):
+        if slot == "j1":
+            self.arrete_j1 = True
+        else:
+            self.arrete_j2 = True
+
+    def _forcer_arret(self, slot):
+        self._marquer_arrete(slot)
+        if slot == "j1":
+            self.force_j1 = True
+        else:
+            self.force_j2 = True
 
     # ------------------------------------------------------------ actions
-    def soumettre_combattant(self, combattant_id, glyphe_id):
+    def soumettre_combattant(self, combattant_id):
         if self.phase != "choix_combattant":
             raise ErreurPartie("Ce n'est pas la phase de choix du Combattant")
 
         if self.j1 is self.joueur_humain:
-            cible_joueur, attr_combattant, attr_glyphe = self.j1, "combattant_j1", "glyphe_j1"
+            cible_joueur, attr_combattant = self.j1, "combattant_j1"
         else:
             if self.combattant_j1 is None:
                 raise ErreurPartie("En attente du choix de Combattant de l'IA")
-            cible_joueur, attr_combattant, attr_glyphe = self.j2, "combattant_j2", "glyphe_j2"
+            cible_joueur, attr_combattant = self.j2, "combattant_j2"
 
         if getattr(self, attr_combattant) is not None:
             raise ErreurPartie("Le Combattant humain a deja ete choisi pour ce duel")
@@ -112,39 +164,58 @@ class Partie:
         if instance is None:
             raise ErreurPartie("Combattant indisponible")
 
-        glyphe = next((g for g in cible_joueur.main_glyphes if g.id == glyphe_id), None)
-        if glyphe is None:
-            raise ErreurPartie("Glyphe indisponible dans la main du joueur")
-
-        cible_joueur.main_glyphes.remove(glyphe)
         setattr(self, attr_combattant, instance)
-        setattr(self, attr_glyphe, glyphe)
 
         self._auto_choix_ia_si_necessaire()
         if self.combattant_j1 is not None and self.combattant_j2 is not None:
-            self._resoudre_duel_courant()
+            self._demarrer_pioche()
+        return self.etat_dict()
+
+    def decider_pioche(self, action):
+        if self.phase != "pioche":
+            raise ErreurPartie("Ce n'est pas la phase de pioche")
+
+        slot_humain = "j1" if self.j1 is self.joueur_humain else "j2"
+        if self._est_arrete(slot_humain):
+            raise ErreurPartie("Le joueur humain a deja arrete de piocher pour ce duel")
+        if self.tour_pioche != slot_humain:
+            raise ErreurPartie("Ce n'est pas le tour du joueur humain")
+
+        self._appliquer_decision_pioche(slot_humain, action)
+        self._auto_pioche_ia_si_necessaire()
         return self.etat_dict()
 
     def _resoudre_duel_courant(self):
         joueur_humain_est_j1 = self.j1 is self.joueur_humain
-        glyphe_j1 = self.glyphe_j1
-        glyphe_j2 = self.glyphe_j2
+        cartes_j1 = self.cartes_j1
+        cartes_j2 = self.cartes_j2
 
         resultat = resoudre_duel(
-            self.j1, self.combattant_j1, glyphe_j1,
-            self.j2, self.combattant_j2, glyphe_j2,
+            self.j1, self.combattant_j1, cartes_j1,
+            self.j2, self.combattant_j2, cartes_j2,
             self.duel_numero, NB_DUELS_MAX,
         )
         self.combattant_j1.utilise = True
         self.combattant_j2.utilise = True
         resultat["duel_numero"] = self.duel_numero
-        resultat["combattant_j1"] = {"nom": self.combattant_j1.template.nom, "glyphe": glyphe_j1.notation_txt(), "puissance_glyphe": glyphe_j1.puissance, "energie": glyphe_j1.energie, "role": "humain" if joueur_humain_est_j1 else "ia"}
-        resultat["combattant_j2"] = {"nom": self.combattant_j2.template.nom, "glyphe": glyphe_j2.notation_txt(), "puissance_glyphe": glyphe_j2.puissance, "energie": glyphe_j2.energie, "role": "ia" if joueur_humain_est_j1 else "humain"}
+        resultat["combattant_j1"] = self._info_combattant_resultat(cartes_j1, joueur_humain_est_j1)
+        resultat["combattant_j2"] = self._info_combattant_resultat(cartes_j2, not joueur_humain_est_j1)
         self.dernier_resultat = resultat
         self.historique.append(resultat)
         self.phase = "duel_resolu"
 
         self._verifier_fin_partie(fin_de_manche=(self.duel_numero >= NB_DUELS_MAX))
+
+    def _info_combattant_resultat(self, cartes, est_humain):
+        malus_total = sum(c.malus for c in cartes)
+        busted = malus_total >= 3
+        return {
+            "role": "humain" if est_humain else "ia",
+            "cartes": [c.to_dict() for c in cartes],
+            "puissance_cartes": 0 if busted else sum(c.puissance for c in cartes),
+            "malus_total": malus_total,
+            "busted": busted,
+        }
 
     def duel_suivant(self):
         if self.phase != "duel_resolu":
@@ -164,11 +235,16 @@ class Partie:
         self.duel_numero += 1
         self.combattant_j1 = None
         self.combattant_j2 = None
-        self.glyphe_j1 = None
-        self.glyphe_j2 = None
+        self.deck_cartes = []
+        self.cartes_j1 = []
+        self.cartes_j2 = []
+        self.arrete_j1 = False
+        self.arrete_j2 = False
+        self.force_j1 = False
+        self.force_j2 = False
+        self.tour_pioche = None
         self.dernier_resultat = None
         self.phase = "choix_combattant"
-        self._piocher_glyphes_manche()
         self._auto_choix_ia_si_necessaire()
         return self.etat_dict()
 
@@ -192,30 +268,25 @@ class Partie:
             else:
                 self.vainqueur = None
 
-    # --------------------------------------------------------- comptage Glyphes
-    def glyphes_restants(self):
-        """Pour chacun des 4 types de Glyphe, combien d'exemplaires restent
-        potentiellement disponibles (sur le total de depart), etant donne ceux deja
-        joues (reveles en resolution de duel). Les Glyphes actuellement en main (y
-        compris la main cachee de l'IA) comptent donc comme "restants", puisque leur
-        type n'est pas encore connu de l'autre joueur avant d'etre joue."""
-        joues = Counter()
-        for resultat in self.historique:
-            for cle in ("combattant_j1", "combattant_j2"):
-                info = resultat[cle]
-                joues[(info["puissance_glyphe"], info["energie"])] += 1
-        return [
-            {
-                "puissance": puissance,
-                "energie": energie,
-                "total": total,
-                "joues": joues.get((puissance, energie), 0),
-                "restants": total - joues.get((puissance, energie), 0),
+    # ---------------------------------------------------------------- etat
+    def _info_pioche(self, slot):
+        """Info de pioche exposee pour un slot (j1/j2) : detail complet pour le
+        joueur humain, seulement le nombre de cartes et l'arret pour l'IA (les
+        cartes de l'adversaire restent cachees jusqu'a la resolution du duel)."""
+        est_humain = (self.j1 if slot == "j1" else self.j2) is self.joueur_humain
+        cartes = self._cartes(slot)
+        arrete = self._est_arrete(slot)
+        if est_humain:
+            malus_total = sum(c.malus for c in cartes)
+            return {
+                "cartes": [c.to_dict() for c in cartes],
+                "puissance_cartes": 0 if malus_total >= 3 else sum(c.puissance for c in cartes),
+                "malus_total": malus_total,
+                "nb_cartes": len(cartes),
+                "arrete": arrete,
             }
-            for puissance, energie, total in GLYPH_DISTRIBUTION
-        ]
+        return {"nb_cartes": len(cartes), "arrete": arrete}
 
-    # --------------------------------------------------------------- etat
     def etat_dict(self):
         return {
             "phase": self.phase,
@@ -223,11 +294,16 @@ class Partie:
             "duels_max": NB_DUELS_MAX,
             "j1": "humain" if self.j1 is self.joueur_humain else "ia",
             "joueur_humain": self.joueur_humain.to_dict(),
-            "joueur_ia": self.joueur_ia.to_dict(cacher_main=True),
+            "joueur_ia": self.joueur_ia.to_dict(),
             "combattant_j1": self.combattant_j1.template.id if self.combattant_j1 else None,
             "combattant_j2": self.combattant_j2.template.id if self.combattant_j2 else None,
+            "pioche": {
+                "tour": self.tour_pioche,
+                "cartes_restantes_deck": len(self.deck_cartes),
+                "j1": self._info_pioche("j1"),
+                "j2": self._info_pioche("j2"),
+            },
             "dernier_resultat": self.dernier_resultat,
-            "glyphes_restants": self.glyphes_restants(),
             "terminee": self.terminee,
             "vainqueur": self.vainqueur,
         }

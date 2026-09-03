@@ -17,5 +17,5 @@ Vengeance,Condition,Si l'adversaire a plus de vie
 Domination,Condition,Si l'adversaire a moins de vie
 Patience,Modificateur,Applique l'effet autant de fois que le tour actuel
 Impatience,Modificateur,"Applique l'effet autant de fois que le nombre de tour qu'il reste à jouer, celui-ci compris"
-Par énergie,Modificateur,Multiplié par l'énergie jouée
+Par carte piochée,Modificateur,Multiplié par le nombre de Cartes Puissance piochées (plafonné)
 Contrecoup,Modificateur,Appliqué à soi-même en cas de victoire

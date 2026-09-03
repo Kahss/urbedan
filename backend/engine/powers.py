@@ -1,32 +1,30 @@
 """Moteur generique de resolution des Pouvoirs, pilote par les mots-cles de pouvoirs.csv.
 
 Hypotheses de resolution retenues pour ce POC (voir README.md) :
-- Chaque Combattant ne possede plus qu'un seul Pouvoir. Ce Pouvoir peut definir un cout
-  minimum en Energie (`energie_min`, note "X+") : il ne s'active que si l'Energie du
-  Glyphe joue est superieure ou egale a ce seuil (`energie_min` absent ou 0 = Pouvoir
-  toujours actif, quelle que soit l'Energie jouee, y compris 0). Le modificateur
-  `par_energie` permet en plus de multiplier la valeur de l'effet par l'Energie
-  effectivement jouee par le Combattant (ex : "+1 Puissance / Energie"). `par_energie_adverse`
-  multiplie par l'Energie jouee par l'adversaire, et `par_energie_en_jeu` par la somme des
-  deux Energies jouees (soi + adversaire) ce duel-ci.
+- Chaque Combattant ne possede plus qu'un seul Pouvoir, et il est desormais toujours
+  actif (version "stop ou encore" : il n'y a plus d'Energie determinant son
+  activation). Le modificateur `par_carte` multiplie la valeur de l'effet par le
+  nombre de Cartes Puissance piochees par le Combattant lui-meme ce duel-ci (plafonne
+  par `plafond_cartes`, defaut 3). `par_carte_adverse` multiplie par le nombre de
+  cartes piochees par l'adversaire, et `par_carte_en_jeu` par la somme des deux
+  (soi + adversaire), avec le meme plafond.
 - Un duel se resout en 2 passes : Pass 1 (pouvoir "immediat"), puis determination du
   vainqueur, puis Pass 2 (pouvoir conditionne par Victoire / Defaite / Surpuissance, ou
   modificateur Contrecoup).
 - Au sein de chaque passe, le Combattant J1 resout son Pouvoir actif avant que le
   Combattant J2 ne resolve le sien.
 - Stop pouvoir et Copie pouvoir sont generiques : ils visent toujours l'unique Pouvoir
-  de l'adversaire, s'il est actif (Energie jouee >= son seuil). Stop pouvoir agit
-  retroactivement si ce pouvoir a deja ete resolu (cas ou le defenseur J2 vise le
-  pouvoir de J1, deja joue), ou preventivement sinon (cas ou J1 vise le pouvoir de J2
-  qui n'a pas encore joue).
+  de l'adversaire (toujours actif). Stop pouvoir agit retroactivement si ce pouvoir a
+  deja ete resolu (cas ou le defenseur J2 vise le pouvoir de J1, deja joue), ou
+  preventivement sinon (cas ou J1 vise le pouvoir de J2 qui n'a pas encore joue).
 - Protection annule toutes les modifications deja subies de la part de l'adversaire et
   bloque toute nouvelle modification adverse (puissance/degats/vie/stop/copie) pour le
   reste de la resolution du duel.
 - Patience/Impatience se basent sur le numero du duel courant dans la partie (1 a 4),
-  independamment de l'Energie jouee.
-- Le detail du calcul de la Puissance/des Degats de chaque Combattant (base, Glyphe,
-  contribution du Pouvoir) est trace et restitue (`detail_puissance`, `detail_degats`,
-  `puissance_txt`, `degats_txt`) pour affichage transparent.
+  independamment des cartes piochees.
+- Le detail du calcul de la Puissance/des Degats de chaque Combattant (base, cartes
+  piochees, contribution du Pouvoir) est trace et restitue (`detail_puissance`,
+  `detail_degats`, `puissance_txt`, `degats_txt`) pour affichage transparent.
 """
 
 
@@ -41,18 +39,25 @@ def _formater_detail(total, detail):
     return f"{total} = " + " ".join(morceaux)
 
 
+PLAFOND_CARTES_PAR_DEFAUT = 3
+
+
 class DuelCombattant:
-    def __init__(self, joueur, instance, glyphe, role, duel_numero, duels_max):
+    def __init__(self, joueur, instance, cartes, role, duel_numero, duels_max):
         self.joueur = joueur
         self.instance = instance
         self.template = instance.template
-        self.glyphe = glyphe
+        self.cartes = cartes
+        self.nb_cartes = len(cartes)
+        self.malus_total = sum(c.malus for c in cartes)
+        busted = self.malus_total >= 3
+        puissance_cartes = 0 if busted else sum(c.puissance for c in cartes)
         self.role = role  # "J1" ou "J2"
         self.duel_numero = duel_numero
         self.duels_max = duels_max
-        self.puissance = self.template.puissance + glyphe.puissance
+        self.puissance = self.template.puissance + puissance_cartes
         self.degats = self.template.degats
-        self.detail_puissance = [("base", self.template.puissance), ("glyphe", glyphe.puissance)]
+        self.detail_puissance = [("base", self.template.puissance), ("cartes piochees", puissance_cartes)]
         self.detail_degats = [("base", self.template.degats)]
         self.stoppe = False
         self.protege = False
@@ -60,24 +65,19 @@ class DuelCombattant:
         self.adversaire = None
 
     def pouvoir_actif(self):
-        """Retourne le Pouvoir du Combattant s'il est active par l'Energie du Glyphe
-        joue (>= energie_min du Pouvoir), sinon None."""
-        pouvoir = self.template.pouvoir
-        if pouvoir is None:
-            return None
-        if self.glyphe.energie < pouvoir.get("energie_min", 0):
-            return None
-        return pouvoir
+        """Retourne le Pouvoir du Combattant : toujours actif dans cette version."""
+        return self.template.pouvoir
 
 
 def _valeur_effective(valeur, pouvoir, source):
     mod = pouvoir.get("modificateur")
-    if mod == "par_energie":
-        return valeur * source.glyphe.energie
-    if mod == "par_energie_adverse":
-        return valeur * source.adversaire.glyphe.energie
-    if mod == "par_energie_en_jeu":
-        return valeur * (source.glyphe.energie + source.adversaire.glyphe.energie)
+    plafond = pouvoir.get("plafond_cartes", PLAFOND_CARTES_PAR_DEFAUT)
+    if mod == "par_carte":
+        return valeur * min(source.nb_cartes, plafond)
+    if mod == "par_carte_adverse":
+        return valeur * min(source.adversaire.nb_cartes, plafond)
+    if mod == "par_carte_en_jeu":
+        return valeur * min(source.nb_cartes + source.adversaire.nb_cartes, plafond)
     if mod == "patience":
         return valeur * source.duel_numero
     if mod == "impatience":
@@ -319,8 +319,8 @@ class MoteurDuel:
             )
 
     def _resoudre_pouvoir(self, source, differe):
-        """Resout l'unique Pouvoir de `source`, s'il est actif (Energie jouee >= son
-        seuil) et si sa nature (immediat/differe) correspond a la passe en cours."""
+        """Resout l'unique Pouvoir de `source` (toujours actif) si sa nature
+        (immediat/differe) correspond a la passe en cours."""
         pouvoir = source.pouvoir_actif()
         if pouvoir is None:
             return
@@ -338,6 +338,13 @@ class MoteurDuel:
             self._resoudre_effet(source, pouvoir, effet)
 
     def resoudre(self):
+        for combattant in (self.dc1, self.dc2):
+            if combattant.malus_total >= 3:
+                self.log.append(
+                    f"{combattant.template.nom} : Malus total {combattant.malus_total} >= 3, "
+                    "puissance des cartes piochees annulee (puissance de base conservee)"
+                )
+
         # Pass 1 : pouvoir immediat, J1 puis J2 (chacun n'a qu'un seul Pouvoir)
         for combattant in (self.dc1, self.dc2):
             self._resoudre_pouvoir(combattant, differe=False)
@@ -392,8 +399,8 @@ class MoteurDuel:
         }
 
 
-def resoudre_duel(joueur_j1, combattant_j1, glyphe_j1, joueur_j2, combattant_j2, glyphe_j2, duel_numero, duels_max=4):
-    dc1 = DuelCombattant(joueur_j1, combattant_j1, glyphe_j1, "J1", duel_numero, duels_max)
-    dc2 = DuelCombattant(joueur_j2, combattant_j2, glyphe_j2, "J2", duel_numero, duels_max)
+def resoudre_duel(joueur_j1, combattant_j1, cartes_j1, joueur_j2, combattant_j2, cartes_j2, duel_numero, duels_max=4):
+    dc1 = DuelCombattant(joueur_j1, combattant_j1, cartes_j1, "J1", duel_numero, duels_max)
+    dc2 = DuelCombattant(joueur_j2, combattant_j2, cartes_j2, "J2", duel_numero, duels_max)
     moteur = MoteurDuel(dc1, dc2)
     return moteur.resoudre()

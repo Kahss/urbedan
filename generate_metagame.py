@@ -19,24 +19,37 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(BASE_DIR, "backend"))
 
 from engine.game import NB_DUELS_MAX, Partie, charger_combattants  # noqa: E402
-from engine.ia import choisir_combattant_et_glyphe  # noqa: E402
+from engine.ia import choisir_combattant, decider_piocher_ou_arreter  # noqa: E402
 
 DATA_PATH = os.path.join(BASE_DIR, "data", "combattants.json")
 
 
 def jouer_choix_humain(partie):
-    """Fait choisir au joueur 'humain' de la partie son Combattant et son Glyphe pour
-    le duel en cours, via la meme heuristique que l'IA (cf. engine/ia.py), de maniere a
-    simuler un affrontement IA contre IA."""
+    """Fait choisir au joueur 'humain' de la partie son Combattant pour le duel en
+    cours, via la meme heuristique que l'IA (cf. engine/ia.py), de maniere a simuler
+    un affrontement IA contre IA."""
     role = "j1" if partie.j1 is partie.joueur_humain else "j2"
     if getattr(partie, "combattant_" + role) is not None:
         return
     adversaire = partie.joueur_ia
-    instance, glyphe = choisir_combattant_et_glyphe(
+    instance = choisir_combattant(
         partie.joueur_humain, role, partie.duel_numero, NB_DUELS_MAX,
         partie.joueur_humain.pv, adversaire.pv,
     )
-    partie.soumettre_combattant(instance.template.id, glyphe.id)
+    partie.soumettre_combattant(instance.template.id)
+
+
+def jouer_pioche_humain(partie):
+    """Fait decider au joueur 'humain' de la partie, quand c'est son tour, de piocher
+    ou de s'arreter pendant la phase 'stop ou encore', via la meme heuristique que
+    l'IA (cf. engine/ia.py)."""
+    role = "j1" if partie.j1 is partie.joueur_humain else "j2"
+    if partie.tour_pioche != role or partie._est_arrete(role):
+        return
+    action = decider_piocher_ou_arreter(
+        partie._cartes(role), partie._malus(role), list(partie.deck_cartes)
+    )
+    partie.decider_pioche(action)
 
 
 def jouer_partie(templates, tous_les_ids):
@@ -49,6 +62,8 @@ def jouer_partie(templates, tous_les_ids):
     while not partie.terminee:
         if partie.phase == "choix_combattant":
             jouer_choix_humain(partie)
+        elif partie.phase == "pioche":
+            jouer_pioche_humain(partie)
         elif partie.phase == "duel_resolu":
             partie.duel_suivant()
 

@@ -1,5 +1,5 @@
 {
-  "$schema_doc": "Voir README.md section 'Schema des Combattants' pour le detail des champs condition/modificateur/energie_min/effets. Les champs 'archetype' et 'description' sont purement narratifs : ils ne sont lus ni par le moteur, ni par le frontend (CombattantTemplate.to_dict() ne les expose pas). Depuis la refonte 'mono Pouvoir', chaque Combattant ne possede plus qu'un seul Pouvoir, qui peut definir un cout minimum en Energie (energie_min, note 'X+') et etre multiplie par l'Energie (modificateur par_energie).",
+  "$schema_doc": "Voir README.md section 'Schema des Combattants' pour le detail des champs condition/modificateur/effets. Depuis la version 'stop ou encore', chaque Combattant ne possede plus qu'un seul Pouvoir, toujours actif, qui peut etre multiplie par le nombre de Cartes Puissance piochees (modificateur par_carte / par_carte_adverse / par_carte_en_jeu), plafonne par le champ plafond_cartes.",
   "combattants": [
     {
       "id": "riff",
@@ -9,10 +9,9 @@
       "puissance": 4,
       "degats": 0,
       "pouvoir": {
-        "description": "Courage : +2 Puissance / +2 Dégâts par Energie",
+        "description": "Courage : +2 Puissance / +2 Dégâts par carte piochée (max 3)",
         "condition": "courage",
-        "modificateur": "par_energie",
-        "energie_min": 2,
+        "modificateur": "par_carte",
         "effets": [
           {
             "type": "puissance",
@@ -24,7 +23,8 @@
             "cible": "soi",
             "valeur": 2
           }
-        ]
+        ],
+        "plafond_cartes": 3
       }
     },
     {
@@ -38,7 +38,6 @@
         "description": "Copie puis annule le Pouvoir actif adverse",
         "condition": null,
         "modificateur": null,
-        "energie_min": 2,
         "effets": [
           {
             "type": "copie_pouvoir"
@@ -59,7 +58,6 @@
       "pouvoir": {
         "description": "Patience : +2 Puissance",
         "modificateur": "patience",
-        "energie_min": 0,
         "effets": [
           {
             "type": "puissance",
@@ -80,7 +78,6 @@
         "description": "Vengeance : +4 Puissance, +4 Degats",
         "condition": "vengeance",
         "modificateur": null,
-        "energie_min": 1,
         "effets": [
           {
             "type": "degats",
@@ -103,10 +100,9 @@
       "puissance": 6,
       "degats": 2,
       "pouvoir": {
-        "description": "Protection et -1 Puissance adverse par Energie",
+        "description": "Protection et -1 Puissance adverse par carte piochée (max 3)",
         "condition": null,
-        "modificateur": "par_energie",
-        "energie_min": 1,
+        "modificateur": "par_carte",
         "effets": [
           {
             "type": "protection"
@@ -116,7 +112,8 @@
             "cible": "adversaire",
             "valeur": -1
           }
-        ]
+        ],
+        "plafond_cartes": 3
       }
     },
     {
@@ -127,16 +124,16 @@
       "puissance": 4,
       "degats": 3,
       "pouvoir": {
-        "description": "Vampirisme 1 par Energie",
+        "description": "Vampirisme 1 par carte piochée (max 3)",
         "condition": null,
-        "modificateur": "par_energie",
-        "energie_min": 0,
+        "modificateur": "par_carte",
         "effets": [
           {
             "type": "vampirisme",
             "valeur": 1
           }
-        ]
+        ],
+        "plafond_cartes": 3
       }
     },
     {
@@ -147,9 +144,8 @@
       "puissance": 4,
       "degats": 3,
       "pouvoir": {
-        "description": "+2 Puissance / + 1 Dégât par Energie",
-        "modificateur": "par_energie",
-        "energie_min": 2,
+        "description": "+2 Puissance / + 1 Dégât par carte piochée (max 3)",
+        "modificateur": "par_carte",
         "effets": [
           {
             "type": "puissance",
@@ -161,7 +157,8 @@
             "cible": "soi",
             "valeur": 1
           }
-        ]
+        ],
+        "plafond_cartes": 3
       }
     },
     {
@@ -175,7 +172,6 @@
         "description": "Défaite : -6 Vie adverse",
         "condition": "defaite",
         "modificateur": null,
-        "energie_min": 2,
         "effets": [
           {
             "type": "vie",
@@ -193,17 +189,17 @@
       "puissance": 4,
       "degats": 3,
       "pouvoir": {
-        "description": "+2 Puissance par Energie adverse",
+        "description": "+2 Puissance par carte piochée adverse (max 3)",
         "condition": null,
-        "modificateur": "par_energie_adverse",
-        "energie_min": 1,
+        "modificateur": "par_carte_adverse",
         "effets": [
           {
             "type": "puissance",
             "cible": "soi",
             "valeur": 2
           }
-        ]
+        ],
+        "plafond_cartes": 3
       }
     },
     {
@@ -214,17 +210,17 @@
       "puissance": 3,
       "degats": 3,
       "pouvoir": {
-        "description": "+2 Puissance par Energie en jeu",
+        "description": "+2 Puissance par carte piochée en jeu (max 3)",
         "condition": null,
-        "modificateur": "par_energie_en_jeu",
-        "energie_min": 1,
+        "modificateur": "par_carte_en_jeu",
         "effets": [
           {
             "type": "puissance",
             "cible": "soi",
             "valeur": 2
           }
-        ]
+        ],
+        "plafond_cartes": 3
       }
     },
     {
@@ -238,7 +234,6 @@
         "description": "Riposte : +3 Puissance",
         "condition": "riposte",
         "modificateur": null,
-        "energie_min": 1,
         "effets": [
           {
             "type": "puissance",
@@ -259,7 +254,6 @@
         "description": "Domination : +4 Puissance",
         "condition": "domination",
         "modificateur": null,
-        "energie_min": 1,
         "effets": [
           {
             "type": "puissance",
@@ -280,7 +274,6 @@
         "description": "Victoire : +4 Vie",
         "condition": "victoire",
         "modificateur": null,
-        "energie_min": 1,
         "effets": [
           {
             "type": "vie",
@@ -325,7 +318,6 @@
         "description": "Impatience : +2 Puissance",
         "condition": null,
         "modificateur": "impatience",
-        "energie_min": 1,
         "effets": [
           {
             "type": "puissance",
@@ -366,7 +358,6 @@
         "description": "Copie le Pouvoir adverse",
         "condition": null,
         "modificateur": null,
-        "energie_min": 1,
         "effets": [
           {
             "type": "copie_pouvoir"
@@ -385,7 +376,6 @@
         "description": "Annule le Pouvoir actif adverse",
         "condition": null,
         "modificateur": null,
-        "energie_min": 1,
         "effets": [
           {
             "type": "stop_pouvoir"
@@ -404,7 +394,6 @@
         "description": "Echange Puissance/Degats avec l'adversaire",
         "condition": null,
         "modificateur": null,
-        "energie_min": 2,
         "effets": [
           {
             "type": "echange"
@@ -423,7 +412,6 @@
         "description": "Patience : +1 Vie",
         "condition": null,
         "modificateur": "patience",
-        "energie_min": 0,
         "effets": [
           {
             "type": "vie",
@@ -444,7 +432,6 @@
         "description": "Vengeance : Stop Pouvoir et +4 Puissance",
         "condition": "vengeance",
         "modificateur": null,
-        "energie_min": 1,
         "effets": [
           {
             "type": "stop_pouvoir"
@@ -465,16 +452,16 @@
       "puissance": 5,
       "degats": 4,
       "pouvoir": {
-        "description": "Domination : Vampirisme 2 par Energie",
+        "description": "Domination : Vampirisme 2 par carte piochée (max 3)",
         "condition": "domination",
-        "modificateur": "par_energie",
-        "energie_min": 1,
+        "modificateur": "par_carte",
         "effets": [
           {
             "type": "vampirisme",
             "valeur": 2
           }
-        ]
+        ],
+        "plafond_cartes": 3
       }
     }
   ]

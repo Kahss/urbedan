@@ -43,11 +43,6 @@
       </div>
     </div>
 
-    <div class="glyphes-restants">
-      <span class="glyphes-restants-libelle">Glyphes restants :</span>
-      <div id="glyphes-restants-liste" class="glyphes-restants-liste"></div>
-    </div>
-
     <div class="zone-duel">
       <div class="cote-duel">
         <h4>Ton equipe</h4>
@@ -56,9 +51,21 @@
 
       <div class="centre-duel">
         <div id="combattants-en-duel" class="combattants-en-duel"></div>
-        <div id="zone-glyphes" class="zone-glyphes cache">
-          <p id="libelle-glyphes">Glyphe pioche pour ce duel :</p>
-          <div id="main-glyphes" class="grille-glyphes"></div>
+        <div id="zone-pioche" class="zone-pioche cache">
+          <p id="pioche-tas-restant" class="pioche-tas-restant"></p>
+          <div class="pioche-cote">
+            <span class="pioche-libelle">Tes cartes piochees :</span>
+            <div id="mes-cartes-piochees" class="grille-cartes"></div>
+            <p id="mes-totaux-pioche" class="totaux-pioche"></p>
+          </div>
+          <div class="pioche-cote">
+            <span class="pioche-libelle">IA :</span>
+            <p id="statut-pioche-ia" class="statut-pioche-adverse"></p>
+          </div>
+          <div id="actions-pioche" class="actions-pioche">
+            <button id="btn-piocher">Piocher une carte</button>
+            <button id="btn-arreter" class="secondaire">S'arreter</button>
+          </div>
         </div>
         <div id="zone-resultat" class="zone-resultat cache">
           <div id="journal-resolution" class="journal"></div>

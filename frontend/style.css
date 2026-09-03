@@ -144,22 +144,6 @@ h2 { text-align: center; }
 
 .liste-pouvoirs li:first-child { border-top: none; }
 
-.liste-pouvoirs .num {
-  color: var(--accent-2);
-  font-weight: 700;
-  margin-right: 4px;
-}
-
-.liste-pouvoirs .num .rond-energie {
-  vertical-align: middle;
-  margin-right: 2px;
-}
-
-.rond-energie.rond-energie-vide {
-  background: #eceef2;
-  box-shadow: none;
-}
-
 .badge-utilise {
   position: absolute;
   top: 8px;
@@ -273,63 +257,6 @@ button:disabled {
   white-space: nowrap;
 }
 
-/* ---------- Compteur de Glyphes restants ---------- */
-.glyphes-restants {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
-}
-
-.glyphes-restants-libelle {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-dim);
-}
-
-.glyphes-restants-liste {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.mini-glyphe {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 4px 10px;
-  font-size: 0.8rem;
-}
-
-.mini-glyphe.epuise {
-  opacity: 0.4;
-}
-
-.mini-glyphe-puissance {
-  font-weight: 900;
-}
-
-.mini-glyphe-energie {
-  display: flex;
-  gap: 2px;
-  min-width: 18px;
-}
-
-.mini-glyphe-energie .rond-energie {
-  width: 6px;
-  height: 6px;
-}
-
-.mini-glyphe-compte {
-  color: var(--text-dim);
-}
-
 /* ---------- Zone de duel ---------- */
 .zone-duel {
   display: grid;
@@ -365,74 +292,100 @@ button:disabled {
 }
 .message-attente.cache { display: none; }
 
-/* ---------- Glyphes ---------- */
-.grille-glyphes {
+/* ---------- Pioche Cartes Puissance (stop ou encore) ---------- */
+.zone-pioche {
+  width: 100%;
+  max-width: 520px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px 20px;
+  text-align: center;
+}
+
+.zone-pioche.cache { display: none; }
+
+.pioche-tas-restant {
+  margin: 0 0 12px;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.pioche-cote {
+  margin-bottom: 12px;
+}
+
+.pioche-libelle {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.grille-cartes {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
   justify-content: center;
 }
 
-.carte-glyphe {
+.carte-puissance {
   background: var(--bg-card);
   border: 2px solid var(--border);
-  border-radius: 10px;
-  width: 84px;
-  padding: 10px 6px;
+  border-radius: 8px;
+  padding: 8px 10px;
+  min-width: 76px;
   text-align: center;
-  cursor: pointer;
-  transition: transform 0.12s ease, border-color 0.12s ease;
 }
 
-.carte-glyphe:hover {
-  transform: translateY(-3px);
-  border-color: var(--accent-2);
+.carte-puissance-nom {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
 }
 
-.carte-glyphe.selectionnee {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent), var(--shadow);
-}
-
-.glyphe-puissance {
-  font-size: 1.5rem;
-  font-weight: 900;
-}
-
-.glyphe-energie {
+.carte-puissance-valeurs {
   display: flex;
   justify-content: center;
-  align-items: center;
-  gap: 4px;
-  min-height: 10px;
-  margin-top: 6px;
+  gap: 6px;
+  margin-top: 4px;
+  font-weight: 800;
 }
 
-.rond-energie {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--or);
-  box-shadow: 0 0 4px rgba(224, 182, 76, 0.8);
+.cp-puissance { color: var(--ok); }
+.cp-malus { color: var(--danger); font-size: 0.75rem; align-self: center; }
+
+.totaux-pioche {
+  margin: 8px 0 0;
+  font-size: 0.85rem;
 }
 
-.grille-glyphes.inactif .carte-glyphe {
-  cursor: default;
-  opacity: 0.8;
+.statut-pioche-adverse {
+  margin: 0;
+  color: var(--text-dim);
 }
 
-.grille-glyphes.inactif .carte-glyphe:hover {
-  transform: none;
-  border-color: var(--border);
+.actions-pioche {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 16px;
 }
 
-.carte-glyphe.dos {
-  background: repeating-linear-gradient(45deg, var(--bg-card), var(--bg-card) 6px, #2c2f3a 6px, #2c2f3a 12px);
-  cursor: default;
+.actions-pioche button.secondaire {
+  background: transparent;
+  border: 2px solid var(--border);
+  color: var(--text);
 }
 
-.zone-glyphes.cache { display: none; }
+.actions-pioche button.secondaire:hover:not(:disabled) {
+  border-color: var(--accent-2);
+  background: transparent;
+}
 
 /* ---------- Duel : cartes en presence ---------- */
 .carte-duel {
@@ -454,21 +407,11 @@ button:disabled {
 
 .carte-duel h3 { margin: 6px 0; }
 
-.carte-duel .glyphe-joue {
+.carte-duel .cartes-jouees {
   margin-top: 8px;
-  font-weight: 800;
+  font-size: 0.8rem;
+  font-weight: 700;
   color: var(--accent);
-}
-
-.carte-duel .glyphe-joue-puissance {
-  font-size: 1.4rem;
-}
-
-.carte-duel .glyphe-joue-energie {
-  display: flex;
-  justify-content: center;
-  gap: 4px;
-  margin-top: 4px;
 }
 
 .carte-duel .pouvoir-actif {
