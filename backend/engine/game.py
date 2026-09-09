@@ -8,6 +8,7 @@ from .powers import resoudre_duel
 
 NB_DUELS_MAX = 4
 PV_DEPART = 10
+NIVEAU_TOTAL_MAX = 8
 
 
 class ErreurPartie(Exception):
@@ -20,6 +21,20 @@ def charger_combattants(chemin_json):
     return {c["id"]: CombattantTemplate(c) for c in data["combattants"]}
 
 
+def tirer_equipe_equilibree(templates_par_id, ids_exclus=(), niveau_total_max=NIVEAU_TOTAL_MAX, max_tentatives=200):
+    """Tire au hasard 4 ids de Combattants (parmi ceux non exclus) dont la somme des
+    niveaux ne depasse pas `niveau_total_max`. Repli si aucun tirage aleatoire n'y
+    parvient en `max_tentatives` essais : les 4 niveaux les plus bas disponibles,
+    qui respectent toujours la contrainte des lors qu'une equipe valide existe."""
+    ids_exclus = set(ids_exclus)
+    candidats = [cid for cid in templates_par_id if cid not in ids_exclus]
+    for _ in range(max_tentatives):
+        echantillon = random.sample(candidats, 4)
+        if sum(templates_par_id[cid].niveau for cid in echantillon) <= niveau_total_max:
+            return echantillon
+    return sorted(candidats, key=lambda cid: templates_par_id[cid].niveau)[:4]
+
+
 class Partie:
     def __init__(self, templates_par_id, equipe_joueur_ids):
         if len(equipe_joueur_ids) != 4 or len(set(equipe_joueur_ids)) != 4:
@@ -28,7 +43,13 @@ class Partie:
             if cid not in templates_par_id:
                 raise ErreurPartie(f"Combattant inconnu : {cid}")
 
-        equipe_ia_ids = random.sample([cid for cid in templates_par_id if cid not in equipe_joueur_ids], 4)
+        niveau_total = sum(templates_par_id[cid].niveau for cid in equipe_joueur_ids)
+        if niveau_total > NIVEAU_TOTAL_MAX:
+            raise ErreurPartie(
+                f"La somme des niveaux de l'equipe ne peut pas depasser {NIVEAU_TOTAL_MAX} (actuelle : {niveau_total})"
+            )
+
+        equipe_ia_ids = tirer_equipe_equilibree(templates_par_id, equipe_joueur_ids)
 
         self.joueur_humain = Joueur(
             "humain", False, [CombattantEnEquipe(templates_par_id[cid]) for cid in equipe_joueur_ids]

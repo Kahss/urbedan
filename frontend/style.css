@@ -105,6 +105,12 @@ h2 { text-align: center; }
   filter: grayscale(0.6);
 }
 
+.carte-combattant.indisponible {
+  opacity: 0.35;
+  filter: grayscale(0.5);
+  cursor: not-allowed;
+}
+
 .carte-combattant.active-duel {
   box-shadow: 0 0 0 3px var(--accent), 0 0 20px rgba(255, 90, 31, 0.35);
 }
@@ -163,6 +169,21 @@ h2 { text-align: center; }
   text-transform: uppercase;
   letter-spacing: 0.01em;
   color: #fff;
+}
+
+.carte-combattant .cc-niveau {
+  position: absolute;
+  top: 6%;
+  right: 6%;
+  z-index: 1;
+  font-size: 0.85rem;
+  letter-spacing: 1px;
+  color: var(--or);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.grille-combattants.petite .cc-niveau {
+  font-size: 0.65rem;
 }
 
 .carte-combattant .cc-band {

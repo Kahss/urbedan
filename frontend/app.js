@@ -10,6 +10,8 @@ let combattantsDisponibles = [];
 const equipeSelectionnee = new Set();
 let etatCourant = null;
 
+const NIVEAU_TOTAL_MAX = 8;
+
 // -------------------------------------------------------------- utilitaires
 
 async function api(path, options) {
@@ -30,6 +32,15 @@ function trouverCombattant(etat, id) {
     etat.joueur_humain.equipe.find((c) => c.id === id) ||
     etat.joueur_ia.equipe.find((c) => c.id === id)
   );
+}
+
+function niveauCombattant(id) {
+  const c = combattantsDisponibles.find((c) => c.id === id);
+  return c ? c.niveau : 0;
+}
+
+function sommeNiveauxSelection() {
+  return Array.from(equipeSelectionnee).reduce((somme, id) => somme + niveauCombattant(id), 0);
 }
 
 function conditionEstValidee(pouvoir, role, pvSoi, pvAdv) {
@@ -70,7 +81,7 @@ function formaterTexteCompetence(pouvoir) {
   return echapperHtml(description);
 }
 
-function creerCarteCombattant(data, { selectionnable = false, selectionnee = false, active = false, conditionValidee = false, onClick = null } = {}) {
+function creerCarteCombattant(data, { selectionnable = false, selectionnee = false, active = false, conditionValidee = false, indisponible = false, onClick = null } = {}) {
   const carte = document.createElement("div");
   carte.className = "carte-combattant";
   if (selectionnable) carte.classList.add("selectionnable");
@@ -78,6 +89,7 @@ function creerCarteCombattant(data, { selectionnable = false, selectionnee = fal
   if (active) carte.classList.add("active-duel");
   if (conditionValidee) carte.classList.add("condition-validee");
   if (data.utilise) carte.classList.add("utilisee");
+  if (indisponible) carte.classList.add("indisponible");
 
   const top = document.createElement("div");
   top.className = "cc-top";
@@ -88,6 +100,13 @@ function creerCarteCombattant(data, { selectionnable = false, selectionnee = fal
   nom.className = "cc-nom";
   nom.textContent = data.nom;
   top.appendChild(nom);
+  if (data.niveau) {
+    const niveau = document.createElement("span");
+    niveau.className = "cc-niveau";
+    niveau.title = `Niveau ${data.niveau} / 3`;
+    niveau.textContent = "★".repeat(data.niveau) + "☆".repeat(3 - data.niveau);
+    top.appendChild(niveau);
+  }
   carte.appendChild(top);
 
   const band = document.createElement("div");
@@ -187,42 +206,69 @@ async function initSelectionEcran() {
   renderGrilleSelection();
 }
 
+function peutAjouterAuBudget(c) {
+  return equipeSelectionnee.size < 4 && sommeNiveauxSelection() + c.niveau <= NIVEAU_TOTAL_MAX;
+}
+
 function renderGrilleSelection() {
   const grille = document.getElementById("grille-selection");
   vider(grille);
   combattantsDisponibles.forEach((c) => {
+    const estSelectionnee = equipeSelectionnee.has(c.id);
+    const estDisponible = estSelectionnee || peutAjouterAuBudget(c);
     const carte = creerCarteCombattant(
       { ...c, utilise: false },
       {
-        selectionnable: true,
-        selectionnee: equipeSelectionnee.has(c.id),
-        onClick: () => toggleSelection(c.id),
+        selectionnable: estDisponible,
+        selectionnee: estSelectionnee,
+        indisponible: !estDisponible,
+        onClick: estDisponible ? () => toggleSelection(c.id) : null,
       }
     );
     grille.appendChild(carte);
   });
   const compteur = document.getElementById("compteur-selection");
-  compteur.textContent = `${equipeSelectionnee.size} / 4 selectionnes`;
-  document.getElementById("btn-lancer-partie").disabled = equipeSelectionnee.size !== 4;
+  const niveauTotal = sommeNiveauxSelection();
+  compteur.textContent = `${equipeSelectionnee.size} / 4 selectionnes — Niveau ${niveauTotal} / ${NIVEAU_TOTAL_MAX}`;
+  document.getElementById("btn-lancer-partie").disabled =
+    equipeSelectionnee.size !== 4 || niveauTotal > NIVEAU_TOTAL_MAX;
 }
 
 function toggleSelection(id) {
   if (equipeSelectionnee.has(id)) {
     equipeSelectionnee.delete(id);
-  } else if (equipeSelectionnee.size < 4) {
-    equipeSelectionnee.add(id);
+  } else {
+    const c = combattantsDisponibles.find((c) => c.id === id);
+    if (c && peutAjouterAuBudget(c)) equipeSelectionnee.add(id);
   }
   renderGrilleSelection();
 }
 
+// Tirage aleatoire d'une equipe respectant le budget de niveaux (meme logique de
+// repli que le backend, cf. tirer_equipe_equilibree dans engine/game.py) : on
+// retire des combinaisons de 4 jusqu'a en trouver une dont la somme des niveaux
+// ne depasse pas le budget, avec un repli sur les niveaux les plus bas sinon.
 function selectionnerEquipeAleatoire() {
-  const idsMelanges = combattantsDisponibles.map((c) => c.id);
-  for (let i = idsMelanges.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [idsMelanges[i], idsMelanges[j]] = [idsMelanges[j], idsMelanges[i]];
+  const ids = combattantsDisponibles.map((c) => c.id);
+  const MAX_TENTATIVES = 200;
+  let equipeChoisie = null;
+  for (let tentative = 0; tentative < MAX_TENTATIVES; tentative++) {
+    const idsMelanges = [...ids];
+    for (let i = idsMelanges.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [idsMelanges[i], idsMelanges[j]] = [idsMelanges[j], idsMelanges[i]];
+    }
+    const echantillon = idsMelanges.slice(0, 4);
+    if (echantillon.reduce((s, id) => s + niveauCombattant(id), 0) <= NIVEAU_TOTAL_MAX) {
+      equipeChoisie = echantillon;
+      break;
+    }
+  }
+  if (!equipeChoisie) {
+    equipeChoisie = [...ids].sort((a, b) => niveauCombattant(a) - niveauCombattant(b)).slice(0, 4);
   }
   equipeSelectionnee.clear();
-  idsMelanges.slice(0, 4).forEach((id) => equipeSelectionnee.add(id));
+  equipeChoisie.forEach((id) => equipeSelectionnee.add(id));
   renderGrilleSelection();
 }
 

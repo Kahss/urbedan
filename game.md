@@ -13,6 +13,7 @@ Urban Eredan est un jeu de cartes qui se fait s'affronter deux équipes de comba
   - Nom
   - Puissance
   - Dégâts
+  - Niveau (de 1 à 3, 3 étant le plus puissant)
   - Pouvoir
 - Suivi de Points de Vie (PV, matérialisé par une carte dans le jeu physique et par un compteur dans le jeu vidéo).
 
@@ -20,6 +21,7 @@ Urban Eredan est un jeu de cartes qui se fait s'affronter deux équipes de comba
 - Chaque joueur récupère son équipe de 4 combattants et les dispose sur la table faces visibles.
   - Pour une partie initiation, les combattants sont distribués aléatoirement
   - Pour une partie avancée, les joueurs peuvent soit préconstruire leur équipe avec leur exemplaire du jeu, soit effectuer un draft avec l'ensemble des personnages présents dès le départ et un tour de bannissement où chaque joueur pourra retirer un personnage parmi ceux disponibles.
+  - Dans tous les cas, l'équipe de 4 combattants doit respecter un budget : la somme de leurs 4 Niveaux ne peut pas dépasser 8.
 - Chaque joueur initie ses PV à 10
 - Le premier joueur est désigné aléatoirement
 

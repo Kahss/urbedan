@@ -1,5 +1,5 @@
 {
-  "$schema_doc": "Voir README.md section 'Schema des Combattants' pour le detail des champs condition/modificateur/effets. Depuis la version 'stop ou encore', chaque Combattant ne possede plus qu'un seul Pouvoir, toujours actif, qui peut etre multiplie par le nombre de Cartes Puissance piochees (modificateur par_carte / par_carte_adverse / par_carte_en_jeu), plafonne par le champ plafond_cartes.",
+  "$schema_doc": "Voir README.md section 'Schema des Combattants' pour le detail des champs condition/modificateur/effets. Depuis la version 'stop ou encore', chaque Combattant ne possede plus qu'un seul Pouvoir, toujours actif, qui peut etre multiplie par le nombre de Cartes Puissance piochees (modificateur par_carte / par_carte_adverse / par_carte_en_jeu), plafonne par le champ plafond_cartes. Chaque Combattant possede un champ 'niveau' (1 a 3, 3 = le plus puissant) ; la somme des niveaux des 4 Combattants d'une equipe ne peut pas depasser 8.",
   "combattants": [
     {
       "id": "riff",

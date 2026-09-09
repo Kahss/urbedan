@@ -12,13 +12,12 @@ Usage :
 """
 import argparse
 import os
-import random
 import sys
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(BASE_DIR, "backend"))
 
-from engine.game import NB_DUELS_MAX, Partie, charger_combattants  # noqa: E402
+from engine.game import NB_DUELS_MAX, Partie, charger_combattants, tirer_equipe_equilibree  # noqa: E402
 from engine.ia import choisir_combattant, decider_piocher_ou_arreter  # noqa: E402
 
 DATA_PATH = os.path.join(BASE_DIR, "data", "combattants.json")
@@ -55,7 +54,7 @@ def jouer_pioche_humain(partie):
 def jouer_partie(templates, tous_les_ids):
     """Joue une partie complete (equipes tirees au hasard dans tout le roster) et
     retourne (ids equipe A, ids equipe B, vainqueur : 'humain' / 'ia' / None)."""
-    equipe_a = random.sample(tous_les_ids, 4)
+    equipe_a = tirer_equipe_equilibree(templates)
     partie = Partie(templates, equipe_a)
     equipe_b = [c.template.id for c in partie.joueur_ia.equipe]
 

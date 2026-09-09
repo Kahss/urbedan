@@ -47,6 +47,7 @@ class CombattantTemplate:
         self.nom = data["nom"]
         self.puissance = data["puissance"]
         self.degats = data["degats"]
+        self.niveau = data["niveau"]  # 1 a 3, 3 = le plus puissant (somme d'equipe plafonnee)
         self.pouvoir = data["pouvoir"]  # dict unique (description, condition, modificateur, energie_min, effets)
         self.image = data.get("image")
 
@@ -56,6 +57,7 @@ class CombattantTemplate:
             "nom": self.nom,
             "puissance": self.puissance,
             "degats": self.degats,
+            "niveau": self.niveau,
             "pouvoir": self.pouvoir,
             "image": self.image,
         }
@@ -74,6 +76,7 @@ class CombattantEnEquipe:
             "nom": self.template.nom,
             "puissance": self.template.puissance,
             "degats": self.template.degats,
+            "niveau": self.template.niveau,
             "pouvoir": self.template.pouvoir,
             "image": self.template.image,
             "utilise": self.utilise,

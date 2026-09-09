@@ -46,6 +46,7 @@ ne possede plus qu'un seul Pouvoir, toujours actif :
   "nom": "Nom affiche",
   "puissance": 4,
   "degats": 3,
+  "niveau": 2,
   "pouvoir": {
     "description": "Texte affiche sur la carte",
     "condition": null,
@@ -55,6 +56,11 @@ ne possede plus qu'un seul Pouvoir, toujours actif :
 }
 ```
 
+- `niveau` : entier entre 1 et 3 (3 = le plus puissant), reflete la puissance relative
+  du Combattant. La somme des `niveau` des 4 Combattants d'une equipe (humaine ou IA) ne
+  peut pas depasser 8 ; cette regle est verifiee a la creation d'une Partie
+  (`Partie.__init__`, `engine/game.py`) et l'IA tire son equipe en la respectant via
+  `tirer_equipe_equilibree` (meme fonction reutilisee par `generate_metagame.py`).
 - `condition` (optionnel) : un des mots-cles Condition de `pouvoirs.csv` —
   `courage`, `riposte`, `vengeance`, `domination`, `victoire`, `defaite`, `3+`.
 - `modificateur` (optionnel) : un des mots-cles Modificateur —
@@ -104,8 +110,9 @@ role. Certaines regles laissaient place a interpretation ; les choix suivants on
 valides ou tranches avec l'utilisateur avant developpement :
 
 - **Selection d'equipe** : avant chaque partie, le joueur choisit manuellement ses 4
-  Combattants parmi tous ceux disponibles (20 fournis) ; l'IA tire au hasard 4
-  Combattants distincts parmi ceux restants.
+  Combattants parmi tous ceux disponibles (22 fournis), sous reserve que la somme de
+  leurs Niveaux ne depasse pas 8 ; l'IA tire au hasard 4 Combattants distincts parmi
+  ceux restants, en respectant le meme budget de Niveaux (`tirer_equipe_equilibree`).
 - **Un seul Pouvoir par Combattant, toujours actif** : chaque Combattant ne possede
   plus qu'un unique Pouvoir, qui s'applique systematiquement (il n'y a plus d'Energie
   determinant son activation). **Ordre de resolution** : au sein d'un duel, J1 resout
