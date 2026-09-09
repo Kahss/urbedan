@@ -9,8 +9,8 @@ Hypotheses de resolution retenues pour ce POC (voir README.md) :
   cartes piochees par l'adversaire, et `par_carte_en_jeu` par la somme des deux
   (soi + adversaire), avec le meme plafond.
 - Un duel se resout en 2 passes : Pass 1 (pouvoir "immediat"), puis determination du
-  vainqueur, puis Pass 2 (pouvoir conditionne par Victoire / Defaite / Surpuissance, ou
-  modificateur Contrecoup).
+  vainqueur, puis Pass 2 (pouvoir conditionne par Victoire / Defaite, ou modificateur
+  Contrecoup).
 - Au sein de chaque passe, le Combattant J1 resout son Pouvoir actif avant que le
   Combattant J2 ne resolve le sien.
 - Stop pouvoir et Copie pouvoir sont generiques : ils visent toujours l'unique Pouvoir
@@ -101,13 +101,13 @@ def _verifier_condition(condition, source):
         return source.gagnant
     if condition == "defaite":
         return not source.gagnant
-    if condition == "surpuissance":
-        return source.gagnant and source.puissance >= 2 * adv.puissance
+    if condition == "3+":
+        return source.nb_cartes >= 3
     return True
 
 
 def _est_differee(pouvoir):
-    return pouvoir.get("condition") in ("victoire", "defaite", "surpuissance") or pouvoir.get("modificateur") == "contrecoup"
+    return pouvoir.get("condition") in ("victoire", "defaite") or pouvoir.get("modificateur") == "contrecoup"
 
 
 def _contient_copie_pouvoir(pouvoir):
@@ -255,7 +255,7 @@ class MoteurDuel:
                 return
             if _est_differee(pouvoir_copie):
                 # Simplification POC : copier un pouvoir conditionne par l'issue du duel
-                # (Victoire/Defaite/Surpuissance) ou par Contrecoup n'est pas supporte.
+                # (Victoire/Defaite) ou par Contrecoup n'est pas supporte.
                 self.log.append(
                     f"{source.template.nom} Pouvoir : copie du Pouvoir de {adv.template.nom} ignoree "
                     "(pouvoir conditionne par l'issue du duel, non supporte)"
@@ -358,7 +358,7 @@ class MoteurDuel:
             self.dc2.gagnant = True
             self.log.append("Egalite de Puissance : double victoire")
 
-        # Pass 2 : pouvoir differe (Victoire / Defaite / Surpuissance / Contrecoup)
+        # Pass 2 : pouvoir differe (Victoire / Defaite / Contrecoup)
         for combattant in (self.dc1, self.dc2):
             self._resoudre_pouvoir(combattant, differe=True)
 

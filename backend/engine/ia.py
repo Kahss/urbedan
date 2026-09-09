@@ -6,8 +6,10 @@ Remplace un tirage purement aleatoire par une estimation simple de la Puissance
 totale (puis, en cas d'egalite, des Degats, puis de la Vie) que produirait chaque
 Combattant disponible, en ne comptant que ce qui est certain au moment du choix :
 - Courage / Riposte / Vengeance / Domination sont verifiables immediatement (role du
-  duel, PV courants). Victoire / Defaite / Surpuissance / Contrecoup dependent de
-  l'issue du duel, inconnue au moment du choix : ils ne sont jamais comptes.
+  duel, PV courants). Victoire / Defaite / Contrecoup dependent de l'issue du duel,
+  inconnue au moment du choix : ils ne sont jamais comptes. 3+ depend du nombre de
+  Cartes Puissance qui seront piochees, inconnu au moment du choix : il n'est jamais
+  compte non plus.
 - Patience / Impatience sont calculables directement (numero du duel). Par carte /
   Par carte adverse / Par carte en jeu dependent du nombre de Cartes Puissance qui
   seront piochees pendant la phase de pioche a venir, inconnu au moment de choisir
@@ -46,7 +48,7 @@ def _condition_certaine(condition, role, pv_soi, pv_adv):
         return pv_adv > pv_soi
     if condition == "domination":
         return pv_adv < pv_soi
-    return None  # victoire / defaite / surpuissance
+    return None  # victoire / defaite / 3+
 
 
 def _estimer_gain(pouvoir, role, duel_numero, duels_max, pv_soi, pv_adv):

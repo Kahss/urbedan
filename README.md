@@ -56,7 +56,7 @@ ne possede plus qu'un seul Pouvoir, toujours actif :
 ```
 
 - `condition` (optionnel) : un des mots-cles Condition de `pouvoirs.csv` —
-  `courage`, `riposte`, `vengeance`, `domination`, `victoire`, `defaite`, `surpuissance`.
+  `courage`, `riposte`, `vengeance`, `domination`, `victoire`, `defaite`, `3+`.
 - `modificateur` (optionnel) : un des mots-cles Modificateur —
   `patience`, `impatience`, `par_carte`, `par_carte_adverse`, `par_carte_en_jeu`,
   `contrecoup`. `par_carte` multiplie la valeur de l'effet par le nombre de Cartes
@@ -136,11 +136,13 @@ valides ou tranches avec l'utilisateur avant developpement :
   degats, vie, stop pouvoir, copie pouvoir) pour le reste de la resolution du duel. Ne
   bloque pas les degats de fin de duel (rupture des PV du vaincu), qui ne sont pas une
   "modification de Pouvoir" mais l'application de la regle de base.
-- **Victoire / Defaite / Surpuissance / Contrecoup** : ces Pouvoirs dependent de l'issue
-  du duel (qui n'est connue qu'apres comparaison des Puissances totales). Ils sont donc
-  resolus dans une seconde passe, apres determination du/des vainqueur(s), et n'influent
-  donc jamais sur la comparaison de Puissance du duel en cours (uniquement sur les
-  Degats/PV/Vie).
+- **Victoire / Defaite / Contrecoup** : ces Pouvoirs dependent de l'issue du duel (qui
+  n'est connue qu'apres comparaison des Puissances totales). Ils sont donc resolus dans
+  une seconde passe, apres determination du/des vainqueur(s), et n'influent donc jamais
+  sur la comparaison de Puissance du duel en cours (uniquement sur les Degats/PV/Vie).
+- **3+** : condition verifiable des la pioche (independante de l'issue du duel) — vraie
+  si le Combattant a pioche 3 Cartes Puissance ou plus ce duel-ci. Resolue en premiere
+  passe, comme Courage/Riposte/Vengeance/Domination.
 - **Patience** : multiplie la valeur de l'effet par le numero du duel courant dans la
   partie (1 a 4). **Impatience** : multiplie par le nombre de duels restants a jouer,
   celui-ci compris (`duels_max - duel_numero + 1`, soit 4 au duel 1, 1 au duel 4).
@@ -160,7 +162,7 @@ valides ou tranches avec l'utilisateur avant developpement :
 - **Copie pouvoir** : copie la definition du Pouvoir actuellement actif de l'adversaire
   (effets, condition, modificateur) et l'execute du point de vue du copieur (`soi` =
   copieur, `adversaire` = adversaire du copieur). Limitations POC : copier un Pouvoir
-  conditionne par l'issue du duel (Victoire/Defaite/Surpuissance) ou par Contrecoup n'est
+  conditionne par l'issue du duel (Victoire/Defaite) ou par Contrecoup n'est
   pas supporte (ex : Nova copiant le Pouvoir de Vex, conditionne par Defaite) ; copier un
   Pouvoir qui contient lui-meme une Copie de pouvoir n'est pas supporte non plus (ex :
   Nova face a Mime), pour eviter une recursion infinie puisque l'adversaire cible ne
@@ -182,9 +184,11 @@ L'IA (`engine/ia.py`) intervient a deux moments :
   disponibles, celui qui maximise une estimation de la Puissance totale du duel a venir
   (en cas d'egalite : les Degats, puis la Vie), plutot qu'un tirage purement aleatoire.
   Courage / Riposte / Vengeance / Domination sont evalues immediatement (role du duel,
-  PV courants) ; Victoire / Defaite / Surpuissance / Contrecoup dependent de l'issue du
-  duel et ne sont jamais comptes ; les modificateurs `par_carte*` sont estimes avec un
-  nombre moyen de cartes (`NB_CARTES_MOYEN_ESTIME`), le nombre reel de cartes qui seront
+  PV courants) ; Victoire / Defaite / Contrecoup dependent de l'issue du duel et ne sont
+  jamais comptes ; 3+ depend du nombre de Cartes Puissance qui seront piochees, inconnu
+  au moment de choisir son Combattant, et n'est donc jamais compte non plus ; les
+  modificateurs `par_carte*` sont estimes avec un nombre moyen de cartes
+  (`NB_CARTES_MOYEN_ESTIME`), le nombre reel de cartes qui seront
   piochees n'etant pas encore connu au moment de choisir son Combattant.
 - **Decision de pioche** (`decider_piocher_ou_arreter`) : a chaque tour, calcule
   l'esperance de gain d'une carte supplementaire a partir de la composition exacte du

@@ -6,8 +6,8 @@ import random
 # (nom, puissance, malus, quantite). Tas de 20 cartes, remelange a chaque duel.
 CARTE_PUISSANCE_DISTRIBUTION = [
     ("Destin", 2, 0, 3),
-    ("Chance", 1, 0, 7),
-    ("Peripetie", 1, 1, 7),
+    ("Chance", 1, 1, 7),
+    ("Peripetie", 0, 0, 7),
     ("Malheur", 0, 2, 3),
 ]
 
@@ -48,6 +48,7 @@ class CombattantTemplate:
         self.puissance = data["puissance"]
         self.degats = data["degats"]
         self.pouvoir = data["pouvoir"]  # dict unique (description, condition, modificateur, energie_min, effets)
+        self.image = data.get("image")
 
     def to_dict(self):
         return {
@@ -56,6 +57,7 @@ class CombattantTemplate:
             "puissance": self.puissance,
             "degats": self.degats,
             "pouvoir": self.pouvoir,
+            "image": self.image,
         }
 
 
@@ -73,6 +75,7 @@ class CombattantEnEquipe:
             "puissance": self.template.puissance,
             "degats": self.template.degats,
             "pouvoir": self.template.pouvoir,
+            "image": self.template.image,
             "utilise": self.utilise,
         }
 

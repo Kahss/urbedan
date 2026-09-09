@@ -6,8 +6,8 @@ Urban Eredan est un jeu de cartes qui se fait s'affronter deux équipes de comba
 ## Composants principaux
 - Cartes Puissance : ce sont les cartes qui vont permettre de booster les combattants au cours de chaque duel, piochées en "stop ou encore" (voir "Structure d'une partie"). Chaque Carte Puissance a deux propriétés : une Puissance (entre 0 et 2) et des points de Malus (entre 0 et 2). Le tas, remélangé à chaque duel, est réparti comme suit :
   - 3 cartes Destin : 2 Puissance / 0 Malus
-  - 7 cartes Chance : 1 Puissance / 0 Malus
-  - 7 cartes Péripétie : 1 Puissance / 1 Malus
+  - 7 cartes Chance : 1 Puissance / 1 Malus
+  - 7 cartes Péripétie : 0 Puissance / 0 Malus
   - 3 cartes Malheur : 0 Puissance / 2 Malus
 - Cartes Combattant : ce sont les membres de chaque équipe. Chaque Combattant possède les caractéristiques suivantes :
   - Nom

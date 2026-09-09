@@ -8,8 +8,14 @@ from engine.game import ErreurPartie, Partie, charger_combattants
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = os.path.join(BASE_DIR, "..", "data", "combattants.json")
 FRONTEND_DIR = os.path.join(BASE_DIR, "..", "frontend")
+IMG_DIR = os.path.join(BASE_DIR, "..", "img")
 
 app = Flask(__name__, static_folder=FRONTEND_DIR, static_url_path="")
+
+
+@app.get("/img/<path:nom_fichier>")
+def img_illustration(nom_fichier):
+    return send_from_directory(IMG_DIR, nom_fichier)
 
 TEMPLATES = charger_combattants(DATA_PATH)
 

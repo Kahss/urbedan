@@ -48,6 +48,28 @@ function conditionEstValidee(pouvoir, role, pvSoi, pvAdv) {
   }
 }
 
+function echapperHtml(texte) {
+  const div = document.createElement("div");
+  div.textContent = texte;
+  return div.innerHTML;
+}
+
+// La condition n'est surlignee en rouge que si pouvoir.condition est reellement
+// definie cote donnees (sinon certains textes commencent par un mot-cle sans
+// que ce soit une vraie condition de jeu, ex. "Patience : ..." chez Grind).
+function formaterTexteCompetence(pouvoir) {
+  const description = pouvoir ? pouvoir.description : "";
+  if (pouvoir && pouvoir.condition) {
+    const indexDeuxPoints = description.indexOf(":");
+    if (indexDeuxPoints !== -1) {
+      const avant = description.slice(0, indexDeuxPoints + 1);
+      const apres = description.slice(indexDeuxPoints + 1);
+      return `<span class="cond">${echapperHtml(avant)}</span>${echapperHtml(apres)}`;
+    }
+  }
+  return echapperHtml(description);
+}
+
 function creerCarteCombattant(data, { selectionnable = false, selectionnee = false, active = false, conditionValidee = false, onClick = null } = {}) {
   const carte = document.createElement("div");
   carte.className = "carte-combattant";
@@ -57,23 +79,29 @@ function creerCarteCombattant(data, { selectionnable = false, selectionnee = fal
   if (conditionValidee) carte.classList.add("condition-validee");
   if (data.utilise) carte.classList.add("utilisee");
 
-  const titre = document.createElement("h4");
-  titre.textContent = data.nom;
-  carte.appendChild(titre);
+  const top = document.createElement("div");
+  top.className = "cc-top";
+  if (data.image) {
+    top.innerHTML = `<div class="cc-emblem"><img src="/img/${encodeURIComponent(data.image)}" alt=""></div>`;
+  }
+  const nom = document.createElement("h4");
+  nom.className = "cc-nom";
+  nom.textContent = data.nom;
+  top.appendChild(nom);
+  carte.appendChild(top);
+
+  const band = document.createElement("div");
+  band.className = "cc-band";
+  band.innerHTML = `<p>${formaterTexteCompetence(data.pouvoir)}</p>`;
+  carte.appendChild(band);
 
   const stats = document.createElement("div");
-  stats.className = "stats-combattant";
-  stats.innerHTML = `<span>Puissance <b>${data.puissance}</b></span><span>Degats <b>${data.degats}</b></span>`;
+  stats.className = "cc-stats";
+  stats.innerHTML = `
+    <div class="cc-stat"><b>${data.puissance}</b><span>Puissance</span></div>
+    <div class="cc-stat"><b>${data.degats}</b><span>Degats</span></div>
+  `;
   carte.appendChild(stats);
-
-  const liste = document.createElement("ul");
-  liste.className = "liste-pouvoirs";
-  if (data.pouvoir) {
-    const li = document.createElement("li");
-    li.textContent = data.pouvoir.description;
-    liste.appendChild(li);
-  }
-  carte.appendChild(liste);
 
   if (data.utilise) {
     const badge = document.createElement("span");
@@ -95,10 +123,59 @@ function formaterDetailListe(detail) {
     .join("");
 }
 
-function creerCartePuissance(carte) {
+// Icone + jauge de pastilles a la place d'un texte de stats : une carte
+// Puissance se lit visuellement (forme + couleur + nombre de pastilles
+// pleines), le nom ne reste que dans le title (tooltip) et un petit libelle.
+const REGEX_DIACRITIQUES = new RegExp("[\\u0300-\\u036f]", "g");
+
+function normaliserNomCarte(nom) {
+  return nom.normalize("NFD").replace(REGEX_DIACRITIQUES, "").toLowerCase();
+}
+
+function creerLignePips(valeur, max, type) {
+  const ligne = document.createElement("span");
+  ligne.className = "cp-pips-ligne";
+  for (let i = 0; i < max; i++) {
+    const pip = document.createElement("span");
+    pip.className = `cp-pip cp-pip-${type}` + (i < valeur ? " cp-pip--on" : "");
+    ligne.appendChild(pip);
+  }
+  return ligne;
+}
+
+function creerCartePuissance(carte, { mini = false } = {}) {
+  const type = normaliserNomCarte(carte.nom);
   const el = document.createElement("div");
-  el.className = "carte-puissance";
-  el.innerHTML = `<div class="carte-puissance-nom">${carte.nom}</div><div class="carte-puissance-valeurs"><span class="cp-puissance">+${carte.puissance}</span><span class="cp-malus">${carte.malus} malus</span></div>`;
+  el.className = `carte-puissance carte-puissance--${type}` + (mini ? " carte-puissance--mini" : "");
+  el.title = `${carte.nom} : ${carte.puissance} Puissance / ${carte.malus} Malus`;
+
+  const icone = document.createElement("span");
+  icone.className = "cp-icone";
+  icone.setAttribute("aria-hidden", "true");
+  el.appendChild(icone);
+
+  const pips = document.createElement("div");
+  pips.className = "cp-pips";
+  pips.appendChild(creerLignePips(carte.puissance, 2, "puissance"));
+  pips.appendChild(creerLignePips(carte.malus, 2, "malus"));
+  el.appendChild(pips);
+
+  const label = document.createElement("span");
+  label.className = "cp-label";
+  label.textContent = carte.nom;
+  el.appendChild(label);
+
+  return el;
+}
+
+// Carte cachee (dos), utilisee pour montrer que l'adversaire IA a bien
+// pioche des cartes pendant la phase de pioche en cours, sans en reveler
+// le contenu avant la resolution du duel.
+function creerCartePuissanceDos() {
+  const el = document.createElement("div");
+  el.className = "carte-puissance carte-puissance--dos";
+  el.title = "Carte cachee";
+  el.setAttribute("aria-hidden", "true");
   return el;
 }
 
@@ -304,12 +381,10 @@ function renderZoneCentrale(etat) {
     const carte = document.createElement("div");
     carte.className = "carte-duel";
     let contenu = `<div class="role">${labelRole}</div><h3>${data.nom}</h3>`;
+    let infoCote = null;
     if (resultat) {
-      const infoCote = resultat.combattant_j1.nom === data.nom ? resultat.combattant_j1 : resultat.combattant_j2;
-      const cartesTxt = infoCote.cartes.length
-        ? infoCote.cartes.map((c) => `${c.nom} (+${c.puissance}/${c.malus} malus)`).join(", ")
-        : "aucune carte piochee";
-      contenu += `<div class="cartes-jouees">${cartesTxt}${infoCote.busted ? " — BUST (malus >= 3)" : ""}</div>`;
+      infoCote = slot === "j1" ? resultat.combattant_j1 : resultat.combattant_j2;
+      contenu += `<div class="cartes-jouees" data-cartes-jouees></div>`;
       if (data.pouvoir) {
         contenu += `<div class="pouvoir-actif">Pouvoir : ${data.pouvoir.description}</div>`;
       }
@@ -330,6 +405,25 @@ function renderZoneCentrale(etat) {
       contenu += `<div class="cartes-jouees">Puissance ${data.puissance} / Degats ${data.degats}</div>`;
     }
     carte.innerHTML = contenu;
+
+    // Cartes Puissance piochees par ce combattant, affichees visuellement
+    // (icone + pastilles) plutot qu'en texte : valable pour le joueur comme
+    // pour l'IA, une fois le duel resolu et les cartes reveleés.
+    if (infoCote) {
+      const zoneCartes = carte.querySelector("[data-cartes-jouees]");
+      if (infoCote.cartes.length === 0) {
+        zoneCartes.classList.add("cartes-jouees--vide");
+        zoneCartes.textContent = "Aucune carte piochee";
+      } else {
+        infoCote.cartes.forEach((c) => zoneCartes.appendChild(creerCartePuissance(c, { mini: true })));
+        if (infoCote.busted) {
+          const bust = document.createElement("span");
+          bust.className = "badge-bust";
+          bust.textContent = "BUST";
+          zoneCartes.appendChild(bust);
+        }
+      }
+    }
     conteneurDuel.appendChild(carte);
   });
 
@@ -374,7 +468,17 @@ function renderZonePioche(etat, zonePioche, humainSlot, iaSlot) {
     `Puissance des cartes : +${infoHumain.puissance_cartes} — Malus total : ${infoHumain.malus_total}` +
     (infoHumain.malus_total >= 3 ? " (BUST, puissance des cartes annulee)" : "");
 
-  document.getElementById("statut-pioche-ia").textContent = `${infoIa.nb_cartes} carte(s) piochee(s)` + (infoIa.arrete ? " — a passe" : " — en train de decider");
+  // Les cartes de l'IA restent cachees (contenu inconnu) tant que le duel
+  // n'est pas resolu, mais leur nombre est visible sous forme de dos de
+  // cartes plutot qu'en texte.
+  const iaCartes = document.getElementById("ia-cartes-piochees");
+  vider(iaCartes);
+  if (infoIa.nb_cartes === 0) {
+    iaCartes.textContent = "Aucune carte piochee pour l'instant.";
+  } else {
+    for (let i = 0; i < infoIa.nb_cartes; i++) iaCartes.appendChild(creerCartePuissanceDos());
+  }
+  document.getElementById("statut-pioche-ia").textContent = infoIa.arrete ? "A passe" : "En train de decider...";
 
   const monTour = etat.pioche.tour === humainSlot;
   const jePeuxAgir = monTour && !infoHumain.arrete;

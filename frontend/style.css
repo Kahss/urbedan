@@ -72,14 +72,19 @@ h2 { text-align: center; }
   gap: 8px;
 }
 
+/* Carte-combattant : design "Duel Split / Mono Encre" (cf. lookbook de design) */
 .carte-combattant {
-  background: var(--bg-card);
-  border: 2px solid var(--border);
-  border-radius: 10px;
-  padding: 12px 14px;
-  box-shadow: var(--shadow);
-  transition: transform 0.12s ease, border-color 0.12s ease;
+  --cc-accent: #e63b2e;
+  background: #f4f2ee;
+  border-radius: 15px;
+  overflow: hidden;
   position: relative;
+  z-index: 0;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  aspect-ratio: 63 / 88;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 }
 
 .carte-combattant.selectionnable {
@@ -88,12 +93,11 @@ h2 { text-align: center; }
 
 .carte-combattant.selectionnable:hover {
   transform: translateY(-3px);
-  border-color: var(--accent-2);
+  box-shadow: 0 0 0 2px var(--accent-2), var(--shadow);
 }
 
 .carte-combattant.selectionnee {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--accent), var(--shadow);
+  box-shadow: 0 0 0 3px var(--accent), var(--shadow);
 }
 
 .carte-combattant.utilisee {
@@ -102,58 +106,158 @@ h2 { text-align: center; }
 }
 
 .carte-combattant.active-duel {
-  border-color: var(--accent);
-  box-shadow: 0 0 20px rgba(255, 90, 31, 0.35);
+  box-shadow: 0 0 0 3px var(--accent), 0 0 20px rgba(255, 90, 31, 0.35);
 }
 
 .carte-combattant.condition-validee {
-  outline: 2px solid var(--or);
+  outline: 3px solid var(--or);
   outline-offset: 2px;
 }
 
-.carte-combattant h4 {
-  margin: 0 0 6px;
-  font-size: 1.05rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
+.carte-combattant .cc-top {
+  height: 50%;
+  flex-shrink: 0;
+  position: relative;
+  background: linear-gradient(160deg, #3a3a3a, #0a0a0a);
 }
 
-.stats-combattant {
-  display: flex;
-  gap: 12px;
-  font-size: 0.85rem;
-  color: var(--text-dim);
-  margin-bottom: 8px;
+.carte-combattant .cc-top::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.55) 0%, transparent 42%);
 }
 
-.stats-combattant b { color: var(--text); }
+.carte-combattant .cc-emblem {
+  position: absolute;
+  top: 8%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 46%;
+  aspect-ratio: 1;
+  border-radius: 14%;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.14), 0 10px 18px rgba(0, 0, 0, 0.5);
+}
 
-.liste-pouvoirs {
-  list-style: none;
+.carte-combattant .cc-emblem img {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 150%;
+  height: 150%;
+  transform: translate(-50%, -50%);
+  object-fit: cover;
+}
+
+.carte-combattant .cc-nom {
+  position: absolute;
+  left: 8%;
+  bottom: 5%;
+  z-index: 1;
   margin: 0;
-  padding: 0;
-  font-size: 0.78rem;
-  color: var(--text-dim);
+  font-family: 'Oswald', Arial, sans-serif;
+  font-weight: 700;
+  font-size: 1.3rem;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  color: #fff;
 }
 
-.liste-pouvoirs li {
-  padding: 3px 0;
-  border-top: 1px dashed var(--border);
+.carte-combattant .cc-band {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  background: #f4f2ee;
+  color: #141210;
+  padding: 8% 9%;
+  font-size: 0.86rem;
+  line-height: 1.42;
 }
 
-.liste-pouvoirs li:first-child { border-top: none; }
+.carte-combattant .cc-band p { margin: 0; }
+.carte-combattant .cc-band .cond { color: var(--cc-accent); font-weight: 700; }
+
+.carte-combattant .cc-stats {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.carte-combattant .cc-stat {
+  flex: 1;
+  text-align: center;
+  padding: 6% 4% 8%;
+  background: #141210;
+  color: #f4f2ee;
+  font-family: 'Oswald', Arial, sans-serif;
+}
+
+.carte-combattant .cc-stat:first-child {
+  border-right: 2px solid var(--cc-accent);
+}
+
+.carte-combattant .cc-stat b {
+  display: block;
+  font-size: 1.2rem;
+  color: var(--cc-accent);
+}
+
+.carte-combattant .cc-stat span {
+  font-size: 0.5rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #8a8378;
+}
 
 .badge-utilise {
   position: absolute;
   top: 8px;
   right: 8px;
+  z-index: 2;
   background: var(--danger);
   color: #fff;
   font-size: 0.65rem;
   padding: 2px 6px;
   border-radius: 4px;
   text-transform: uppercase;
+}
+
+/* Variante compacte : roster a cote de la zone de duel */
+.grille-combattants.petite .carte-combattant {
+  aspect-ratio: auto;
+}
+
+.grille-combattants.petite .cc-top {
+  height: 96px;
+}
+
+.grille-combattants.petite .cc-emblem {
+  width: 68px;
+}
+
+.grille-combattants.petite .cc-nom {
+  font-size: 1.05rem;
+}
+
+.grille-combattants.petite .cc-band {
+  padding: 10px 12px;
+  font-size: 0.78rem;
+}
+
+.grille-combattants.petite .cc-band p {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.grille-combattants.petite .cc-stat {
+  padding: 6px 4px 8px;
+}
+
+.grille-combattants.petite .cc-stat b {
+  font-size: 1rem;
 }
 
 /* ---------- Barre d'action / selection equipe ---------- */
@@ -333,31 +437,123 @@ button:disabled {
   justify-content: center;
 }
 
+/* Carte Puissance : visuel minimaliste (icone de forme + jauge de
+   pastilles) plutot qu'un texte de stats. Une pastille pleine = 1 point,
+   couleur = type de carte. Le nom complet ne reste que dans le title
+   (tooltip) et un petit libelle secondaire. */
 .carte-puissance {
-  background: var(--bg-card);
-  border: 2px solid var(--border);
-  border-radius: 8px;
-  padding: 8px 10px;
-  min-width: 76px;
-  text-align: center;
-}
-
-.carte-puissance-nom {
-  font-size: 0.7rem;
-  color: var(--text-dim);
-  text-transform: uppercase;
-}
-
-.carte-puissance-valeurs {
+  --cp-couleur: var(--text-dim);
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
   gap: 6px;
-  margin-top: 4px;
-  font-weight: 800;
+  background: var(--bg-card);
+  border: 2px solid var(--cp-couleur);
+  border-radius: 10px;
+  padding: 10px 6px 8px;
+  width: 56px;
 }
 
-.cp-puissance { color: var(--ok); }
-.cp-malus { color: var(--danger); font-size: 0.75rem; align-self: center; }
+.carte-puissance--destin { --cp-couleur: var(--or); }
+.carte-puissance--chance { --cp-couleur: var(--accent-2); }
+.carte-puissance--peripetie { --cp-couleur: var(--text-dim); }
+.carte-puissance--malheur { --cp-couleur: var(--danger); }
+
+.cp-icone {
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  background: var(--cp-couleur);
+}
+
+/* Destin : etoile (rare, favorable) */
+.carte-puissance--destin .cp-icone {
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+}
+
+/* Chance : losange (a double tranchant, puissance ET malus) */
+.carte-puissance--chance .cp-icone {
+  clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+}
+
+/* Peripetie : anneau vide (neutre, sans effet) */
+.carte-puissance--peripetie .cp-icone {
+  width: 18px;
+  height: 18px;
+  background: transparent;
+  border: 3px solid var(--cp-couleur);
+  border-radius: 50%;
+}
+
+/* Malheur : triangle pointe vers le bas (avertissement) */
+.carte-puissance--malheur .cp-icone {
+  clip-path: polygon(50% 100%, 0% 0%, 100% 0%);
+}
+
+.cp-pips {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  align-items: center;
+}
+
+.cp-pips-ligne {
+  display: flex;
+  gap: 3px;
+}
+
+.cp-pip {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1.5px solid var(--border);
+}
+
+.cp-pip-puissance { border-color: rgba(62, 207, 106, 0.45); }
+.cp-pip-malus { border-color: rgba(255, 71, 87, 0.45); }
+.cp-pip--on.cp-pip-puissance { background: var(--ok); border-color: var(--ok); }
+.cp-pip--on.cp-pip-malus { background: var(--danger); border-color: var(--danger); }
+
+.cp-label {
+  font-size: 0.5rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.1;
+  color: var(--text-dim);
+}
+
+/* Variante compacte utilisee dans le recapitulatif du duel (les deux
+   combattants, joueur ET IA une fois leurs cartes revelees) */
+.carte-puissance--mini {
+  width: 32px;
+  padding: 5px 3px 4px;
+  gap: 3px;
+  border-width: 1.5px;
+}
+.carte-puissance--mini .cp-icone { width: 14px; height: 14px; }
+.carte-puissance--mini .cp-pip { width: 4px; height: 4px; }
+.carte-puissance--mini .cp-label { display: none; }
+
+/* Dos de carte : nombre de cartes piochees par l'IA, visible pendant la
+   pioche en cours, sans en reveler le contenu avant la resolution. */
+.carte-puissance--dos {
+  --cp-couleur: var(--border);
+  width: 40px;
+  height: 56px;
+  padding: 0;
+  justify-content: center;
+  background: repeating-linear-gradient(135deg, #1a1c24, #1a1c24 4px, #22242e 4px, #22242e 8px);
+}
+.carte-puissance--dos::after {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--text-dim);
+  border-radius: 50%;
+  opacity: 0.5;
+}
 
 .totaux-pioche {
   margin: 8px 0 0;
@@ -409,9 +605,28 @@ button.secondaire:hover:not(:disabled) {
 
 .carte-duel .cartes-jouees {
   margin-top: 8px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--accent);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: center;
+  align-items: center;
+}
+
+.carte-duel .cartes-jouees--vide {
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--text-dim);
+}
+
+.badge-bust {
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 800;
+  padding: 3px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .carte-duel .pouvoir-actif {

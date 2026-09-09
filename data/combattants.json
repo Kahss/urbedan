@@ -25,7 +25,8 @@
           }
         ],
         "plafond_cartes": 3
-      }
+      },
+      "image": "Icon.2_47.png"
     },
     {
       "id": "nova",
@@ -46,7 +47,8 @@
             "type": "stop_pouvoir"
           }
         ]
-      }
+      },
+      "image": "Icon.5_33.png"
     },
     {
       "id": "grind",
@@ -65,7 +67,8 @@
             "valeur": 2
           }
         ]
-      }
+      },
+      "image": "Icons8_85.png"
     },
     {
       "id": "blaze",
@@ -90,7 +93,8 @@
             "valeur": 4
           }
         ]
-      }
+      },
+      "image": "Icon.1_24.png"
     },
     {
       "id": "iron",
@@ -114,7 +118,8 @@
           }
         ],
         "plafond_cartes": 3
-      }
+      },
+      "image": "Icon.3_31.png"
     },
     {
       "id": "cobra",
@@ -134,7 +139,8 @@
           }
         ],
         "plafond_cartes": 3
-      }
+      },
+      "image": "Icons8_60.png"
     },
     {
       "id": "echo",
@@ -159,7 +165,8 @@
           }
         ],
         "plafond_cartes": 3
-      }
+      },
+      "image": "Icons8_70.png"
     },
     {
       "id": "vex",
@@ -179,7 +186,8 @@
             "valeur": -6
           }
         ]
-      }
+      },
+      "image": "Icon.7_71.png"
     },
     {
       "id": "mirage",
@@ -200,7 +208,8 @@
           }
         ],
         "plafond_cartes": 3
-      }
+      },
+      "image": "Icons8_24.png"
     },
     {
       "id": "surge",
@@ -221,7 +230,8 @@
           }
         ],
         "plafond_cartes": 3
-      }
+      },
+      "image": "Icons8_02.png"
     },
     {
       "id": "jab",
@@ -241,7 +251,8 @@
             "valeur": 3
           }
         ]
-      }
+      },
+      "image": "Icon.5_07.png"
     },
     {
       "id": "buzzer",
@@ -261,7 +272,8 @@
             "valeur": 4
           }
         ]
-      }
+      },
+      "image": "Icons8_63.png"
     },
     {
       "id": "verve",
@@ -281,7 +293,8 @@
             "valeur": 4
           }
         ]
-      }
+      },
+      "image": "Icons8_05.png"
     },
     {
       "id": "gambit",
@@ -291,8 +304,8 @@
       "puissance": 7,
       "degats": 1,
       "pouvoir": {
-        "description": "Surpuissance : +4 Vie et -4 Vie adverse",
-        "condition": "surpuissance",
+        "description": "3+ : +4 Vie et -4 Vie adverse",
+        "condition": "3+",
         "effets": [
           {
             "type": "vie",
@@ -305,7 +318,8 @@
             "valeur": -4
           }
         ]
-      }
+      },
+      "image": "Icons8_80.png"
     },
     {
       "id": "nitro",
@@ -325,7 +339,8 @@
             "valeur": 2
           }
         ]
-      }
+      },
+      "image": "Icons8_15.png"
     },
     {
       "id": "cascade",
@@ -345,7 +360,8 @@
             "valeur": 3
           }
         ]
-      }
+      },
+      "image": "Icon.3_87.png"
     },
     {
       "id": "mime",
@@ -363,7 +379,8 @@
             "type": "copie_pouvoir"
           }
         ]
-      }
+      },
+      "image": "Icons8_30.png"
     },
     {
       "id": "verrou",
@@ -381,7 +398,8 @@
             "type": "stop_pouvoir"
           }
         ]
-      }
+      },
+      "image": "Icon.5_39.png"
     },
     {
       "id": "furet",
@@ -399,7 +417,8 @@
             "type": "echange"
           }
         ]
-      }
+      },
+      "image": "Icon.6_10.png"
     },
     {
       "id": "suture",
@@ -419,7 +438,8 @@
             "valeur": 1
           }
         ]
-      }
+      },
+      "image": "Icons8_09.png"
     },
     {
       "id": "toph",
@@ -442,7 +462,8 @@
             "valeur": 4
           }
         ]
-      }
+      },
+      "image": "Icon.6_98.png"
     },
     {
       "id": "loup",
@@ -462,7 +483,8 @@
           }
         ],
         "plafond_cartes": 3
-      }
+      },
+      "image": "Icons8_07.png"
     }
   ]
 }

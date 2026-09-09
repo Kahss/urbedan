@@ -10,7 +10,7 @@ Copie pouvoir X,Effet,Copie le pouvoir X adverse
 Vampirisme X,Effet,Réduit de X les pv adverses et gagne X pv
 Victoire,Condition,En cas de victoire
 Défaite,Condition,En cas de défaite
-Surpuissance,Condition,En cas de victoire avec une puissance totale supérieure ou égale au double de la puissance totale adverse
+3+,Condition,Si le Combattant a pioché 3 Cartes Puissance ou plus
 Courage,Condition,Si joué en premier
 Riposte,Condition,Si joué en second
 Vengeance,Condition,Si l'adversaire a plus de vie
