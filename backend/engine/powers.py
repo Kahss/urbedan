@@ -290,12 +290,15 @@ class MoteurDuel:
                     f"{source.template.nom} Pouvoir (Echange) bloque par Protection de {adv.template.nom}"
                 )
                 return
-            # Calcule les deltas AVANT toute mutation, pour que l'echange reste tracable
-            # (et reversible par un Stop pouvoir retroactif) via le meme ledger que les
-            # autres effets, plutot qu'une permutation directe non tracee.
+            # Calcule les deltas a partir des valeurs de BASE (template), pas des totaux
+            # courants : seules les stats imprimees sur la carte s'echangent, les cartes
+            # Puissance piochees et les effets de Pouvoir deja appliques restent a leur
+            # combattant d'origine. Applique comme un delta (plutot qu'une permutation
+            # directe) pour que l'effet reste tracable et reversible par un Stop pouvoir
+            # retroactif, via le meme ledger que les autres effets.
             label_echange = f"Echange (Pouvoir {source.template.nom})"
-            delta_puissance = adv.puissance - source.puissance
-            delta_degats = adv.degats - source.degats
+            delta_puissance = adv.template.puissance - source.template.puissance
+            delta_degats = adv.template.degats - source.template.degats
             self._appliquer(source, source, "puissance", delta_puissance, label_echange)
             self._appliquer(source, adv, "puissance", -delta_puissance, label_echange)
             self._appliquer(source, source, "degats", delta_degats, label_echange)

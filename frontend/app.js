@@ -244,29 +244,28 @@ function toggleSelection(id) {
   renderGrilleSelection();
 }
 
-// Tirage aleatoire d'une equipe respectant le budget de niveaux (meme logique de
-// repli que le backend, cf. tirer_equipe_equilibree dans engine/game.py) : on
-// retire des combinaisons de 4 jusqu'a en trouver une dont la somme des niveaux
-// ne depasse pas le budget, avec un repli sur les niveaux les plus bas sinon.
+// Tirage aleatoire d'une equipe qui utilise tout le budget de niveaux : on
+// enumere toutes les combinaisons de 4 Combattants (22 choisir 4 reste petit),
+// on ne garde que celles dont la somme des niveaux est la plus haute possible
+// sans depasser le budget (donc = NIVEAU_TOTAL_MAX des qu'une telle equipe
+// existe), puis on en tire une au hasard parmi elles.
 function selectionnerEquipeAleatoire() {
   const ids = combattantsDisponibles.map((c) => c.id);
-  const MAX_TENTATIVES = 200;
-  let equipeChoisie = null;
-  for (let tentative = 0; tentative < MAX_TENTATIVES; tentative++) {
-    const idsMelanges = [...ids];
-    for (let i = idsMelanges.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [idsMelanges[i], idsMelanges[j]] = [idsMelanges[j], idsMelanges[i]];
-    }
-    const echantillon = idsMelanges.slice(0, 4);
-    if (echantillon.reduce((s, id) => s + niveauCombattant(id), 0) <= NIVEAU_TOTAL_MAX) {
-      equipeChoisie = echantillon;
-      break;
+  const combinaisons = [];
+  for (let a = 0; a < ids.length; a++) {
+    for (let b = a + 1; b < ids.length; b++) {
+      for (let c = b + 1; c < ids.length; c++) {
+        for (let d = c + 1; d < ids.length; d++) {
+          const combo = [ids[a], ids[b], ids[c], ids[d]];
+          const somme = combo.reduce((s, id) => s + niveauCombattant(id), 0);
+          if (somme <= NIVEAU_TOTAL_MAX) combinaisons.push({ combo, somme });
+        }
+      }
     }
   }
-  if (!equipeChoisie) {
-    equipeChoisie = [...ids].sort((a, b) => niveauCombattant(a) - niveauCombattant(b)).slice(0, 4);
-  }
+  const meilleureSomme = Math.max(...combinaisons.map((c) => c.somme));
+  const meilleuresCombinaisons = combinaisons.filter((c) => c.somme === meilleureSomme);
+  const { combo: equipeChoisie } = meilleuresCombinaisons[Math.floor(Math.random() * meilleuresCombinaisons.length)];
   equipeSelectionnee.clear();
   equipeChoisie.forEach((id) => equipeSelectionnee.add(id));
   renderGrilleSelection();
