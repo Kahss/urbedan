@@ -104,16 +104,16 @@ def main():
         parties = stats[cid]["parties"]
         victoires = stats[cid]["victoires"]
         taux = (victoires / parties * 100) if parties else 0.0
-        lignes.append((templates[cid].nom, parties, victoires, taux))
-    lignes.sort(key=lambda ligne: ligne[3], reverse=True)
+        lignes.append((templates[cid].nom, templates[cid].niveau, parties, victoires, taux))
+    lignes.sort(key=lambda ligne: ligne[4], reverse=True)
 
-    largeur_nom = max(len(nom) for nom, _, _, _ in lignes)
+    largeur_nom = max(len(nom) for nom, _, _, _, _ in lignes)
     print(f"\nStatistiques sur {args.nombre_parties} parties simulees (IA contre IA)\n")
-    entete = f"{'Combattant':<{largeur_nom}}  {'Parties':>8}  {'Victoires':>9}  {'% Victoire':>10}"
+    entete = f"{'Combattant':<{largeur_nom}}  {'Rang':>4}  {'Parties':>8}  {'Victoires':>9}  {'% Victoire':>10}"
     print(entete)
     print("-" * len(entete))
-    for nom, parties, victoires, taux in lignes:
-        print(f"{nom:<{largeur_nom}}  {parties:>8}  {victoires:>9}  {taux:>9.2f}%")
+    for nom, niveau, parties, victoires, taux in lignes:
+        print(f"{nom:<{largeur_nom}}  {niveau:>4}  {parties:>8}  {victoires:>9}  {taux:>9.2f}%")
 
 
 if __name__ == "__main__":

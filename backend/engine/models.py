@@ -6,9 +6,9 @@ import random
 # (nom, puissance, malus, quantite). Tas de 20 cartes, remelange a chaque duel.
 CARTE_PUISSANCE_DISTRIBUTION = [
     ("Destin", 2, 0, 3),
-    ("Chance", 1, 1, 7),
-    ("Peripetie", 0, 0, 7),
-    ("Malheur", 0, 2, 3),
+    ("Épreuve", 1, 1, 7),
+    ("Péripétie", 0, 0, 7),
+    ("Adversité", 0, 2, 3),
 ]
 
 _carte_id_counter = itertools.count(1)

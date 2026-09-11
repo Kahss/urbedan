@@ -1,512 +1,462 @@
 {
-  "$schema_doc": "Voir README.md section 'Schema des Combattants' pour le detail des champs condition/modificateur/effets. Depuis la version 'stop ou encore', chaque Combattant ne possede plus qu'un seul Pouvoir, toujours actif, qui peut etre multiplie par le nombre de Cartes Puissance piochees (modificateur par_carte / par_carte_adverse / par_carte_en_jeu), plafonne par le champ plafond_cartes. Chaque Combattant possede un champ 'niveau' (1 a 3, 3 = le plus puissant) ; la somme des niveaux des 4 Combattants d'une equipe ne peut pas depasser 8.",
+  "$schema_doc": "Voir README.md section 'Schema des Combattants' pour le detail des champs condition/modificateur/effets. Depuis la version 'stop ou encore', chaque Combattant ne possede plus qu'un seul Pouvoir, toujours actif, qui peut etre multiplie par le nombre de Cartes Puissance piochees (modificateur par_carte / par_carte_adverse / par_carte_en_jeu), plafonne par le champ plafond_cartes. Chaque Combattant possede un champ 'niveau' (1 a 3, 3 = le plus puissant) ; la somme des niveaux des 4 Combattants d'une equipe ne peut pas depasser 8. Un effet peut porter sa propre 'condition' (prioritaire sur celle du Pouvoir, pour cet effet uniquement).",
   "combattants": [
     {
-      "id": "riff",
-      "nom": "Riff",
-      "archetype": "Le DJ des block-parties",
-      "description": "Platines calees sur le toit d'un parking desaffecte, Riff a grandi au son des basses qui remontent des caves du quartier. Il ne se bat jamais sans musique : chaque duel est un set improvise ou il monte crescendo, certain que le premier morceau pose donne toujours le ton. La legende dit qu'il n'a jamais perdu un affrontement commence sur son propre tempo.",
+      "id": "ludwig",
+      "nom": "Ludwig",
       "puissance": 4,
-      "degats": 0,
-      "niveau": 3,
+      "degats": 3,
+      "niveau": 1,
       "pouvoir": {
-        "description": "Courage : +2 Puissance / +2 Dégâts par carte piochée (max 3)",
-        "condition": "courage",
-        "modificateur": "par_carte",
-        "effets": [
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 2
-          },
-          {
-            "type": "degats",
-            "cible": "soi",
-            "valeur": 2
-          }
-        ],
-        "plafond_cartes": 3
-      },
-      "image": "Icon.2_47.png"
-    },
-    {
-      "id": "nova",
-      "nom": "Nova",
-      "archetype": "La hackeuse activiste",
-      "description": "Nova a coupe le courant de tout un pate d'immeubles a quinze ans, juste pour voir ce que ca ferait. Aujourd'hui elle infiltre les automatismes adverses en plein duel, les desactive, puis retourne leurs propres protocoles contre eux. Elle ne frappe jamais fort la premiere fois : elle prefere demonter le systeme de l'interieur avant de porter le coup de grace.",
-      "puissance": 4,
-      "degats": 5,
-      "niveau": 3,
-      "pouvoir": {
-        "description": "Copie puis annule le Pouvoir actif adverse",
-        "condition": null,
+        "description": "Surcharge : -2 PV à chaque joueur",
+        "condition": "surcharge",
         "modificateur": null,
         "effets": [
-          {
-            "type": "copie_pouvoir"
-          },
-          {
-            "type": "stop_pouvoir"
-          }
+          { "type": "vie", "cible": "soi", "valeur": -2 },
+          { "type": "vie", "cible": "adversaire", "valeur": -2 }
         ]
       },
-      "image": "Icon.5_33.png"
+      "image": "Icon.1_01.png"
     },
     {
-      "id": "grind",
-      "nom": "Grind",
-      "archetype": "Le rider de skatepark",
-      "description": "Grind n'a jamais mis les pieds dans une salle de sport : tout ce qu'il sait, il l'a appris en se plantant sur le bitume d'un bowl abandonne. Chaque chute est une lecon, chaque revers un tremplin pour la figure suivante. Plus le tournoi avance, plus ses gestes deviennent precis — l'experience du bitume, ca ne s'oublie pas.",
-      "puissance": 5,
+      "id": "gernham",
+      "nom": "Gernham",
+      "puissance": 3,
+      "degats": 1,
+      "niveau": 1,
+      "pouvoir": {
+        "description": "Domination : +3 Puissance / +3 Dégâts",
+        "condition": "domination",
+        "modificateur": null,
+        "effets": [
+          { "type": "puissance", "cible": "soi", "valeur": 3 },
+          { "type": "degats", "cible": "soi", "valeur": 3 }
+        ]
+      },
+      "image": "Icon.1_02.png"
+    },
+    {
+      "id": "lady_maria",
+      "nom": "Lady Maria",
+      "puissance": 4,
+      "degats": 0,
+      "niveau": 1,
+      "pouvoir": {
+        "description": "Patience, Victoire : Vampirisme 1",
+        "condition": "victoire",
+        "modificateur": "patience",
+        "effets": [
+          { "type": "vampirisme", "valeur": 1 }
+        ]
+      },
+      "image": "Icon.1_03.png"
+    },
+    {
+      "id": "oogway",
+      "nom": "Oogway",
+      "puissance": 3,
+      "degats": 1,
+      "niveau": 1,
+      "pouvoir": {
+        "description": "Si dégâts de base adverse >= 3 : -3 Dégâts adverse",
+        "condition": "degats_adverse_3+",
+        "modificateur": null,
+        "effets": [
+          { "type": "degats", "cible": "adversaire", "valeur": -3 }
+        ]
+      },
+      "image": "Icon.1_04.png"
+    },
+    {
+      "id": "shen",
+      "nom": "Shen",
+      "puissance": 4,
       "degats": 2,
       "niveau": 1,
       "pouvoir": {
-        "description": "Patience : +2 Puissance",
-        "modificateur": "patience",
+        "description": "Impatience : +1 Dégât",
+        "condition": null,
+        "modificateur": "impatience",
         "effets": [
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 2
-          }
+          { "type": "degats", "cible": "soi", "valeur": 1 }
         ]
       },
-      "image": "Icons8_85.png"
+      "image": "Icon.1_05.png"
     },
     {
-      "id": "blaze",
-      "nom": "Blaze",
-      "archetype": "Le writer pyromane",
-      "description": "Blaze tague a la bombe et au chalumeau, et personne ne l'arrete tant que la piece n'est pas terminee. Il frappe plus fort quand il sent l'adversaire deja affaibli, sans pitie pour les plus faibles — mais quand on lui tient tete, une rage froide prend le dessus et le rend plus dangereux encore. On raconte que ses fresques les plus connues ont fini par bruler la moitie du mur qui les portait.",
+      "id": "katara",
+      "nom": "Katara",
+      "puissance": 4,
+      "degats": 2,
+      "niveau": 1,
+      "pouvoir": {
+        "description": "Victoire précédente : annule le Pouvoir adverse",
+        "condition": "victoire_precedente",
+        "modificateur": null,
+        "effets": [
+          { "type": "stop_pouvoir" }
+        ]
+      },
+      "image": "Icon.1_06.png"
+    },
+    {
+      "id": "zuko",
+      "nom": "Zuko",
+      "puissance": 4,
+      "degats": 0,
+      "niveau": 1,
+      "pouvoir": {
+        "description": "+1 Dégât par Carte Puissance piochée",
+        "condition": null,
+        "modificateur": "par_carte",
+        "effets": [
+          { "type": "degats", "cible": "soi", "valeur": 1 }
+        ],
+        "plafond_cartes": 20
+      },
+      "image": "Icon.1_07.png"
+    },
+    {
+      "id": "reine_meve",
+      "nom": "Reine Meve",
+      "puissance": 3,
+      "degats": 3,
+      "niveau": 1,
+      "pouvoir": {
+        "description": "Si votre adversaire a pioché plus de cartes puissance que vous : -3 Dégâts adverse",
+        "condition": "plus_cartes_adverse",
+        "modificateur": null,
+        "effets": [
+          { "type": "degats", "cible": "adversaire", "valeur": -3 }
+        ]
+      },
+      "image": "Icon.1_08.png"
+    },
+    {
+      "id": "gascon",
+      "nom": "Gascon",
+      "puissance": 3,
+      "degats": 1,
+      "niveau": 1,
+      "pouvoir": {
+        "description": "Défaite : -3 PV adverse",
+        "condition": "defaite",
+        "modificateur": null,
+        "effets": [
+          { "type": "vie", "cible": "adversaire", "valeur": -3 }
+        ]
+      },
+      "image": "Icon.1_09.png"
+    },
+    {
+      "id": "violet",
+      "nom": "Violet",
+      "puissance": 5,
+      "degats": 5,
+      "niveau": 2,
+      "pouvoir": {
+        "description": "Victoire : -2 PV",
+        "condition": "victoire",
+        "modificateur": null,
+        "effets": [
+          { "type": "vie", "cible": "soi", "valeur": -2 }
+        ]
+      },
+      "image": "Icon.1_10.png"
+    },
+    {
+      "id": "zorro",
+      "nom": "Zorro",
+      "puissance": 5,
+      "degats": 3,
+      "niveau": 2,
+      "pouvoir": {
+        "description": "Si votre adversaire surcharge : -2 PV adverse",
+        "condition": "surcharge_adverse",
+        "modificateur": null,
+        "effets": [
+          { "type": "vie", "cible": "adversaire", "valeur": -2 }
+        ]
+      },
+      "image": "Icon.1_11.png"
+    },
+    {
+      "id": "jak_horner",
+      "nom": "Jak Horner",
       "puissance": 4,
       "degats": 2,
       "niveau": 2,
       "pouvoir": {
-        "description": "Vengeance : +4 Puissance, +4 Degats",
-        "condition": "vengeance",
+        "description": "Victoire précédente : +3 Puissance",
+        "condition": "victoire_precedente",
         "modificateur": null,
         "effets": [
-          {
-            "type": "degats",
-            "cible": "soi",
-            "valeur": 4
-          },
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 4
-          }
+          { "type": "puissance", "cible": "soi", "valeur": 3 }
+        ]
+      },
+      "image": "Icon.1_12.png"
+    },
+    {
+      "id": "shifu",
+      "nom": "Shifu",
+      "puissance": 4,
+      "degats": 3,
+      "niveau": 2,
+      "pouvoir": {
+        "description": "Vos cartes Adversité deviennent des 0/1",
+        "condition": null,
+        "modificateur": null,
+        "effets": [
+          { "type": "transforme_carte_type", "cible": "soi", "carte_type": "Adversité", "puissance": 0, "malus": 1 }
+        ]
+      },
+      "image": "Icon.1_13.png"
+    },
+    {
+      "id": "tigresse",
+      "nom": "Tigresse",
+      "puissance": 5,
+      "degats": 1,
+      "niveau": 2,
+      "pouvoir": {
+        "description": "-2 Dégâts adverse",
+        "condition": null,
+        "modificateur": null,
+        "effets": [
+          { "type": "degats", "cible": "adversaire", "valeur": -2 }
+        ]
+      },
+      "image": "Icon.1_14.png"
+    },
+    {
+      "id": "iroh",
+      "nom": "Iroh",
+      "puissance": 3,
+      "degats": 3,
+      "niveau": 2,
+      "pouvoir": {
+        "description": "-1 Puissance et Dégâts adverse par niveau adverse",
+        "condition": null,
+        "modificateur": "par_niveau_adverse",
+        "effets": [
+          { "type": "puissance", "cible": "adversaire", "valeur": -1 },
+          { "type": "degats", "cible": "adversaire", "valeur": -1 }
+        ]
+      },
+      "image": "Icon.1_15.png"
+    },
+    {
+      "id": "toph",
+      "nom": "Toph",
+      "puissance": 5,
+      "degats": 3,
+      "niveau": 2,
+      "pouvoir": {
+        "description": "La première Carte Puissance de votre adversaire reste face cachée",
+        "condition": null,
+        "modificateur": null,
+        "effets": [
+          { "type": "carte_cachee_premiere", "cible": "adversaire" }
+        ]
+      },
+      "image": "Icon.1_16.png"
+    },
+    {
+      "id": "seigneur_skaven",
+      "nom": "Seigneur skaven",
+      "puissance": 4,
+      "degats": 1,
+      "niveau": 2,
+      "pouvoir": {
+        "description": "4+ : Vampirisme 2",
+        "condition": "4+",
+        "modificateur": null,
+        "effets": [
+          { "type": "vampirisme", "valeur": 2 }
+        ]
+      },
+      "image": "Icon.1_17.png"
+    },
+    {
+      "id": "morpheus",
+      "nom": "Morpheus",
+      "puissance": 5,
+      "degats": 1,
+      "niveau": 2,
+      "pouvoir": {
+        "description": "Annule les cartes Destin piochées par l'adversaire",
+        "condition": null,
+        "modificateur": null,
+        "effets": [
+          { "type": "annule_type_carte", "cible": "adversaire", "carte_type": "Destin" }
+        ]
+      },
+      "image": "Icon.1_18.png"
+    },
+    {
+      "id": "garp",
+      "nom": "Garp",
+      "puissance": 4,
+      "degats": 3,
+      "niveau": 2,
+      "pouvoir": {
+        "description": "Patience : +1 Puissance",
+        "condition": null,
+        "modificateur": "patience",
+        "effets": [
+          { "type": "puissance", "cible": "soi", "valeur": 1 }
+        ]
+      },
+      "image": "Icon.1_19.png"
+    },
+    {
+      "id": "xaden",
+      "nom": "Xaden",
+      "puissance": 5,
+      "degats": 4,
+      "niveau": 3,
+      "pouvoir": {
+        "description": "Protection. Défaite précédente : +2 Puissance",
+        "condition": null,
+        "modificateur": null,
+        "effets": [
+          { "type": "protection" },
+          { "type": "puissance", "cible": "soi", "valeur": 2, "condition": "defaite_precedente" }
+        ]
+      },
+      "image": "Icon.1_20.png"
+    },
+    {
+      "id": "luffy",
+      "nom": "Luffy",
+      "puissance": 5,
+      "degats": 2,
+      "niveau": 3,
+      "pouvoir": {
+        "description": "Impatience : +1 Dégât",
+        "condition": null,
+        "modificateur": "impatience",
+        "effets": [
+          { "type": "degats", "cible": "soi", "valeur": 1 }
+        ]
+      },
+      "image": "Icon.1_21.png"
+    },
+    {
+      "id": "le_chasseur",
+      "nom": "Le chasseur",
+      "puissance": 3,
+      "degats": 4,
+      "niveau": 3,
+      "pouvoir": {
+        "description": "+1 Puissance par niveau adverse",
+        "condition": null,
+        "modificateur": "par_niveau_adverse",
+        "effets": [
+          { "type": "puissance", "cible": "soi", "valeur": 1 }
+        ]
+      },
+      "image": "Icon.1_22.png"
+    },
+    {
+      "id": "le_loup",
+      "nom": "Le loup",
+      "puissance": 5,
+      "degats": 4,
+      "niveau": 3,
+      "pouvoir": {
+        "description": "Si vous avez plus de PV que votre adversaire : -3 Puissance adverse",
+        "condition": "domination",
+        "modificateur": null,
+        "effets": [
+          { "type": "puissance", "cible": "adversaire", "valeur": -3 }
+        ]
+      },
+      "image": "Icon.1_23.png"
+    },
+    {
+      "id": "po",
+      "nom": "Po",
+      "puissance": 5,
+      "degats": 3,
+      "niveau": 3,
+      "pouvoir": {
+        "description": "Vos cartes Péripétie deviennent des 1/0",
+        "condition": null,
+        "modificateur": null,
+        "effets": [
+          { "type": "transforme_carte_type", "cible": "soi", "carte_type": "Péripétie", "puissance": 1, "malus": 0 }
         ]
       },
       "image": "Icon.1_24.png"
     },
     {
-      "id": "iron",
-      "nom": "Iron",
-      "archetype": "Le videur increvable",
-      "description": "Videur du Zenith Club depuis dix ans, Iron a arrete de compter les coups qu'il a encaisses a la place des autres. Rien ne l'ebranle : il absorbe, encaisse, et laisse l'adversaire s'epuiser contre sa garde plutot que de forcer le passage. Quand la situation degenere vraiment, c'est lui qui ferme la porte, dans tous les sens du terme.",
-      "puissance": 6,
-      "degats": 2,
-      "niveau": 2,
-      "pouvoir": {
-        "description": "Protection et -1 Puissance adverse par carte piochée (max 3)",
-        "condition": null,
-        "modificateur": "par_carte",
-        "effets": [
-          {
-            "type": "protection"
-          },
-          {
-            "type": "puissance",
-            "cible": "adversaire",
-            "valeur": -1
-          }
-        ],
-        "plafond_cartes": 3
-      },
-      "image": "Icon.3_31.png"
-    },
-    {
-      "id": "cobra",
-      "nom": "Cobra",
-      "archetype": "Le motard de nuit",
-      "description": "Personne ne sait qui se cache sous le casque de Cobra, seulement qu'on l'entend arriver avant de le voir. Il roule sans filet, mord avant de reflechir, et plus la course s'envenime, plus il plante les crocs profondement. Sa plus grande victoire l'a laisse a moitie inconscient au bord de la route — il dit que ca en valait le coup.",
-      "puissance": 4,
-      "degats": 3,
-      "niveau": 3,
-      "pouvoir": {
-        "description": "Vampirisme 1 par carte piochée (max 3)",
-        "condition": null,
-        "modificateur": "par_carte",
-        "effets": [
-          {
-            "type": "vampirisme",
-            "valeur": 1
-          }
-        ],
-        "plafond_cartes": 3
-      },
-      "image": "Icons8_60.png"
-    },
-    {
-      "id": "echo",
-      "nom": "Echo",
-      "archetype": "La danseuse de battle",
-      "description": "Echo n'a pas de coup fourre, pas de plan tordu : juste des annees de battles de rue et une technique irreprochable. Chaque geste qu'elle pose s'ajoute au precedent, sans jamais faiblir ni se laisser distraire par l'adversaire. Face a elle, tout le monde sait exactement ce qui va arriver — et perd quand meme.",
-      "puissance": 4,
-      "degats": 3,
-      "niveau": 3,
-      "pouvoir": {
-        "description": "+2 Puissance / + 1 Dégât par carte piochée (max 3)",
-        "modificateur": "par_carte",
-        "effets": [
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 2
-          },
-          {
-            "type": "degats",
-            "cible": "soi",
-            "valeur": 1
-          }
-        ],
-        "plafond_cartes": 3
-      },
-      "image": "Icons8_70.png"
-    },
-    {
-      "id": "vex",
-      "nom": "Vex",
-      "archetype": "La voyante des quais",
-      "description": "Vex lit l'avenir dans les graffitis et les tickets de loterie perdus, installee sur son carton pres du canal. Elle tire une etrange force de ses propres defaites, se relance encore plus fort a chaque victoire, et plus l'ecart de Puissance avec l'adversaire est grand en sa faveur, plus la malediction qu'elle jette ensuite est cruelle.",
-      "puissance": 4,
-      "degats": 3,
-      "niveau": 1,
-      "pouvoir": {
-        "description": "Défaite : -3 Vie adverse",
-        "condition": "defaite",
-        "modificateur": null,
-        "effets": [
-          {
-            "type": "vie",
-            "cible": "adversaire",
-            "valeur": -3
-          }
-        ]
-      },
-      "image": "Icon.7_71.png"
-    },
-    {
-      "id": "mirage",
-      "nom": "Mirage",
-      "archetype": "L'illusionniste du marche aux puces",
-      "description": "Sur son etal de bric-a-brac, Mirage ne vend jamais rien : elle observe. Elle laisse l'adversaire miser gros, sourit, puis lui retourne exactement l'energie qu'il vient d'investir contre elle. Plus on joue fort contre Mirage, plus on nourrit le tour qu'elle est en train de preparer.",
-      "puissance": 4,
-      "degats": 3,
-      "niveau": 3,
-      "pouvoir": {
-        "description": "+2 Puissance par carte piochée adverse (max 3)",
-        "condition": null,
-        "modificateur": "par_carte_adverse",
-        "effets": [
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 2
-          }
-        ],
-        "plafond_cartes": 3
-      },
-      "image": "Icons8_24.png"
-    },
-    {
-      "id": "surge",
-      "nom": "Surge",
-      "archetype": "L'anarchiste electrique",
-      "description": "Surge court-circuite les transformateurs du quartier pour le plaisir de sentir l'air crepiter. Peu lui importe qui a lance l'etincelle : plus un duel devient intense des deux cotes, plus elle absorbe ce chaos ambiant et le transforme en decharge.",
-      "puissance": 3,
-      "degats": 3,
-      "niveau": 2,
-      "pouvoir": {
-        "description": "+2 Puissance par carte piochée en jeu (max 3)",
-        "condition": null,
-        "modificateur": "par_carte_en_jeu",
-        "effets": [
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 2
-          }
-        ],
-        "plafond_cartes": 3
-      },
-      "image": "Icons8_02.png"
-    },
-    {
-      "id": "jab",
-      "nom": "Jab",
-      "archetype": "Le boxeur de rue",
-      "description": "Jab n'a jamais mis les pieds dans un club select : ses rounds, il les a faits au parking du Zenith, sous les phares des voitures garees en cercle. Il n'attaque jamais le premier — il regarde, encaisse un temps, puis place le contre exact au moment ou l'adversaire s'expose. Personne ne l'a jamais vu porter le premier coup, et personne n'a jamais gagne contre lui en deuxieme position.",
-      "puissance": 4,
-      "degats": 4,
-      "niveau": 1,
-      "pouvoir": {
-        "description": "Riposte : +3 Puissance",
-        "condition": "riposte",
-        "modificateur": null,
-        "effets": [
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 3
-          }
-        ]
-      },
-      "image": "Icon.5_07.png"
-    },
-    {
-      "id": "buzzer",
-      "nom": "Buzzer",
-      "archetype": "Le meneur de streetball",
-      "description": "Sur le playground du quartier, Buzzer ne joue jamais pour l'egalite. Des qu'il sent son equipe en tete, il accelere, enchaine les paniers et referme le match avant que l'adversaire n'espere revenir. Ceux qui l'ont affronte disent tous la meme chose : le pire moment pour jouer contre Buzzer, c'est quand il a deja de l'avance.",
-      "puissance": 5,
-      "degats": 2,
-      "niveau": 1,
-      "pouvoir": {
-        "description": "Domination : +4 Puissance",
-        "condition": "domination",
-        "modificateur": null,
-        "effets": [
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 4
-          }
-        ]
-      },
-      "image": "Icons8_63.png"
-    },
-    {
-      "id": "verve",
-      "nom": "Verve",
-      "archetype": "Le MC de battle rap",
-      "description": "Verve n'improvise jamais vraiment : chaque round gagne nourrit le suivant, chaque rime qui touche lui donne un souffle de plus pour la suite. Sur la scene du sous-sol du Kaine Club, on ne l'a jamais vu perdre pied une fois lance — au contraire, plus il enchaine les victoires, plus sa voix porte.",
-      "puissance": 5,
-      "degats": 3,
-      "niveau": 1,
-      "pouvoir": {
-        "description": "Victoire : +4 Vie",
-        "condition": "victoire",
-        "modificateur": null,
-        "effets": [
-          {
-            "type": "vie",
-            "cible": "soi",
-            "valeur": 4
-          }
-        ]
-      },
-      "image": "Icons8_05.png"
-    },
-    {
-      "id": "gambit",
-      "nom": "Gambit",
-      "archetype": "Le joueur d'echecs du parc",
-      "description": "Gambit joue aux echecs contre n'importe qui pour un billet, sur la table en beton du square Voltaire, et il ne propose jamais une partie qu'il n'a pas deja gagnee dans sa tete. Quand l'ecart devient ecrasant en sa faveur, il ne se contente pas de gagner la partie : il porte le coup de grace qui laisse l'adversaire incapable de revenir.",
-      "puissance": 7,
-      "degats": 1,
-      "niveau": 3,
-      "pouvoir": {
-        "description": "3+ : +4 Vie et -4 Vie adverse",
-        "condition": "3+",
-        "effets": [
-          {
-            "type": "vie",
-            "cible": "soi",
-            "valeur": 4
-          },
-          {
-            "type": "vie",
-            "cible": "adversaire",
-            "valeur": -4
-          }
-        ]
-      },
-      "image": "Icons8_80.png"
-    },
-    {
-      "id": "nitro",
-      "nom": "Nitro",
-      "archetype": "Le rider de BMX gonfle a l'energie",
-      "description": "Nitro carbure aux canettes energisantes et aux figures impossibles enchainees des les premieres secondes. Il demarre a fond, quitte a s'essouffler plus tard dans le tournoi : mieux vaut l'affronter en fin de journee qu'au tout premier duel, quand l'adrenaline coule encore a flots.",
-      "puissance": 1,
-      "degats": 3,
-      "niveau": 2,
-      "pouvoir": {
-        "description": "Impatience : +2 Puissance",
-        "condition": null,
-        "modificateur": "impatience",
-        "effets": [
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 2
-          }
-        ]
-      },
-      "image": "Icons8_15.png"
-    },
-    {
-      "id": "cascade",
-      "nom": "Cascade",
-      "archetype": "Le cascadeur du parking desaffecte",
-      "description": "Cascade s'entraine sur le toit du parking abandonne de la zone industrielle, enchainant des sauts que personne d'autre n'oserait tenter. Il ne ressent la montee d'adrenaline qu'une fois la figure reussie : c'est seulement apres avoir gagne le duel qu'il retrouve un second souffle, comme si la victoire elle-meme le soignait.",
-      "puissance": 7,
-      "degats": 5,
-      "niveau": 1,
-      "pouvoir": {
-        "description": "Contrecoup : +3 Vie",
-        "condition": null,
-        "modificateur": "contrecoup",
-        "effets": [
-          {
-            "type": "vie",
-            "cible": "adversaire",
-            "valeur": 3
-          }
-        ]
-      },
-      "image": "Icon.3_87.png"
-    },
-    {
-      "id": "mime",
-      "nom": "Mime",
-      "archetype": "Le mime du parvis",
-      "description": "Mime ne parle jamais, mais il observe chaque adversaire avec une attention presque derangeante avant de reproduire, trait pour trait, le geste qu'il vient de voir. Sur le parvis de la gare, les passants s'arretent pour le regarder imiter n'importe qui a la perfection — et en duel, il fait exactement pareil.",
+      "id": "tai_lung",
+      "nom": "Tai lung",
       "puissance": 5,
       "degats": 4,
       "niveau": 3,
       "pouvoir": {
-        "description": "Copie le Pouvoir adverse",
-        "condition": null,
-        "modificateur": null,
-        "effets": [
-          {
-            "type": "copie_pouvoir"
-          }
-        ]
-      },
-      "image": "Icons8_30.png"
-    },
-    {
-      "id": "verrou",
-      "nom": "Verrou",
-      "archetype": "La bloqueuse de roller derby",
-      "description": "Verrou n'a jamais marque le moindre point sur la piste de sa ligue de roller derby — et personne ne le lui a jamais reproche, parce que son travail c'est d'empecher les autres de passer. Elle place son epaule au bon moment, ferme la trajectoire, et l'adversaire se retrouve arrete net, sans jamais comprendre comment.",
-      "puissance": 5,
-      "degats": 3,
-      "niveau": 2,
-      "pouvoir": {
-        "description": "Annule le Pouvoir actif adverse",
-        "condition": null,
-        "modificateur": null,
-        "effets": [
-          {
-            "type": "stop_pouvoir"
-          }
-        ]
-      },
-      "image": "Icon.5_39.png"
-    },
-    {
-      "id": "furet",
-      "nom": "Furet",
-      "archetype": "Le pickpocket agile du marche",
-      "description": "Furet se faufile entre les etals du marche couvert sans jamais se faire voir, et ce qu'il derobe n'est pas toujours ce qu'on croit. Dans le feu d'un duel, il peut echanger sa situation avec celle de l'adversaire d'un geste aussi discret qu'un vol a la tire — et repartir avec ce qui comptait vraiment.",
-      "puissance": 4,
-      "degats": 4,
-      "niveau": 1,
-      "pouvoir": {
-        "description": "Echange Puissance/Degats avec l'adversaire",
-        "condition": null,
-        "modificateur": null,
-        "effets": [
-          {
-            "type": "echange"
-          }
-        ]
-      },
-      "image": "Icon.6_10.png"
-    },
-    {
-      "id": "suture",
-      "nom": "Suture",
-      "archetype": "Le medecin de rue benevole",
-      "description": "Suture tient une infirmerie de fortune dans l'arriere-boutique d'une friperie, et soigne quiconque en a besoin sans poser de questions. Plus un affrontement s'eternise, plus son geste devient sur : ce n'est jamais au premier duel qu'elle est la plus efficace, mais a mesure que le tournoi avance et que l'experience s'accumule.",
-      "puissance": 4,
-      "degats": 2,
-      "niveau": 2,
-      "pouvoir": {
-        "description": "Patience : +1 Vie",
-        "condition": null,
-        "modificateur": "patience",
-        "effets": [
-          {
-            "type": "vie",
-            "cible": "soi",
-            "valeur": 1
-          }
-        ]
-      },
-      "image": "Icons8_09.png"
-    },
-    {
-      "id": "toph",
-      "nom": "Toph",
-      "archetype": "La Bandite Aveugle",
-      "description": "On l'a sous-estimee toute sa vie : une gamine, aveugle, forcement vulnerable. Chaque adversaire qui la croit en position de faiblesse decouvre la meme chose : pieds nus sur le bitume, elle sent chaque vibration, chaque feinte, chaque ruse avant meme qu'elle ne se declenche. Alors le mepris se retourne aussitot contre lui, sous la forme d'un deluge de pierre et de metal.",
-      "puissance": 5,
-      "degats": 3,
-      "niveau": 2,
-      "pouvoir": {
-        "description": "Vengeance : Stop Pouvoir et +2 Puissance",
+        "description": "Si vous avez moins de PV que votre adversaire : -2 Puissance / -2 Dégâts",
         "condition": "vengeance",
         "modificateur": null,
         "effets": [
-          {
-            "type": "stop_pouvoir"
-          },
-          {
-            "type": "puissance",
-            "cible": "soi",
-            "valeur": 2
-          }
+          { "type": "puissance", "cible": "adversaire", "valeur": -2 },
+          { "type": "degats", "cible": "adversaire", "valeur": -2 }
         ]
       },
-      "image": "Icon.6_98.png"
+      "image": "Icon.1_25.png"
     },
     {
-      "id": "loup",
-      "nom": "Loup",
-      "archetype": "Le collecteur de dettes qu'on ne rembourse jamais deux fois",
-      "description": "Deux lames courbes glissent hors de son manteau, silencieuses, precises. Loup ne se presse jamais : il attend que la balance penche en sa faveur, calme, presque indifferent, avant de prelever sa part. Un sifflotement lent annonce toujours sa venue dans les couloirs vides, bien avant qu'on ne le voie -- et une fois qu'il a l'avantage, il ne repart jamais les mains vides.",
-      "puissance": 5,
-      "degats": 4,
-      "niveau": 2,
+      "id": "aang",
+      "nom": "Aang",
+      "puissance": 3,
+      "degats": 2,
+      "niveau": 3,
       "pouvoir": {
-        "description": "Domination : Vampirisme 2 par carte piochée (max 3)",
-        "condition": "domination",
-        "modificateur": "par_carte",
+        "description": "Courage : +3 Puissance / +3 Dégâts",
+        "condition": "courage",
+        "modificateur": null,
         "effets": [
-          {
-            "type": "vampirisme",
-            "valeur": 2
-          }
-        ],
-        "plafond_cartes": 3
+          { "type": "puissance", "cible": "soi", "valeur": 3 },
+          { "type": "degats", "cible": "soi", "valeur": 3 }
+        ]
       },
-      "image": "Icons8_07.png"
+      "image": "Icon.1_26.png"
+    },
+    {
+      "id": "neo",
+      "nom": "Néo",
+      "puissance": 6,
+      "degats": 2,
+      "niveau": 3,
+      "pouvoir": {
+        "description": "Protection. Annule la première carte Adversité piochée",
+        "condition": null,
+        "modificateur": null,
+        "effets": [
+          { "type": "protection" },
+          { "type": "annule_premiere_carte_type", "cible": "soi", "carte_type": "Adversité" }
+        ]
+      },
+      "image": "Icon.1_27.png"
+    },
+    {
+      "id": "smith",
+      "nom": "Smith",
+      "puissance": 4,
+      "degats": 4,
+      "niveau": 3,
+      "pouvoir": {
+        "description": "Copie puis annule le Pouvoir adverse",
+        "condition": null,
+        "modificateur": null,
+        "effets": [
+          { "type": "copie_pouvoir" },
+          { "type": "stop_pouvoir" }
+        ]
+      },
+      "image": "Icon.1_28.png"
     }
   ]
 }

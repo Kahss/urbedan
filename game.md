@@ -6,9 +6,9 @@ Urban Eredan est un jeu de cartes qui se fait s'affronter deux équipes de comba
 ## Composants principaux
 - Cartes Puissance : ce sont les cartes qui vont permettre de booster les combattants au cours de chaque duel, piochées en "stop ou encore" (voir "Structure d'une partie"). Chaque Carte Puissance a deux propriétés : une Puissance (entre 0 et 2) et des points de Malus (entre 0 et 2). Le tas, remélangé à chaque duel, est réparti comme suit :
   - 3 cartes Destin : 2 Puissance / 0 Malus
-  - 7 cartes Chance : 1 Puissance / 1 Malus
+  - 7 cartes Épreuve : 1 Puissance / 1 Malus
   - 7 cartes Péripétie : 0 Puissance / 0 Malus
-  - 3 cartes Malheur : 0 Puissance / 2 Malus
+  - 3 cartes Adversité : 0 Puissance / 2 Malus
 - Cartes Combattant : ce sont les membres de chaque équipe. Chaque Combattant possède les caractéristiques suivantes :
   - Nom
   - Puissance
@@ -37,7 +37,7 @@ Le Pouvoir d'un Combattant est toujours actif. Le modificateur "Par carte pioch�
 La partie se déroule comme une succession de duels. Chaque duel suit la structure suivante :
 1. Le premier joueur (J1) choisit son combattant, face cachée
 2. Le second joueur (J2) choisit son combattant, face cachée, dans les mêmes conditions
-3. Une fois les deux Combattants choisis, ils sont révélés face à face et la phase de pioche "stop ou encore" commence : mélangez un tas de 20 Cartes Puissance (3 Destin, 7 Chance, 7 Péripétie, 3 Malheur)
+3. Une fois les deux Combattants choisis, ils sont révélés face à face et la phase de pioche "stop ou encore" commence : mélangez un tas de 20 Cartes Puissance (3 Destin, 7 Épreuve, 7 Péripétie, 3 Adversité)
 4. À tour de rôle, en commençant par J1 et jusqu'à ce que les deux joueurs se soient arrêtés, chaque joueur pioche une Carte Puissance dans ce tas, ou choisit de s'arrêter :
    - Un joueur peut choisir de s'arrêter à tout moment
    - Si la somme des Malus de ses cartes piochées devient supérieure ou égale à 3, il est obligé de s'arrêter

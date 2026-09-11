@@ -1,29 +1,29 @@
 #,Nom,Niveau,Puissance,Dégâts,Capacité
 1,Ludwig,1,4,3,Surcharge : -2 PV à chaque joueur
-2,Gernham,1,3,1,Si vous avez plus de PV que votre adversaire : +3/+3
+2,Gernham,1,3,1,Si vous avez plus de PV que votre adversaire : +3 Puissance et Dégâts
 3,Lady Maria,1,4,0,"Patience, victoire : vampirisme 1"
-4,Oogway,1,3,1,Si dégâts de base adverse  >= 3 : -0/-2
-5,Shen,1,4,2,Impatience : +0/+1
+4,Oogway,1,3,1,Si dégâts de base adverse  >= 3 : -3 Dégâts adverse
+5,Shen,1,4,2,Impatience : +1 Dégât
 6,Katara,1,4,2,Si vous avez remporté le round précédent : annule la capacité adverse
-7,Zuko,1,4,0,+0/+1 par glyphe
-8,Reine Meve,1,3,3,Si votre adversaire a tiré plus de Glyphes que vous : -0/-3
-9,Gascon,1,3,1,Défaite : -2 PV
+7,Zuko,1,4,0,+1 Dégât par carte Puissance
+8,Reine Meve,1,3,3,Si votre adversaire a pioché plus de cartes puissance que vous : -3 Dégâts adverse
+9,Gascon,1,3,1,Défaite : l'adversaire perd 3PV
 10,Violet,2,5,5,Victoire : -2 PV soi
-11,Zorro,2,5,3,Si votre adversaire surcharge : -2 PV
-12,Jak Horner,2,4,2,Si vous avez remporté le duel précédent : +3/+0
+11,Zorro,2,5,3,Si votre adversaire surcharge : il perd 2PV
+12,Jak Horner,2,4,2,Si vous avez remporté le duel précédent : +3 Puissance
 13,Shifu,2,4,3,Vos Adversités deviennent des 0/1
-14,Tigresse,2,5,1,-0/-2
-15,Iroh,2,3,3,Patience : -0/-1
+14,Tigresse,2,5,1,-2 Dégâts adverses
+15,Iroh,2,3,3,-1 Puissance et Dégâts adverse par niveau adverse
 16,Toph,2,5,3,Votre adverse tire sa première carte Puissance face cachée
 17,Seigneur skaven,2,4,1,Si vous avez pioché au moins 4 cartes Puissance : vampirisme 2
-18,Morpheus,2,5,1,Annule les cartes Prophéties tirées par l’adversaire
-19,Garp,2,3,3,Patience : +1/+0
-20,Xaden,3,4,4,Protection. Si vous avez perdu le duel précédent : +2/+2
-21,Luffy,3,4,4,Impatience : +1/+0
-22,Le chasseur,3,4,4,+1/+0 par niveau adverse
-23,Le loup,3,5,4,Si vous avez plus de PV que votre adversaire : -3/-0
-24,Po,3,4,2,Vos Péripéties deviennent des 1/0
-25,Tai lung,3,5,5,Si vous avez moins de PV que votre adversaire : -2/-2
-26,Aang,3,3,3,Si vous jouez en premier : +3/+3
+18,Morpheus,2,5,1,Annule les cartes Destin tirées par l’adversaire
+19,Garp,2,4,3,Patience : +1 Puissance
+20,Xaden,3,5,4,Protection. Si vous avez perdu le duel précédent : +2 Puissance
+21,Luffy,3,3,4,Impatience : +1 Puissance
+22,Le chasseur,3,3,4,+1/+0 par niveau adverse
+23,Le loup,3,5,4,Si vous avez plus de PV que votre adversaire : -3 Puissance adverse
+24,Po,3,5,3,Vos Péripéties deviennent des 1/0
+25,Tai lung,3,5,5,Si vous avez moins de PV que votre adversaire : -2 Puissance et Dégâts adverses
+26,Aang,3,3,2,Si vous jouez en premier : +3 Puissance et Dégâts
 27,Néo,3,6,2,Protection. Annule la première Adversité piochée
 28,Smith,3,4,4,Annule et copie la capacité adverse

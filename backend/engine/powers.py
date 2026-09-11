@@ -20,8 +20,9 @@ Hypotheses de resolution retenues pour ce POC (voir README.md) :
 - Protection annule toutes les modifications deja subies de la part de l'adversaire et
   bloque toute nouvelle modification adverse (puissance/degats/vie/stop/copie) pour le
   reste de la resolution du duel.
-- Patience/Impatience se basent sur le numero du duel courant dans la partie (1 a 4),
-  independamment des cartes piochees.
+- Patience/Impatience ne comptent pas le duel courant : Patience multiplie par le nombre
+  de duels deja joues avant celui-ci (0 a 3), Impatience par le nombre de duels restants
+  apres celui-ci (0 a 3), independamment des cartes piochees.
 - Le detail du calcul de la Puissance/des Degats de chaque Combattant (base, cartes
   piochees, contribution du Pouvoir) est trace et restitue (`detail_puissance`,
   `detail_degats`, `puissance_txt`, `degats_txt`) pour affichage transparent.
@@ -43,7 +44,8 @@ PLAFOND_CARTES_PAR_DEFAUT = 3
 
 
 class DuelCombattant:
-    def __init__(self, joueur, instance, cartes, role, duel_numero, duels_max):
+    def __init__(self, joueur, instance, cartes, role, duel_numero, duels_max,
+                 victoire_precedente=False, defaite_precedente=False):
         self.joueur = joueur
         self.instance = instance
         self.template = instance.template
@@ -55,6 +57,8 @@ class DuelCombattant:
         self.role = role  # "J1" ou "J2"
         self.duel_numero = duel_numero
         self.duels_max = duels_max
+        self.victoire_precedente = victoire_precedente  # duel precedent gagne (False au duel 1)
+        self.defaite_precedente = defaite_precedente  # duel precedent perdu (False au duel 1)
         self.puissance = self.template.puissance + puissance_cartes
         self.degats = self.template.degats
         self.detail_puissance = [("base", self.template.puissance), ("cartes piochees", puissance_cartes)]
@@ -68,6 +72,22 @@ class DuelCombattant:
         """Retourne le Pouvoir du Combattant : toujours actif dans cette version."""
         return self.template.pouvoir
 
+    def recalculer_cartes(self):
+        """Recalcule malus_total/puissance a partir de l'etat courant de `self.cartes`,
+        et repercute la difference sur `self.puissance`/`detail_puissance`. Utilise par
+        les effets qui redefinissent la Puissance/le Malus de certaines Cartes Puissance
+        piochees (annule_type_carte, annule_premiere_carte_type, transforme_carte_type)."""
+        self.malus_total = sum(c.malus for c in self.cartes)
+        busted = self.malus_total >= 3
+        puissance_cartes = 0 if busted else sum(c.puissance for c in self.cartes)
+        for i, (label, valeur) in enumerate(self.detail_puissance):
+            if label == "cartes piochees":
+                delta = puissance_cartes - valeur
+                if delta != 0:
+                    self.puissance += delta
+                    self.detail_puissance[i] = (label, puissance_cartes)
+                break
+
 
 def _valeur_effective(valeur, pouvoir, source):
     mod = pouvoir.get("modificateur")
@@ -79,9 +99,11 @@ def _valeur_effective(valeur, pouvoir, source):
     if mod == "par_carte_en_jeu":
         return valeur * min(source.nb_cartes + source.adversaire.nb_cartes, plafond)
     if mod == "patience":
-        return valeur * source.duel_numero
+        return valeur * (source.duel_numero - 1)
     if mod == "impatience":
-        return valeur * (source.duels_max - source.duel_numero + 1)
+        return valeur * (source.duels_max - source.duel_numero)
+    if mod == "par_niveau_adverse":
+        return valeur * source.adversaire.template.niveau
     return valeur
 
 
@@ -101,8 +123,20 @@ def _verifier_condition(condition, source):
         return source.gagnant
     if condition == "defaite":
         return not source.gagnant
-    if condition == "3+":
-        return source.nb_cartes >= 3
+    if condition == "surcharge":
+        return source.malus_total >= 3
+    if condition == "surcharge_adverse":
+        return adv.malus_total >= 3
+    if condition == "degats_adverse_3+":
+        return adv.template.degats >= 3
+    if condition == "plus_cartes_adverse":
+        return adv.nb_cartes > source.nb_cartes
+    if condition == "victoire_precedente":
+        return source.victoire_precedente
+    if condition == "defaite_precedente":
+        return source.defaite_precedente
+    if condition.endswith("+") and condition[:-1].isdigit():
+        return source.nb_cartes >= int(condition[:-1])
     return True
 
 
@@ -321,9 +355,73 @@ class MoteurDuel:
                 f"{source.template.nom} Pouvoir (Vampirisme {x}) : {adv.joueur.nom} {-x} PV, {source.joueur.nom} +{x} PV"
             )
 
+        elif t in ("annule_type_carte", "annule_premiere_carte_type"):
+            # Neutralise (puissance=0, malus=0) une ou toutes les Cartes Puissance d'un
+            # type donne, deja piochees par la cible (par defaut l'adversaire). Modifie
+            # directement les cartes (non revertible par un Stop pouvoir retroactif :
+            # limitation POC, comme les autres cas non geres de Copie/Stop pouvoir).
+            cible = source if effet.get("cible", "adversaire") == "soi" else adv
+            if cible.protege:
+                self.log.append(
+                    f"{source.template.nom} Pouvoir tente d'annuler des cartes {effet['carte_type']} de "
+                    f"{cible.template.nom}, bloque par Protection"
+                )
+                return
+            type_vise = effet["carte_type"]
+            candidates = [c for c in cible.cartes if c.nom == type_vise and (c.puissance != 0 or c.malus != 0)]
+            touchees = candidates if t == "annule_type_carte" else candidates[:1]
+            if not touchees:
+                self.log.append(
+                    f"{source.template.nom} Pouvoir : {cible.template.nom} n'a pioche aucune carte "
+                    f"{type_vise} a annuler"
+                )
+                return
+            for c in touchees:
+                c.puissance = 0
+                c.malus = 0
+            cible.recalculer_cartes()
+            self.log.append(
+                f"{source.template.nom} Pouvoir annule {len(touchees)} carte(s) {type_vise} de {cible.template.nom}"
+            )
+
+        elif t == "transforme_carte_type":
+            # Redefinit la Puissance/le Malus des Cartes Puissance d'un type donne,
+            # piochees par la cible (par defaut soi-meme).
+            cible = adv if effet.get("cible", "soi") == "adversaire" else source
+            type_vise = effet["carte_type"]
+            nouvelle_puissance = effet.get("puissance", 0)
+            nouveau_malus = effet.get("malus", 0)
+            touchees = [c for c in cible.cartes if c.nom == type_vise]
+            if not touchees:
+                self.log.append(
+                    f"{source.template.nom} Pouvoir : {cible.template.nom} n'a pioche aucune carte "
+                    f"{type_vise} a transformer"
+                )
+                return
+            for c in touchees:
+                c.puissance = nouvelle_puissance
+                c.malus = nouveau_malus
+            cible.recalculer_cartes()
+            self.log.append(
+                f"{source.template.nom} Pouvoir transforme {len(touchees)} carte(s) {type_vise} de "
+                f"{cible.template.nom} en {nouvelle_puissance}/{nouveau_malus}"
+            )
+
+        elif t == "carte_cachee_premiere":
+            # Effet purement informationnel (masque la premiere Carte Puissance piochee
+            # par l'adversaire aux yeux du joueur humain) : applique par la Partie
+            # (game.py) au moment de la pioche, pas de valeur chiffree ici.
+            self.log.append(
+                f"{source.template.nom} Pouvoir : la premiere Carte Puissance piochee par "
+                f"{adv.template.nom} reste face cachee"
+            )
+
     def _resoudre_pouvoir(self, source, differe):
         """Resout l'unique Pouvoir de `source` (toujours actif) si sa nature
-        (immediat/differe) correspond a la passe en cours."""
+        (immediat/differe) correspond a la passe en cours. Chaque effet peut porter sa
+        propre `condition`, qui prevaut sur celle du Pouvoir pour cet effet uniquement
+        (permet par exemple de combiner une Protection inconditionnelle avec un second
+        effet conditionne, au sein d'un seul et meme Pouvoir)."""
         pouvoir = source.pouvoir_actif()
         if pouvoir is None:
             return
@@ -332,25 +430,32 @@ class MoteurDuel:
         if source.stoppe:
             self.log.append(f"{source.template.nom} Pouvoir est annule, ignore")
             return
-        if not _verifier_condition(pouvoir.get("condition"), source):
+        condition_globale = pouvoir.get("condition")
+        resolu = False
+        for effet in pouvoir["effets"]:
+            if not _verifier_condition(effet.get("condition", condition_globale), source):
+                continue
+            self._resoudre_effet(source, pouvoir, effet)
+            resolu = True
+        if not resolu:
             self.log.append(
                 f"{source.template.nom} Pouvoir ({pouvoir['description']}) : condition non remplie"
             )
-            return
-        for effet in pouvoir["effets"]:
-            self._resoudre_effet(source, pouvoir, effet)
 
     def resoudre(self):
+        # Pass 1 : pouvoir immediat, J1 puis J2 (chacun n'a qu'un seul Pouvoir). Execute
+        # avant le constat de surcharge ci-dessous, car un Pouvoir immediat peut modifier
+        # les Cartes Puissance piochees (transforme_carte_type, annule_type_carte, ...)
+        # et donc changer le Malus total final.
+        for combattant in (self.dc1, self.dc2):
+            self._resoudre_pouvoir(combattant, differe=False)
+
         for combattant in (self.dc1, self.dc2):
             if combattant.malus_total >= 3:
                 self.log.append(
                     f"{combattant.template.nom} : Malus total {combattant.malus_total} >= 3, "
                     "puissance des cartes piochees annulee (puissance de base conservee)"
                 )
-
-        # Pass 1 : pouvoir immediat, J1 puis J2 (chacun n'a qu'un seul Pouvoir)
-        for combattant in (self.dc1, self.dc2):
-            self._resoudre_pouvoir(combattant, differe=False)
 
         if self.dc1.puissance > self.dc2.puissance:
             self.dc1.gagnant = True
@@ -402,8 +507,12 @@ class MoteurDuel:
         }
 
 
-def resoudre_duel(joueur_j1, combattant_j1, cartes_j1, joueur_j2, combattant_j2, cartes_j2, duel_numero, duels_max=4):
-    dc1 = DuelCombattant(joueur_j1, combattant_j1, cartes_j1, "J1", duel_numero, duels_max)
-    dc2 = DuelCombattant(joueur_j2, combattant_j2, cartes_j2, "J2", duel_numero, duels_max)
+def resoudre_duel(joueur_j1, combattant_j1, cartes_j1, joueur_j2, combattant_j2, cartes_j2, duel_numero, duels_max=4,
+                   victoire_precedente_j1=False, defaite_precedente_j1=False,
+                   victoire_precedente_j2=False, defaite_precedente_j2=False):
+    dc1 = DuelCombattant(joueur_j1, combattant_j1, cartes_j1, "J1", duel_numero, duels_max,
+                          victoire_precedente_j1, defaite_precedente_j1)
+    dc2 = DuelCombattant(joueur_j2, combattant_j2, cartes_j2, "J2", duel_numero, duels_max,
+                          victoire_precedente_j2, defaite_precedente_j2)
     moteur = MoteurDuel(dc1, dc2)
     return moteur.resoudre()

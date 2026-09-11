@@ -74,9 +74,9 @@ def _estimer_gain(pouvoir, role, duel_numero, duels_max, pv_soi, pv_adv):
         if modificateur == "par_carte_en_jeu":
             return valeur * min(2 * NB_CARTES_MOYEN_ESTIME, plafond)
         if modificateur == "patience":
-            return valeur * duel_numero
+            return valeur * (duel_numero - 1)
         if modificateur == "impatience":
-            return valeur * (duels_max - duel_numero + 1)
+            return valeur * (duels_max - duel_numero)
         return valeur
 
     gain_puissance = gain_degats = gain_vie = 0.0

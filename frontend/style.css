@@ -476,9 +476,9 @@ button:disabled {
 }
 
 .carte-puissance--destin { --cp-couleur: var(--or); }
-.carte-puissance--chance { --cp-couleur: var(--accent-2); }
+.carte-puissance--epreuve { --cp-couleur: var(--accent-2); }
 .carte-puissance--peripetie { --cp-couleur: var(--text-dim); }
-.carte-puissance--malheur { --cp-couleur: var(--danger); }
+.carte-puissance--adversite { --cp-couleur: var(--danger); }
 
 .cp-icone {
   width: 22px;
@@ -492,8 +492,8 @@ button:disabled {
   clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
 }
 
-/* Chance : losange (a double tranchant, puissance ET malus) */
-.carte-puissance--chance .cp-icone {
+/* Epreuve : losange (a double tranchant, puissance ET malus) */
+.carte-puissance--epreuve .cp-icone {
   clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
 }
 
@@ -506,8 +506,8 @@ button:disabled {
   border-radius: 50%;
 }
 
-/* Malheur : triangle pointe vers le bas (avertissement) */
-.carte-puissance--malheur .cp-icone {
+/* Adversite : triangle pointe vers le bas (avertissement) */
+.carte-puissance--adversite .cp-icone {
   clip-path: polygon(50% 100%, 0% 0%, 100% 0%);
 }
 

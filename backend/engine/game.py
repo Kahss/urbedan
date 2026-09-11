@@ -76,6 +76,7 @@ class Partie:
         self.phase = "choix_combattant"
         self.dernier_resultat = None
         self.historique = []
+        self.masque_premiere_carte = {"j1": False, "j2": False}
         self.terminee = False
         self.vainqueur = None
 
@@ -105,7 +106,7 @@ class Partie:
             if not joueur_du_tour.est_ia:
                 return
             action = decider_piocher_ou_arreter(
-                self._cartes(self.tour_pioche), self._malus(self.tour_pioche), list(self.deck_cartes)
+                self._cartes(self.tour_pioche), self._malus_effectif(self.tour_pioche), list(self.deck_cartes)
             )
             self._appliquer_decision_pioche(self.tour_pioche, action)
 
@@ -116,8 +117,46 @@ class Partie:
     def _malus(self, slot):
         return sum(c.malus for c in self._cartes(slot))
 
+    def _malus_effectif(self, slot):
+        """Malus total d'un slot une fois applique le Pouvoir (toujours actif, cf.
+        powers.py) du Combattant qui y pioche, quand celui-ci redefinit le Malus de ses
+        propres Cartes Puissance (transforme_carte_type, annule_type_carte,
+        annule_premiere_carte_type cible "soi" - ex. Shifu). Necessaire car ces effets ne
+        sont normalement appliques aux objets Carte qu'a la resolution du duel (cf.
+        powers.py `_resoudre_effet`) : sans ce calcul, l'arret automatique a 3 Malus (et
+        la decision de l'IA) se baserait sur le Malus brut, non celui apres Pouvoir."""
+        combattant = self.combattant_j1 if slot == "j1" else self.combattant_j2
+        cartes = self._cartes(slot)
+        malus_list = [c.malus for c in cartes]
+        if combattant is None:
+            return sum(malus_list)
+        noms = [c.nom for c in cartes]
+        pouvoir = combattant.template.pouvoir
+        if pouvoir.get("condition") is None:
+            for effet in pouvoir.get("effets", []):
+                if effet.get("cible", "soi") != "soi":
+                    continue
+                t = effet["type"]
+                if t == "transforme_carte_type":
+                    for i, nom in enumerate(noms):
+                        if nom == effet["carte_type"]:
+                            malus_list[i] = effet.get("malus", 0)
+                elif t == "annule_type_carte":
+                    for i, nom in enumerate(noms):
+                        if nom == effet["carte_type"]:
+                            malus_list[i] = 0
+                elif t == "annule_premiere_carte_type":
+                    for i, nom in enumerate(noms):
+                        if nom == effet["carte_type"]:
+                            malus_list[i] = 0
+                            break
+        return sum(malus_list)
+
     def _est_arrete(self, slot):
         return self.arrete_j1 if slot == "j1" else self.arrete_j2
+
+    def _a_effet(self, template, type_effet):
+        return any(e.get("type") == type_effet for e in template.pouvoir.get("effets", []))
 
     def _demarrer_pioche(self):
         self.deck_cartes = construire_deck_cartes_puissance()
@@ -129,6 +168,13 @@ class Partie:
         self.force_j2 = False
         self.tour_pioche = "j1"
         self.phase = "pioche"
+        # Un Combattant dont le Pouvoir a l'effet "carte_cachee_premiere" masque la
+        # premiere Carte Puissance piochee par son adversaire (cf. Toph) : on le
+        # detecte ici, une fois les deux Combattants du duel reveles.
+        self.masque_premiere_carte = {
+            "j1": self._a_effet(self.combattant_j2.template, "carte_cachee_premiere"),
+            "j2": self._a_effet(self.combattant_j1.template, "carte_cachee_premiere"),
+        }
         self._auto_pioche_ia_si_necessaire()
 
     def _appliquer_decision_pioche(self, slot, action):
@@ -137,7 +183,7 @@ class Partie:
                 raise ErreurPartie("Le tas de Cartes Puissance est epuise")
             carte = self.deck_cartes.pop()
             self._cartes(slot).append(carte)
-            if self._malus(slot) >= 3:
+            if self._malus_effectif(slot) >= 3:
                 self._forcer_arret(slot)
         elif action == "arreter":
             self._marquer_arrete(slot)
@@ -206,15 +252,29 @@ class Partie:
         self._auto_pioche_ia_si_necessaire()
         return self.etat_dict()
 
+    def _issue_duel_precedent(self):
+        """Determine si J1/J2 (roles courants) ont gagne/perdu le duel precedent.
+        Le gagnant (ou, en cas de double victoire, les deux joueurs) devient toujours
+        J1 pour le duel suivant (cf. `duel_suivant`) : J1 a donc toujours remporte le
+        duel precedent, sauf lors du tout premier duel (pas d'historique)."""
+        if not self.historique:
+            return False, False, False, False
+        double_victoire = len(self.historique[-1]["gagnants_ids"]) == 2
+        if double_victoire:
+            return True, False, True, False
+        return True, False, False, True
+
     def _resoudre_duel_courant(self):
         joueur_humain_est_j1 = self.j1 is self.joueur_humain
         cartes_j1 = self.cartes_j1
         cartes_j2 = self.cartes_j2
+        victoire_prec_j1, defaite_prec_j1, victoire_prec_j2, defaite_prec_j2 = self._issue_duel_precedent()
 
         resultat = resoudre_duel(
             self.j1, self.combattant_j1, cartes_j1,
             self.j2, self.combattant_j2, cartes_j2,
             self.duel_numero, NB_DUELS_MAX,
+            victoire_prec_j1, defaite_prec_j1, victoire_prec_j2, defaite_prec_j2,
         )
         self.combattant_j1.utilise = True
         self.combattant_j2.utilise = True
@@ -298,7 +358,7 @@ class Partie:
         cartes = self._cartes(slot)
         arrete = self._est_arrete(slot)
         if est_humain:
-            malus_total = sum(c.malus for c in cartes)
+            malus_total = self._malus_effectif(slot)
             return {
                 "cartes": [c.to_dict() for c in cartes],
                 "puissance_cartes": 0 if malus_total >= 3 else sum(c.puissance for c in cartes),
@@ -306,7 +366,10 @@ class Partie:
                 "nb_cartes": len(cartes),
                 "arrete": arrete,
             }
-        return {"nb_cartes": len(cartes), "arrete": arrete}
+        nb_cartes = len(cartes)
+        if self.masque_premiere_carte.get(slot) and nb_cartes >= 1:
+            nb_cartes -= 1  # la premiere Carte Puissance piochee reste face cachee (cf. Toph)
+        return {"nb_cartes": nb_cartes, "arrete": arrete}
 
     def etat_dict(self):
         return {
