@@ -22,7 +22,7 @@
       "id": "gernham",
       "nom": "Gernham",
       "puissance": 4,
-      "degats": 0,
+      "degats": 1,
       "niveau": 1,
       "pouvoir": {
         "description": "+1 Puissance par Dégât de base adverse",
@@ -37,7 +37,7 @@
     {
       "id": "lady_maria",
       "nom": "Lady Maria",
-      "puissance": 3,
+      "puissance": 4,
       "degats": 0,
       "niveau": 1,
       "pouvoir": {
@@ -53,14 +53,15 @@
     {
       "id": "oogway",
       "nom": "Oogway",
-      "puissance": 3,
-      "degats": 1,
+      "puissance": 6,
+      "degats": 0,
       "niveau": 1,
       "pouvoir": {
-        "description": "Votre adversaire révèle ses cartes Péripétie",
+        "description": "Protectction. Votre adversaire révèle ses cartes Péripétie",
         "condition": null,
         "modificateur": null,
         "effets": [
+          { "type": "protection" },
           { "type": "revele_type_carte", "cible": "adversaire", "carte_type": "Péripétie" }
         ]
       },
@@ -182,7 +183,7 @@
     {
       "id": "jak_horner",
       "nom": "Jak Horner",
-      "puissance": 3,
+      "puissance": 5,
       "degats": 2,
       "niveau": 2,
       "malus_limite": 4,
@@ -263,14 +264,14 @@
       "id": "seigneur_skaven",
       "nom": "Seigneur skaven",
       "puissance": 4,
-      "degats": 1,
+      "degats": 2,
       "niveau": 2,
       "pouvoir": {
-        "description": "L'adversaire révèle sa première Carte Puissance",
+        "description": "Annule la capacité adverse",
         "condition": null,
         "modificateur": null,
         "effets": [
-          { "type": "revele_premiere_carte", "cible": "adversaire" }
+          { "type": "stop_pouvoir" }
         ]
       },
       "image": "Icon.1_17.png"
@@ -310,7 +311,7 @@
     {
       "id": "xaden",
       "nom": "Xaden",
-      "puissance": 5,
+      "puissance": 3,
       "degats": 4,
       "niveau": 3,
       "pouvoir": {

@@ -92,10 +92,14 @@ def main():
             stats[cid]["parties"] += 1
             if vainqueur == "humain":
                 stats[cid]["victoires"] += 1
+            elif vainqueur is None:
+                stats[cid]["victoires"] += 0.5
         for cid in equipe_b:
             stats[cid]["parties"] += 1
             if vainqueur == "ia":
                 stats[cid]["victoires"] += 1
+            elif vainqueur is None:
+                stats[cid]["victoires"] += 0.5
         if (i + 1) % palier == 0:
             print(f"... {i + 1}/{args.nombre_parties} parties simulees", file=sys.stderr)
 

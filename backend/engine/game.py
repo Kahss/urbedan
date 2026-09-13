@@ -411,8 +411,13 @@ class Partie:
         malus_limite = combattant.template.malus_limite if combattant is not None else 3
         if est_humain:
             malus_total = self._malus_effectif(slot)
+            masque_premiere = self.masque_premiere_carte.get(slot)
+            cartes_dict = [
+                {"id": c.id, "cachee": True} if i == 0 and masque_premiere else c.to_dict()
+                for i, c in enumerate(cartes)
+            ]
             return {
-                "cartes": [c.to_dict() for c in cartes],
+                "cartes": cartes_dict,
                 "puissance_cartes": 0 if malus_total >= malus_limite else sum(c.puissance for c in cartes),
                 "malus_total": malus_total,
                 "malus_limite": malus_limite,

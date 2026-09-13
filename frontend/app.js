@@ -507,7 +507,9 @@ function renderZonePioche(etat, zonePioche, humainSlot, iaSlot) {
   if (infoHumain.cartes.length === 0) {
     mesCartes.textContent = "Aucune carte piochee pour l'instant.";
   } else {
-    infoHumain.cartes.forEach((c) => mesCartes.appendChild(creerCartePuissance(c)));
+    infoHumain.cartes.forEach((c) =>
+      mesCartes.appendChild(c.cachee ? creerCartePuissanceDos() : creerCartePuissance(c))
+    );
   }
   document.getElementById("mes-totaux-pioche").textContent =
     `Puissance des cartes : +${infoHumain.puissance_cartes} — Malus total : ${infoHumain.malus_total} / ${infoHumain.malus_limite}` +
