@@ -49,6 +49,7 @@ class CombattantTemplate:
         self.degats = data["degats"]
         self.niveau = data["niveau"]  # 1 a 3, 3 = le plus puissant (somme d'equipe plafonnee)
         self.pouvoir = data["pouvoir"]  # dict unique (description, condition, modificateur, energie_min, effets)
+        self.malus_limite = data.get("malus_limite", 3)  # seuil de Malus total = surcharge (cf. Jak Horner)
         self.image = data.get("image")
 
     def to_dict(self):
@@ -59,6 +60,7 @@ class CombattantTemplate:
             "degats": self.degats,
             "niveau": self.niveau,
             "pouvoir": self.pouvoir,
+            "malus_limite": self.malus_limite,
             "image": self.image,
         }
 
@@ -78,6 +80,7 @@ class CombattantEnEquipe:
             "degats": self.template.degats,
             "niveau": self.template.niveau,
             "pouvoir": self.template.pouvoir,
+            "malus_limite": self.template.malus_limite,
             "image": self.template.image,
             "utilise": self.utilise,
         }

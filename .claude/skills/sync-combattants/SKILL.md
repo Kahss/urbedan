@@ -15,7 +15,15 @@ Après une édition du CSV, ces deux fichiers divergent : ce skill les reconcili
 1. **Isoler le changement.** Si le CSV est suivi par git, préférer
    `git diff -- "data/Urban Eredan - Cartes - Combattants.csv"` pour ne regarder que
    les lignes réellement modifiées plutôt que de tout relire à l'aveugle. Sinon, lire
-   le CSV en entier (colonnes : `#, Nom, Niveau, Puissance, Dégâts, Capacité`).
+   le CSV en entier.
+   Le CSV peut contenir, en plus des colonnes officielles, des colonnes ou des lignes
+   de travail ajoutées par l'utilisateur pour ses propres calculs (ex. `cond.`,
+   `mult.`, `puis.`, `modif`, des lignes de pondération, des lignes vides ou
+   partielles sans `Nom`). Seules les colonnes `Niveau`, `Puissance`, `Dégâts` et
+   `Capacité` (identifiées par leur nom d'en-tête, pas par leur position) font foi
+   pour la synchronisation ; toute autre colonne, ainsi que toute ligne sans `Nom`
+   renseigné, doit être ignorée et ne doit jamais être répercutée dans le JSON ou le
+   moteur.
 
 2. **Comparer champ par champ avec `data/combattants.json`**, personnage par
    personnage (matching par nom, en tenant compte des accents/majuscules) :
@@ -33,24 +41,42 @@ Après une édition du CSV, ces deux fichiers divergent : ce skill les reconcili
      "carte Puissance", "Glyphes" -> "cartes puissance", "Prophéties" -> "Destin") ne
      nécessite qu'une mise à jour cosmétique de `description` si elle cite ce terme,
      pas une modification des `effets`.
-   - Si le nouveau texte de `Capacité` implique une `condition` ou un `type` d'effet
-     qui n'existe pas encore dans `backend/engine/powers.py` (`_verifier_condition`,
-     `_valeur_effective`, `_resoudre_effet`), NE PAS inventer un mapping approximatif :
-     signaler clairement à l'utilisateur quel personnage nécessite du nouveau code
-     moteur, et proposer une extension avant de continuer.
 
-3. **Vérifier les cohérences transverses.** `grep` les ids/noms des personnages dont
+3. **Étendre le moteur si nécessaire.** Si le nouveau texte de `Capacité` implique une
+   `condition`, un `modificateur` ou un `type` d'effet qui n'existe pas encore dans
+   `backend/engine/powers.py` (`_verifier_condition`, `_valeur_effective`,
+   `_resoudre_effet`) ou ailleurs dans `backend/engine/` (ex. un seuil de Malus
+   propre à un Combattant, une mécanique de pioche/visibilité particulière) :
+   - NE PAS inventer un mapping approximatif avec les mots-clés existants.
+   - Concevoir l'extension générique la plus proche des conventions déjà en place
+     (mots-clés génériques réutilisables par d'autres Combattants, pas de cas
+     particulier codé en dur sur un id/nom), l'implémenter dans
+     `backend/engine/*.py` (et `frontend/app.js` si l'info doit être affichée
+     différemment côté humain), puis mettre à jour le Combattant dans le JSON avec
+     le `condition`/`modificateur`/`effets` qui en résulte.
+   - Si l'extension nécessaire implique un choix de conception ambigu (plusieurs
+     façons raisonnables de modéliser la mécanique), s'arrêter et demander à
+     l'utilisateur de trancher avant d'implémenter, plutôt que de deviner.
+   - Un nouveau Combattant qui n'a pas encore d'`id`/`image` dans le JSON doit être
+     ajouté en suivant la convention existante (id en snake_case, `image` du type
+     `Icon.1_NN.png` suivant la numérotation du CSV) une fois son pouvoir
+     implémentable.
+
+4. **Vérifier les cohérences transverses.** `grep` les ids/noms des personnages dont
    les stats ont changé dans `backend/`, `frontend/` et `generate_metagame.py` pour
    détecter un éventuel cas particulier codé en dur qui deviendrait obsolète.
 
-4. **Valider le JSON résultant** (`python3 -c "import json; json.load(open('data/combattants.json'))"`
+5. **Valider le JSON résultant** (`python3 -c "import json; json.load(open('data/combattants.json'))"`
    ou équivalent) et, si le script existe et que le temps le permet, lancer
    `generate_metagame.py` pour vérifier qu'aucune partie ne plante avec les nouvelles
-   valeurs.
+   valeurs, y compris pour les Combattants dont le pouvoir vient d'être ajouté au
+   moteur.
 
-5. **Résumer** en fin de tâche les personnages effectivement modifiés (champ, ancienne
-   valeur -> nouvelle valeur), et lister explicitement les lignes du CSV qui n'étaient
-   que du reformulation sans impact sur le JSON.
+6. **Résumer** en fin de tâche les personnages effectivement modifiés (champ, ancienne
+   valeur -> nouvelle valeur), les extensions apportées au moteur (fichier, mot-clé
+   ajouté, personnage(s) concerné(s)), et lister explicitement les lignes du CSV qui
+   n'étaient que du reformulation sans impact sur le JSON, ainsi que les colonnes/lignes
+   de travail du CSV ignorées.
 
 ## Ce qu'il ne faut pas faire
 
@@ -59,6 +85,8 @@ Après une édition du CSV, ces deux fichiers divergent : ce skill les reconcili
   `modificateur`, `effets` structurés) et qu'il ne faut pas perdre.
 - Ne pas toucher aux personnages dont niveau/puissance/dégâts/mécanique n'ont pas
   changé, même si leur ligne CSV a été retouchée uniquement pour la forme.
+- Ne pas répercuter dans le JSON ou le moteur des colonnes autres que `Niveau`,
+  `Puissance`, `Dégâts`, `Capacité`, ni des lignes du CSV sans `Nom`.
 - Ne pas modifier `game.md`, `generate_metagame.py` ou d'autres fichiers non liés à
   la donnée des Combattants dans le cadre de ce skill, sauf si l'incohérence détectée
-  à l'étape 3 l'exige explicitement.
+  à l'étape 4 l'exige explicitement, ou si l'extension moteur de l'étape 3 le requiert.

@@ -115,16 +115,18 @@ def choisir_combattant(joueur, role, duel_numero, duels_max, pv_soi, pv_adv):
     return instance
 
 
-def decider_piocher_ou_arreter(cartes_actuelles, malus_actuel, deck_restant):
+def decider_piocher_ou_arreter(cartes_actuelles, malus_actuel, deck_restant, malus_limite=3):
     """Decide, a partir des cartes deja piochees et de la composition exacte du tas
-    restant, s'il faut piocher ("piocher") ou s'arreter ("arreter")."""
+    restant, s'il faut piocher ("piocher") ou s'arreter ("arreter"). `malus_limite`
+    est le seuil de surcharge du Combattant en train de piocher (3 par defaut, cf.
+    Jak Horner qui le porte a 4)."""
     if not deck_restant:
         return "arreter"
 
-    puissance_cartes_actuelle = 0 if malus_actuel >= 3 else sum(c.puissance for c in cartes_actuelles)
+    puissance_cartes_actuelle = 0 if malus_actuel >= malus_limite else sum(c.puissance for c in cartes_actuelles)
 
     nb_total = len(deck_restant)
-    nb_bust = sum(1 for c in deck_restant if malus_actuel + c.malus >= 3)
+    nb_bust = sum(1 for c in deck_restant if malus_actuel + c.malus >= malus_limite)
     p_bust = nb_bust / nb_total
 
     cartes_sans_bust = [c for c in deck_restant if malus_actuel + c.malus < 3]

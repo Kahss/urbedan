@@ -52,7 +52,7 @@ class DuelCombattant:
         self.cartes = cartes
         self.nb_cartes = len(cartes)
         self.malus_total = sum(c.malus for c in cartes)
-        busted = self.malus_total >= 3
+        busted = self.malus_total >= self.template.malus_limite
         puissance_cartes = 0 if busted else sum(c.puissance for c in cartes)
         self.role = role  # "J1" ou "J2"
         self.duel_numero = duel_numero
@@ -78,7 +78,7 @@ class DuelCombattant:
         les effets qui redefinissent la Puissance/le Malus de certaines Cartes Puissance
         piochees (annule_type_carte, annule_premiere_carte_type, transforme_carte_type)."""
         self.malus_total = sum(c.malus for c in self.cartes)
-        busted = self.malus_total >= 3
+        busted = self.malus_total >= self.template.malus_limite
         puissance_cartes = 0 if busted else sum(c.puissance for c in self.cartes)
         for i, (label, valeur) in enumerate(self.detail_puissance):
             if label == "cartes piochees":
@@ -104,6 +104,8 @@ def _valeur_effective(valeur, pouvoir, source):
         return valeur * (source.duels_max - source.duel_numero)
     if mod == "par_niveau_adverse":
         return valeur * source.adversaire.template.niveau
+    if mod == "par_degats_base_adverse":
+        return valeur * source.adversaire.template.degats
     return valeur
 
 
@@ -124,9 +126,9 @@ def _verifier_condition(condition, source):
     if condition == "defaite":
         return not source.gagnant
     if condition == "surcharge":
-        return source.malus_total >= 3
+        return source.malus_total >= source.template.malus_limite
     if condition == "surcharge_adverse":
-        return adv.malus_total >= 3
+        return adv.malus_total >= adv.template.malus_limite
     if condition == "degats_adverse_3+":
         return adv.template.degats >= 3
     if condition == "plus_cartes_adverse":
@@ -137,6 +139,8 @@ def _verifier_condition(condition, source):
         return source.defaite_precedente
     if condition.endswith("+") and condition[:-1].isdigit():
         return source.nb_cartes >= int(condition[:-1])
+    if condition.startswith("adversaire_niveau_") and condition.rsplit("_", 1)[-1].isdigit():
+        return adv.template.niveau == int(condition.rsplit("_", 1)[-1])
     return True
 
 
@@ -416,6 +420,22 @@ class MoteurDuel:
                 f"{adv.template.nom} reste face cachee"
             )
 
+        elif t in ("revele_type_carte", "revele_premiere_carte"):
+            # Effets purement informationnels (revelent au joueur humain, des la pioche,
+            # des Cartes Puissance normalement cachees de l'adversaire) : appliques par
+            # la Partie (game.py, `_info_pioche`) au moment de la pioche, pas de valeur
+            # chiffree ici.
+            self.log.append(
+                f"{source.template.nom} Pouvoir : les Cartes Puissance piochees par "
+                f"{adv.template.nom} sont revelees ({pouvoir['description']})"
+            )
+
+        elif t == "double_pioche_premiere":
+            # Effet resolu au moment de la pioche (cf. game.py
+            # `_piocher_double_premiere`), pas ici : la premiere pioche du duel de
+            # `source` a deja pioche 2 Cartes Puissance et garde la meilleure.
+            pass
+
     def _resoudre_pouvoir(self, source, differe):
         """Resout l'unique Pouvoir de `source` (toujours actif) si sa nature
         (immediat/differe) correspond a la passe en cours. Chaque effet peut porter sa
@@ -429,6 +449,11 @@ class MoteurDuel:
             return
         if source.stoppe:
             self.log.append(f"{source.template.nom} Pouvoir est annule, ignore")
+            return
+        if not pouvoir.get("effets"):
+            # Pouvoir purement structurel (ex. Jak Horner, dont la limite de Malus
+            # personnalisee est lue directement sur le template, pas resolue ici) :
+            # rien a journaliser.
             return
         condition_globale = pouvoir.get("condition")
         resolu = False
@@ -451,10 +476,11 @@ class MoteurDuel:
             self._resoudre_pouvoir(combattant, differe=False)
 
         for combattant in (self.dc1, self.dc2):
-            if combattant.malus_total >= 3:
+            if combattant.malus_total >= combattant.template.malus_limite:
                 self.log.append(
-                    f"{combattant.template.nom} : Malus total {combattant.malus_total} >= 3, "
-                    "puissance des cartes piochees annulee (puissance de base conservee)"
+                    f"{combattant.template.nom} : Malus total {combattant.malus_total} >= "
+                    f"{combattant.template.malus_limite}, puissance des cartes piochees annulee "
+                    "(puissance de base conservee)"
                 )
 
         if self.dc1.puissance > self.dc2.puissance:

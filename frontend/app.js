@@ -510,18 +510,24 @@ function renderZonePioche(etat, zonePioche, humainSlot, iaSlot) {
     infoHumain.cartes.forEach((c) => mesCartes.appendChild(creerCartePuissance(c)));
   }
   document.getElementById("mes-totaux-pioche").textContent =
-    `Puissance des cartes : +${infoHumain.puissance_cartes} — Malus total : ${infoHumain.malus_total}` +
-    (infoHumain.malus_total >= 3 ? " (BUST, puissance des cartes annulee)" : "");
+    `Puissance des cartes : +${infoHumain.puissance_cartes} — Malus total : ${infoHumain.malus_total} / ${infoHumain.malus_limite}` +
+    (infoHumain.malus_total >= infoHumain.malus_limite ? " (BUST, puissance des cartes annulee)" : "");
 
   // Les cartes de l'IA restent cachees (contenu inconnu) tant que le duel
-  // n'est pas resolu, mais leur nombre est visible sous forme de dos de
-  // cartes plutot qu'en texte.
+  // n'est pas resolu, sauf celles explicitement revelees par un Pouvoir (cf.
+  // Oogway/Seigneur skaven) : leur nombre est visible sous forme de dos de
+  // cartes, les cartes revelees s'affichent face visible parmi ces dos.
   const iaCartes = document.getElementById("ia-cartes-piochees");
   vider(iaCartes);
+  const cartesRevelees = infoIa.cartes_revelees || [];
+  const premiereRevelee = infoIa.premiere_carte_revelee || null;
   if (infoIa.nb_cartes === 0) {
     iaCartes.textContent = "Aucune carte piochee pour l'instant.";
   } else {
-    for (let i = 0; i < infoIa.nb_cartes; i++) iaCartes.appendChild(creerCartePuissanceDos());
+    if (premiereRevelee) iaCartes.appendChild(creerCartePuissance(premiereRevelee));
+    cartesRevelees.forEach((c) => iaCartes.appendChild(creerCartePuissance(c)));
+    const nbDos = infoIa.nb_cartes - cartesRevelees.length - (premiereRevelee ? 1 : 0);
+    for (let i = 0; i < nbDos; i++) iaCartes.appendChild(creerCartePuissanceDos());
   }
   document.getElementById("statut-pioche-ia").textContent = infoIa.arrete ? "A passe" : "En train de decider...";
 

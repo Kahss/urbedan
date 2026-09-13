@@ -21,16 +21,15 @@
     {
       "id": "gernham",
       "nom": "Gernham",
-      "puissance": 3,
-      "degats": 1,
+      "puissance": 4,
+      "degats": 0,
       "niveau": 1,
       "pouvoir": {
-        "description": "Domination : +3 Puissance / +3 Dégâts",
-        "condition": "domination",
-        "modificateur": null,
+        "description": "+1 Puissance par Dégât de base adverse",
+        "condition": null,
+        "modificateur": "par_degats_base_adverse",
         "effets": [
-          { "type": "puissance", "cible": "soi", "valeur": 3 },
-          { "type": "degats", "cible": "soi", "valeur": 3 }
+          { "type": "puissance", "cible": "soi", "valeur": 1 }
         ]
       },
       "image": "Icon.1_02.png"
@@ -38,15 +37,15 @@
     {
       "id": "lady_maria",
       "nom": "Lady Maria",
-      "puissance": 4,
+      "puissance": 3,
       "degats": 0,
       "niveau": 1,
       "pouvoir": {
-        "description": "Patience, Victoire : Vampirisme 1",
+        "description": "Victoire : Vampirisme 2",
         "condition": "victoire",
-        "modificateur": "patience",
+        "modificateur": null,
         "effets": [
-          { "type": "vampirisme", "valeur": 1 }
+          { "type": "vampirisme", "valeur": 2 }
         ]
       },
       "image": "Icon.1_03.png"
@@ -58,11 +57,11 @@
       "degats": 1,
       "niveau": 1,
       "pouvoir": {
-        "description": "Si dégâts de base adverse >= 3 : -3 Dégâts adverse",
-        "condition": "degats_adverse_3+",
+        "description": "Votre adversaire révèle ses cartes Péripétie",
+        "condition": null,
         "modificateur": null,
         "effets": [
-          { "type": "degats", "cible": "adversaire", "valeur": -3 }
+          { "type": "revele_type_carte", "cible": "adversaire", "carte_type": "Péripétie" }
         ]
       },
       "image": "Icon.1_04.png"
@@ -87,14 +86,14 @@
       "id": "katara",
       "nom": "Katara",
       "puissance": 4,
-      "degats": 2,
+      "degats": 1,
       "niveau": 1,
       "pouvoir": {
-        "description": "Victoire précédente : annule le Pouvoir adverse",
-        "condition": "victoire_precedente",
+        "description": "Victoire : +3 PV",
+        "condition": "victoire",
         "modificateur": null,
         "effets": [
-          { "type": "stop_pouvoir" }
+          { "type": "vie", "cible": "soi", "valeur": 3 }
         ]
       },
       "image": "Icon.1_06.png"
@@ -183,16 +182,15 @@
     {
       "id": "jak_horner",
       "nom": "Jak Horner",
-      "puissance": 4,
+      "puissance": 3,
       "degats": 2,
       "niveau": 2,
+      "malus_limite": 4,
       "pouvoir": {
-        "description": "Victoire précédente : +3 Puissance",
-        "condition": "victoire_precedente",
+        "description": "Votre limite de Malus est de 4",
+        "condition": null,
         "modificateur": null,
-        "effets": [
-          { "type": "puissance", "cible": "soi", "valeur": 3 }
-        ]
+        "effets": []
       },
       "image": "Icon.1_12.png"
     },
@@ -268,11 +266,11 @@
       "degats": 1,
       "niveau": 2,
       "pouvoir": {
-        "description": "4+ : Vampirisme 2",
-        "condition": "4+",
+        "description": "L'adversaire révèle sa première Carte Puissance",
+        "condition": null,
         "modificateur": null,
         "effets": [
-          { "type": "vampirisme", "valeur": 2 }
+          { "type": "revele_premiere_carte", "cible": "adversaire" }
         ]
       },
       "image": "Icon.1_17.png"
@@ -316,12 +314,11 @@
       "degats": 4,
       "niveau": 3,
       "pouvoir": {
-        "description": "Protection. Défaite précédente : +2 Puissance",
+        "description": "+1 Puissance par Carte Puissance piochée",
         "condition": null,
-        "modificateur": null,
+        "modificateur": "par_carte",
         "effets": [
-          { "type": "protection" },
-          { "type": "puissance", "cible": "soi", "valeur": 2, "condition": "defaite_precedente" }
+          { "type": "puissance", "cible": "soi", "valeur": 1 }
         ]
       },
       "image": "Icon.1_20.png"
@@ -361,15 +358,15 @@
     {
       "id": "le_loup",
       "nom": "Le loup",
-      "puissance": 5,
+      "puissance": 4,
       "degats": 4,
       "niveau": 3,
       "pouvoir": {
-        "description": "Si vous avez plus de PV que votre adversaire : -3 Puissance adverse",
-        "condition": "domination",
+        "description": "Piochez 2 Cartes Puissance lors de votre première pioche, gardez la meilleure et remettez l'autre sur le dessus de la pioche",
+        "condition": null,
         "modificateur": null,
         "effets": [
-          { "type": "puissance", "cible": "adversaire", "valeur": -3 }
+          { "type": "double_pioche_premiere" }
         ]
       },
       "image": "Icon.1_23.png"
@@ -410,16 +407,15 @@
     {
       "id": "aang",
       "nom": "Aang",
-      "puissance": 3,
+      "puissance": 5,
       "degats": 2,
       "niveau": 3,
       "pouvoir": {
-        "description": "Courage : +3 Puissance / +3 Dégâts",
-        "condition": "courage",
-        "modificateur": null,
+        "description": "+1 Dégât par Carte Puissance piochée",
+        "condition": null,
+        "modificateur": "par_carte",
         "effets": [
-          { "type": "puissance", "cible": "soi", "valeur": 3 },
-          { "type": "degats", "cible": "soi", "valeur": 3 }
+          { "type": "degats", "cible": "soi", "valeur": 1 }
         ]
       },
       "image": "Icon.1_26.png"
@@ -448,8 +444,8 @@
       "degats": 4,
       "niveau": 3,
       "pouvoir": {
-        "description": "Copie puis annule le Pouvoir adverse",
-        "condition": null,
+        "description": "Riposte : Copie puis annule le Pouvoir adverse",
+        "condition": "riposte",
         "modificateur": null,
         "effets": [
           { "type": "copie_pouvoir" },
@@ -457,6 +453,22 @@
         ]
       },
       "image": "Icon.1_28.png"
+    },
+    {
+      "id": "venin",
+      "nom": "Venin",
+      "puissance": 5,
+      "degats": 3,
+      "niveau": 3,
+      "pouvoir": {
+        "description": "Si adversaire de rang 1 : +3 Dégâts",
+        "condition": "adversaire_niveau_1",
+        "modificateur": null,
+        "effets": [
+          { "type": "degats", "cible": "soi", "valeur": 3 }
+        ]
+      },
+      "image": "Icon.1_29.png"
     }
   ]
 }
