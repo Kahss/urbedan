@@ -181,21 +181,6 @@
       "image": "Icon.1_11.png"
     },
     {
-      "id": "jak_horner",
-      "nom": "Jak Horner",
-      "puissance": 5,
-      "degats": 2,
-      "niveau": 2,
-      "malus_limite": 4,
-      "pouvoir": {
-        "description": "Votre limite de Malus est de 4",
-        "condition": null,
-        "modificateur": null,
-        "effets": []
-      },
-      "image": "Icon.1_12.png"
-    },
-    {
       "id": "shifu",
       "nom": "Shifu",
       "puissance": 4,

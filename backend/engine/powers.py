@@ -26,6 +26,9 @@ Hypotheses de resolution retenues pour ce POC (voir README.md) :
 - Le detail du calcul de la Puissance/des Degats de chaque Combattant (base, cartes
   piochees, contribution du Pouvoir) est trace et restitue (`detail_puissance`,
   `detail_degats`, `puissance_txt`, `degats_txt`) pour affichage transparent.
+- Cout du Malus (version testee) : le(s) vainqueur(s) du duel perd(ent) une Vie egale au
+  Malus total des cartes piochees par leur adversaire (pas le sien), une fois le
+  vainqueur determine. Le perdant ne subit aucune perte de Vie liee au Malus.
 """
 
 
@@ -52,8 +55,7 @@ class DuelCombattant:
         self.cartes = cartes
         self.nb_cartes = len(cartes)
         self.malus_total = sum(c.malus for c in cartes)
-        busted = self.malus_total >= self.template.malus_limite
-        puissance_cartes = 0 if busted else sum(c.puissance for c in cartes)
+        puissance_cartes = sum(c.puissance for c in cartes)
         self.role = role  # "J1" ou "J2"
         self.duel_numero = duel_numero
         self.duels_max = duels_max
@@ -78,8 +80,7 @@ class DuelCombattant:
         les effets qui redefinissent la Puissance/le Malus de certaines Cartes Puissance
         piochees (annule_type_carte, annule_premiere_carte_type, transforme_carte_type)."""
         self.malus_total = sum(c.malus for c in self.cartes)
-        busted = self.malus_total >= self.template.malus_limite
-        puissance_cartes = 0 if busted else sum(c.puissance for c in self.cartes)
+        puissance_cartes = sum(c.puissance for c in self.cartes)
         for i, (label, valeur) in enumerate(self.detail_puissance):
             if label == "cartes piochees":
                 delta = puissance_cartes - valeur
@@ -475,14 +476,6 @@ class MoteurDuel:
         for combattant in (self.dc1, self.dc2):
             self._resoudre_pouvoir(combattant, differe=False)
 
-        for combattant in (self.dc1, self.dc2):
-            if combattant.malus_total >= combattant.template.malus_limite:
-                self.log.append(
-                    f"{combattant.template.nom} : Malus total {combattant.malus_total} >= "
-                    f"{combattant.template.malus_limite}, puissance des cartes piochees annulee "
-                    "(puissance de base conservee)"
-                )
-
         if self.dc1.puissance > self.dc2.puissance:
             self.dc1.gagnant = True
         elif self.dc2.puissance > self.dc1.puissance:
@@ -491,6 +484,22 @@ class MoteurDuel:
             self.dc1.gagnant = True
             self.dc2.gagnant = True
             self.log.append("Egalite de Puissance : double victoire")
+
+        # Cout du Malus adverse : le(s) vainqueur(s) du duel perd(ent) autant de Vie que
+        # la somme des Malus des cartes piochees par leur adversaire ce duel-ci (calculee
+        # apres les eventuelles transformations de cartes du Pouvoir immediat ci-dessus,
+        # ex. Shifu). Version testee ici : remplace l'ancienne mecanique ou chaque joueur
+        # perdait de la Vie a raison de son propre Malus, quelle que soit l'issue du duel.
+        for combattant in (self.dc1, self.dc2):
+            if combattant.gagnant and combattant.adversaire.malus_total > 0:
+                cout = combattant.adversaire.malus_total
+                avant = combattant.joueur.pv
+                combattant.joueur.pv -= cout
+                self.log.append(
+                    f"{combattant.template.nom} remporte le duel : Malus total {cout} sur les cartes "
+                    f"piochees par {combattant.adversaire.template.nom} -> {combattant.joueur.nom} perd "
+                    f"{cout} PV ({avant} -> {combattant.joueur.pv})"
+                )
 
         # Pass 2 : pouvoir differe (Victoire / Defaite / Contrecoup)
         for combattant in (self.dc1, self.dc2):

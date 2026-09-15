@@ -339,9 +339,23 @@ button:disabled {
 
 .joueur-ia { text-align: right; }
 
+.pv-ligne {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.joueur-humain .pv-ligne { justify-content: flex-start; }
+
+.joueur-ia .pv-ligne {
+  justify-content: flex-end;
+  flex-direction: row-reverse;
+}
+
 .pv-ronds {
   display: flex;
-  gap: 4px;
+  flex-wrap: wrap;
+  gap: 3px;
 }
 
 .joueur-ia .pv-ronds {
@@ -349,8 +363,9 @@ button:disabled {
 }
 
 .pv-rond {
-  width: 14px;
-  height: 14px;
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
   border-radius: 50%;
   background: #0d0e12;
   border: 1px solid var(--border);
@@ -372,6 +387,7 @@ button:disabled {
 .pv-texte {
   font-size: 0.8rem;
   color: var(--text-dim);
+  white-space: nowrap;
 }
 
 .duel-compteur {
@@ -639,7 +655,7 @@ button.secondaire:hover:not(:disabled) {
   color: var(--text-dim);
 }
 
-.badge-bust {
+.badge-vie-perdue {
   background: var(--danger);
   color: #fff;
   font-size: 0.62rem;
@@ -748,4 +764,9 @@ button.secondaire:hover:not(:disabled) {
   .zone-duel { grid-template-columns: 1fr; }
   .tableau-bord { grid-template-columns: 1fr; text-align: center; }
   .joueur-ia { text-align: center; }
+  .joueur-humain .pv-ligne,
+  .joueur-ia .pv-ligne {
+    justify-content: center;
+    flex-direction: row;
+  }
 }

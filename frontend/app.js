@@ -166,7 +166,7 @@ function creerCartePuissance(carte, { mini = false } = {}) {
   const type = normaliserNomCarte(carte.nom);
   const el = document.createElement("div");
   el.className = `carte-puissance carte-puissance--${type}` + (mini ? " carte-puissance--mini" : "");
-  el.title = `${carte.nom} : ${carte.puissance} Puissance / ${carte.malus} Malus`;
+  el.title = `${carte.nom} : ${carte.puissance} Puissance / ${carte.malus} Malus (coute cette Vie a l'adversaire s'il remporte le duel)`;
 
   const icone = document.createElement("span");
   icone.className = "cp-icone";
@@ -310,7 +310,7 @@ function render(etat) {
 }
 
 function pvRonds(pv) {
-  const total = 10;
+  const total = 15;
   const pvSecur = Math.max(0, pv);
   const orangeCount = pvSecur > total ? Math.min(pvSecur - total, total) : 0;
   const pleinCount = pvSecur > total ? total - orangeCount : pvSecur;
@@ -461,11 +461,12 @@ function renderZoneCentrale(etat) {
         zoneCartes.textContent = "Aucune carte piochee";
       } else {
         infoCote.cartes.forEach((c) => zoneCartes.appendChild(creerCartePuissance(c, { mini: true })));
-        if (infoCote.busted) {
-          const bust = document.createElement("span");
-          bust.className = "badge-bust";
-          bust.textContent = "BUST";
-          zoneCartes.appendChild(bust);
+        if (infoCote.vie_perdue > 0) {
+          const perte = document.createElement("span");
+          perte.className = "badge-vie-perdue";
+          perte.title = "Cout du Malus des cartes piochees par l'adversaire, inflige au vainqueur du duel";
+          perte.textContent = `-${infoCote.vie_perdue} PV (Malus adverse)`;
+          zoneCartes.appendChild(perte);
         }
       }
     }
@@ -512,8 +513,8 @@ function renderZonePioche(etat, zonePioche, humainSlot, iaSlot) {
     );
   }
   document.getElementById("mes-totaux-pioche").textContent =
-    `Puissance des cartes : +${infoHumain.puissance_cartes} — Malus total : ${infoHumain.malus_total} / ${infoHumain.malus_limite}` +
-    (infoHumain.malus_total >= infoHumain.malus_limite ? " (BUST, puissance des cartes annulee)" : "");
+    `Puissance des cartes : +${infoHumain.puissance_cartes} — Malus accumule : ${infoHumain.malus_si_adversaire_gagne} ` +
+    `(coutera cette Vie a l'adversaire s'il remporte le duel)`;
 
   // Les cartes de l'IA restent cachees (contenu inconnu) tant que le duel
   // n'est pas resolu, sauf celles explicitement revelees par un Pouvoir (cf.

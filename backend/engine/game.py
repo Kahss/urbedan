@@ -7,7 +7,7 @@ from .models import CombattantEnEquipe, CombattantTemplate, Joueur, construire_d
 from .powers import resoudre_duel
 
 NB_DUELS_MAX = 4
-PV_DEPART = 10
+PV_DEPART = 15
 NIVEAU_TOTAL_MAX = 8
 
 
@@ -70,8 +70,6 @@ class Partie:
         self.cartes_j2 = []
         self.arrete_j1 = False
         self.arrete_j2 = False
-        self.force_j1 = False
-        self.force_j2 = False
         self.tour_pioche = None
         self.phase = "choix_combattant"
         self.dernier_resultat = None
@@ -108,11 +106,8 @@ class Partie:
             joueur_du_tour = self.j1 if self.tour_pioche == "j1" else self.j2
             if not joueur_du_tour.est_ia:
                 return
-            combattant = self.combattant_j1 if self.tour_pioche == "j1" else self.combattant_j2
-            action = decider_piocher_ou_arreter(
-                self._cartes(self.tour_pioche), self._malus_effectif(self.tour_pioche), list(self.deck_cartes),
-                combattant.template.malus_limite,
-            )
+            puissance_deja_gagnee = sum(c.puissance for c in self._cartes(self.tour_pioche))
+            action = decider_piocher_ou_arreter(list(self.deck_cartes), puissance_deja_gagnee)
             self._appliquer_decision_pioche(self.tour_pioche, action)
 
     # ---------------------------------------------------------------- pioche
@@ -128,8 +123,9 @@ class Partie:
         propres Cartes Puissance (transforme_carte_type, annule_type_carte,
         annule_premiere_carte_type cible "soi" - ex. Shifu). Necessaire car ces effets ne
         sont normalement appliques aux objets Carte qu'a la resolution du duel (cf.
-        powers.py `_resoudre_effet`) : sans ce calcul, l'arret automatique a 3 Malus (et
-        la decision de l'IA) se baserait sur le Malus brut, non celui apres Pouvoir."""
+        powers.py `_resoudre_effet`) : sans ce calcul, le Malus expose au joueur humain
+        pendant la pioche (cf. `_info_pioche`, `malus_si_adversaire_gagne`) se baserait
+        sur le Malus brut, non celui apres Pouvoir."""
         combattant = self.combattant_j1 if slot == "j1" else self.combattant_j2
         cartes = self._cartes(slot)
         malus_list = [c.malus for c in cartes]
@@ -172,8 +168,6 @@ class Partie:
         self.cartes_j2 = []
         self.arrete_j1 = False
         self.arrete_j2 = False
-        self.force_j1 = False
-        self.force_j2 = False
         self.tour_pioche = "j1"
         self.phase = "pioche"
         self.evenements_pioche = []
@@ -232,8 +226,6 @@ class Partie:
                     raise ErreurPartie("Le tas de Cartes Puissance est epuise")
                 carte = self.deck_cartes.pop()
                 self._cartes(slot).append(carte)
-            if self._malus_effectif(slot) >= combattant.template.malus_limite:
-                self._forcer_arret(slot)
         elif action == "arreter":
             self._marquer_arrete(slot)
         else:
@@ -253,13 +245,6 @@ class Partie:
             self.arrete_j1 = True
         else:
             self.arrete_j2 = True
-
-    def _forcer_arret(self, slot):
-        self._marquer_arrete(slot)
-        if slot == "j1":
-            self.force_j1 = True
-        else:
-            self.force_j2 = True
 
     # ------------------------------------------------------------ actions
     def soumettre_combattant(self, combattant_id):
@@ -329,23 +314,30 @@ class Partie:
         self.combattant_j2.utilise = True
         resultat["log"] = self.evenements_pioche + resultat["log"]
         resultat["duel_numero"] = self.duel_numero
-        resultat["combattant_j1"] = self._info_combattant_resultat(cartes_j1, joueur_humain_est_j1, self.combattant_j1)
-        resultat["combattant_j2"] = self._info_combattant_resultat(cartes_j2, not joueur_humain_est_j1, self.combattant_j2)
+        gagnants_ids = resultat["gagnants_ids"]
+        resultat["combattant_j1"] = self._info_combattant_resultat(
+            cartes_j1, cartes_j2, self.combattant_j1.template.id in gagnants_ids, joueur_humain_est_j1, self.combattant_j1
+        )
+        resultat["combattant_j2"] = self._info_combattant_resultat(
+            cartes_j2, cartes_j1, self.combattant_j2.template.id in gagnants_ids, not joueur_humain_est_j1, self.combattant_j2
+        )
         self.dernier_resultat = resultat
         self.historique.append(resultat)
         self.phase = "duel_resolu"
 
         self._verifier_fin_partie(fin_de_manche=(self.duel_numero >= NB_DUELS_MAX))
 
-    def _info_combattant_resultat(self, cartes, est_humain, combattant):
-        malus_total = sum(c.malus for c in cartes)
-        busted = malus_total >= combattant.template.malus_limite
+    def _info_combattant_resultat(self, cartes, cartes_adverse, est_gagnant, est_humain, combattant):
+        """`vie_perdue` reflete le nouveau cout du Malus (cf. powers.py) : le vainqueur du
+        duel perd une Vie egale au Malus total des cartes piochees par son adversaire, le
+        perdant n'en perd aucune. Attachee ici au cote du vainqueur (pas a celui dont les
+        cartes en sont la cause) pour que l'affichage montre la perte a celui qui l'a
+        reellement subie."""
         return {
             "role": "humain" if est_humain else "ia",
             "cartes": [c.to_dict() for c in cartes],
-            "puissance_cartes": 0 if busted else sum(c.puissance for c in cartes),
-            "malus_total": malus_total,
-            "busted": busted,
+            "puissance_cartes": sum(c.puissance for c in cartes),
+            "vie_perdue": sum(c.malus for c in cartes_adverse) if est_gagnant else 0,
         }
 
     def duel_suivant(self):
@@ -371,8 +363,6 @@ class Partie:
         self.cartes_j2 = []
         self.arrete_j1 = False
         self.arrete_j2 = False
-        self.force_j1 = False
-        self.force_j2 = False
         self.tour_pioche = None
         self.dernier_resultat = None
         self.phase = "choix_combattant"
@@ -407,10 +397,7 @@ class Partie:
         est_humain = (self.j1 if slot == "j1" else self.j2) is self.joueur_humain
         cartes = self._cartes(slot)
         arrete = self._est_arrete(slot)
-        combattant = self.combattant_j1 if slot == "j1" else self.combattant_j2
-        malus_limite = combattant.template.malus_limite if combattant is not None else 3
         if est_humain:
-            malus_total = self._malus_effectif(slot)
             masque_premiere = self.masque_premiere_carte.get(slot)
             cartes_dict = [
                 {"id": c.id, "cachee": True} if i == 0 and masque_premiere else c.to_dict()
@@ -418,9 +405,11 @@ class Partie:
             ]
             return {
                 "cartes": cartes_dict,
-                "puissance_cartes": 0 if malus_total >= malus_limite else sum(c.puissance for c in cartes),
-                "malus_total": malus_total,
-                "malus_limite": malus_limite,
+                "puissance_cartes": sum(c.puissance for c in cartes),
+                # Malus accumule par ce cote : ne coute plus de Vie a ce cote lui-meme,
+                # mais coutera cette Vie a l'adversaire si celui-ci remporte le duel (cf.
+                # nouveau cout du Malus dans powers.py).
+                "malus_si_adversaire_gagne": self._malus_effectif(slot),
                 "nb_cartes": len(cartes),
                 "arrete": arrete,
             }

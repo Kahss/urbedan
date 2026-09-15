@@ -39,8 +39,8 @@ def jouer_partie_auto(templates_par_id, equipe_a_ids):
         elif partie.phase == "pioche":
             slot_humain = "j1" if partie.j1 is partie.joueur_humain else "j2"
             cartes = partie.cartes_j1 if slot_humain == "j1" else partie.cartes_j2
-            malus = sum(c.malus for c in cartes)
-            action = decider_piocher_ou_arreter(cartes, malus, list(partie.deck_cartes))
+            puissance_deja_gagnee = sum(c.puissance for c in cartes)
+            action = decider_piocher_ou_arreter(list(partie.deck_cartes), puissance_deja_gagnee)
             partie.decider_pioche(action)
         elif partie.phase == "duel_resolu":
             partie.duel_suivant()

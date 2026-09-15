@@ -117,14 +117,24 @@ valides ou tranches avec l'utilisateur avant developpement :
   plus qu'un unique Pouvoir, qui s'applique systematiquement (il n'y a plus d'Energie
   determinant son activation). **Ordre de resolution** : au sein d'un duel, J1 resout
   son Pouvoir avant que J2 ne resolve le sien.
-- **Bust (Malus total >= 3)** : seule la Puissance apportee par les cartes piochees ce
-  duel-ci est annulee ; la Puissance de base du Combattant est conservee. Cette regle ne
-  s'applique qu'a l'addition directe des cartes : un Pouvoir `par_carte*` du Combattant
-  continue de scaler sur le nombre de cartes piochees (qui reste connu), meme apres un
-  bust — ce sont deux mecaniques independantes (l'une additive sur les valeurs des
-  cartes, l'autre sur leur nombre).
-- **Tas de Cartes Puissance remelange a chaque duel** : 20 cartes (3 Destin, 7 Chance, 7
-  Peripetie, 3 Malheur), sans lien entre les duels. Si le tas est epuise en cours de
+- **Pas de bust : Malus = cout en Vie a la revelation** : les joueurs peuvent piocher
+  autant de Cartes Puissance qu'ils le souhaitent (aucun seuil n'annule plus la
+  Puissance accumulee). En contrepartie, une fois les deux joueurs arretes, chaque
+  joueur perd autant de Vie (PV) que la somme des Malus de ses cartes piochees ce
+  duel-ci, calculee apres d'eventuelles transformations de cartes par un Pouvoir
+  immediat (ex. Shifu). La condition `surcharge` (ex. Ludwig, Zorro) reste evaluee sur
+  ce meme seuil (`malus_limite`, 3 par defaut) mais ne bloque plus la pioche.
+- **Jak Horner retire (provisoirement) du roster** : son Pouvoir ("Votre limite de Malus
+  est de 4") n'a plus de sens sans mecanique de bust ; le personnage reste dans le
+  tableur source (`data/Urban Eredan - Cartes - Combattants.csv`) mais plus dans
+  `data/combattants.json`.
+- **Tas de Cartes Puissance remelange a chaque duel — deck "Audacieux"** : 20 cartes (4
+  Destin 2/0, 9 Épreuve 1/1, 6 Péripétie 0/0, 1 Adversité 0/2), sans lien entre les
+  duels. Solde moyen (Puissance - Malus) delibrement positif, +0.30 par carte (contre 0
+  pour le deck d'origine 3/7/7/3), pour inciter a piocher plus longtemps en moyenne. Les
+  noms de carte sont conserves a l'identique (seules les quantites changent), car
+  plusieurs Pouvoirs de Combattant ciblent ces noms precis (Shifu et Neo sur Adversité,
+  Oogway et Po sur Péripétie, Morpheus sur Destin). Si le tas est epuise en cours de
   duel (les deux joueurs ont beaucoup pioche), il n'est plus possible de piocher — seul
   "s'arreter" reste disponible.
 - **Visibilite pendant la pioche** : les cartes de l'adversaire restent cachees jusqu'a
@@ -197,30 +207,44 @@ L'IA (`engine/ia.py`) intervient a deux moments :
   modificateurs `par_carte*` sont estimes avec un nombre moyen de cartes
   (`NB_CARTES_MOYEN_ESTIME`), le nombre reel de cartes qui seront
   piochees n'etant pas encore connu au moment de choisir son Combattant.
-- **Decision de pioche** (`decider_piocher_ou_arreter`) : a chaque tour, calcule
-  l'esperance de gain d'une carte supplementaire a partir de la composition exacte du
-  tas restant (connue, puisque c'est un jeu de cartes fini) : probabilite de "bust"
-  (Malus total qui atteindrait 3) ponderee par la perte de la Puissance des cartes deja
-  accumulee, contre le gain moyen d'une carte qui ne ferait pas bust. Pioche tant que
-  cette esperance est positive, s'arrete sinon.
+- **Decision de pioche** (`decider_piocher_ou_arreter`) : sans notion de bust, chaque
+  carte supplementaire est un gain additif independant des precedentes (Puissance
+  gagnee contre Vie qui sera perdue a la revelation). Une premiere version comparait
+  simplement, sur le tas restant, la Puissance moyenne et le Malus moyen des cartes
+  qui pourraient encore etre piochees ; mais avec un deck ou beaucoup de cartes ont un
+  solde nul (Peripetie 0/0), en retirer une du tas ne change pas la somme tout en
+  reduisant le nombre de cartes restantes — ce qui fait *monter* la moyenne du reste et
+  poussait l'IA a vider quasiment tout le tas des que le solde global du deck etait
+  positif (deck "Audacieux"). La decision pondere donc desormais la Puissance de chaque
+  carte du tas restant par un **rendement decroissant** de la Puissance deja gagnee ce
+  duel-ci (`PLAFOND_PUISSANCE_UTILE`, defaut 4) : gagner un duel ne depend que d'avoir
+  *plus* de Puissance que l'adversaire, donc au-dela d'un certain total deja accumule,
+  de la Puissance supplementaire n'aide plus a grand-chose, alors que le Malus continue
+  de couter integralement en Vie. L'IA pioche tant que ce solde pondere est strictement
+  positif, s'arrete sinon.
 
 Les egalites de score (choix du Combattant) sont tranchees au hasard, pour eviter un jeu
 totalement previsible.
 
 ## Tests effectues
 
+(Historique de la version initiale, avec bust ; voir plus haut pour la mecanique
+actuelle sans bust, ou la Vie est perdue a la revelation plutot que la Puissance
+annulee.)
+
 - Simulation de 200 parties completes en choix aleatoires (Combattant + piocher/
   s'arreter) via le moteur Python (sans crash, `garde_fou` anti-boucle-infinie).
 - Simulation d'une partie complete via l'API HTTP reelle (serveur Flask demarre),
   verifiant le cycle choix Combattant (resolution IA automatique) -> pioche a tour de
-  role (piocher/s'arreter, y compris bust force et epuisement du tas) -> resolution du
+  role (piocher/s'arreter, y compris epuisement du tas) -> resolution du
   duel -> duel suivant -> fin de partie, ainsi que le rejet propre (HTTP 400) d'une
   action invalide ou hors phase.
 - Scenarios cibles verifiant individuellement : bust (Malus >= 3 -> Puissance des cartes
-  annulee, base conservee, Pouvoir `par_carte` toujours applique), egalite de Puissance
-  (double victoire), tas de Cartes Puissance epuise en cours de duel (piocher devient
-  impossible, HTTP 400), plafond `plafond_cartes` sur `par_carte`/`par_carte_adverse`/
-  `par_carte_en_jeu`.
+  annulee, base conservee, Pouvoir `par_carte` toujours applique — comportement de la
+  version initiale, remplace depuis par la perte de Vie a la revelation), egalite de
+  Puissance (double victoire), tas de Cartes Puissance epuise en cours de duel (piocher
+  devient impossible, HTTP 400), plafond `plafond_cartes` sur
+  `par_carte`/`par_carte_adverse`/`par_carte_en_jeu`.
 - `generate_metagame.py` (IA contre IA, avec la meme heuristique de pioche des deux
   cotes) execute sans erreur ; premiere lecture du taux de victoire par Combattant
   montrant les personnages a Pouvoir `par_carte*` (Echo, Riff, Cobra) en tete — signal a
