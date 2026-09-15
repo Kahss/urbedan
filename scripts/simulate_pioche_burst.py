@@ -22,7 +22,8 @@ import sys
 from collections import Counter
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(BASE_DIR, "backend"))
+PROJECT_ROOT = os.path.dirname(BASE_DIR)
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "backend"))
 
 from engine.models import construire_deck_cartes_puissance  # noqa: E402
 

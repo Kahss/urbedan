@@ -15,12 +15,13 @@ import os
 import sys
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(BASE_DIR, "backend"))
+PROJECT_ROOT = os.path.dirname(BASE_DIR)
+sys.path.insert(0, os.path.join(PROJECT_ROOT, "backend"))
 
 from engine.game import NB_DUELS_MAX, Partie, charger_combattants, tirer_equipe_equilibree  # noqa: E402
 from engine.ia import choisir_combattant, decider_piocher_ou_arreter  # noqa: E402
 
-DATA_PATH = os.path.join(BASE_DIR, "data", "combattants.json")
+DATA_PATH = os.path.join(PROJECT_ROOT, "data", "combattants.json")
 
 
 def jouer_choix_humain(partie):

@@ -344,7 +344,7 @@
       "id": "le_chasseur",
       "nom": "Le chasseur",
       "puissance": 3,
-      "degats": 4,
+      "degats": 5,
       "niveau": 3,
       "pouvoir": {
         "description": "+1 Puissance par niveau adverse",
