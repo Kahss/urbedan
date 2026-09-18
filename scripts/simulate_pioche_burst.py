@@ -17,13 +17,9 @@ Usage :
     python simulate_pioche_burst.py -n 10000
 """
 import argparse
-import os
-import sys
 from collections import Counter
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(BASE_DIR)
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "backend"))
+import _bootstrap  # noqa: E402,F401  (ajoute backend/ au sys.path avant l'import ci-dessous)
 
 from engine.models import construire_deck_cartes_puissance  # noqa: E402
 

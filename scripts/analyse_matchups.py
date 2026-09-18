@@ -28,29 +28,23 @@ Usage :
                                 [--sans-graphique] [--sortie-dir out]
 """
 import argparse
-import csv
 import itertools
 import os
 import random
 import statistics
 import sys
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(BASE_DIR)
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "backend"))
+from _bootstrap import BASE_DIR, DATA_PATH, ecrire_csv, progression  # noqa: E402
 
 from engine.game import (  # noqa: E402
     NB_DUELS_MAX,
-    PV_DEPART,
     Partie,
     charger_combattants,
     tirer_equipe_equilibree,
 )
 from engine.ia import choisir_combattant, decider_piocher_ou_arreter  # noqa: E402
 from engine.models import CombattantEnEquipe, Joueur, construire_deck_cartes_puissance  # noqa: E402
-from engine.powers import resoudre_duel  # noqa: E402
-
-DATA_PATH = os.path.join(PROJECT_ROOT, "data", "combattants.json")
+from engine.powers import a_effet, malus_effectif, resoudre_duel  # noqa: E402
 
 N_DUELS_DEFAUT = 2000
 N_PARTIES_DEFAUT = 20000
@@ -58,40 +52,6 @@ PV_MAX_ALEATOIRE = 15  # borne haute arbitraire pour randomiser vengeance/domina
 
 
 # --------------------------------------------------------------- duels isoles
-def _a_effet(template, type_effet):
-    return any(e.get("type") == type_effet for e in template.pouvoir.get("effets", []))
-
-
-def _malus_effectif(cartes, template):
-    """Reproduit Partie._malus_effectif (engine/game.py) pour un Combattant seul :
-    malus total une fois pris en compte son propre Pouvoir quand celui-ci redefinit
-    le Malus de ses propres Cartes Puissance (transforme/annule_type_carte cible
-    'soi'). Necessaire pour decider correctement pioche/arret hors du contexte
-    d'une Partie complete."""
-    malus_list = [c.malus for c in cartes]
-    pouvoir = template.pouvoir
-    if pouvoir.get("condition") is None:
-        noms = [c.nom for c in cartes]
-        for effet in pouvoir.get("effets", []):
-            if effet.get("cible", "soi") != "soi":
-                continue
-            t = effet["type"]
-            if t == "transforme_carte_type":
-                for i, nom in enumerate(noms):
-                    if nom == effet["carte_type"]:
-                        malus_list[i] = effet.get("malus", 0)
-            elif t == "annule_type_carte":
-                for i, nom in enumerate(noms):
-                    if nom == effet["carte_type"]:
-                        malus_list[i] = 0
-            elif t == "annule_premiere_carte_type":
-                for i, nom in enumerate(noms):
-                    if nom == effet["carte_type"]:
-                        malus_list[i] = 0
-                        break
-    return sum(malus_list)
-
-
 def _jouer_pioche_duel(template_j1, template_j2):
     """Rejoue la phase de pioche "stop ou encore" pour un duel isole entre deux
     Combattants (meme logique d'alternance et de pioche forcee que
@@ -108,7 +68,7 @@ def _jouer_pioche_duel(template_j1, template_j2):
         template = templates[tour]
         mes_cartes = cartes[tour]
 
-        if len(mes_cartes) == 0 and _a_effet(template, "double_pioche_premiere") and len(deck) >= 2:
+        if len(mes_cartes) == 0 and a_effet(template, "double_pioche_premiere") and len(deck) >= 2:
             carte_a, carte_b = deck.pop(), deck.pop()
             if (carte_a.puissance, -carte_a.malus) >= (carte_b.puissance, -carte_b.malus):
                 gardee, remise = carte_a, carte_b
@@ -117,8 +77,8 @@ def _jouer_pioche_duel(template_j1, template_j2):
             mes_cartes.append(gardee)
             deck.append(remise)
         elif deck:
-            malus_effectif = _malus_effectif(mes_cartes, template)
-            action = decider_piocher_ou_arreter(mes_cartes, malus_effectif, list(deck), template.malus_limite)
+            malus_courant = malus_effectif(mes_cartes, template)
+            action = decider_piocher_ou_arreter(mes_cartes, malus_courant, list(deck), template.malus_limite)
             if action == "piocher":
                 mes_cartes.append(deck.pop())
             else:
@@ -126,7 +86,7 @@ def _jouer_pioche_duel(template_j1, template_j2):
         else:
             arrete[tour] = True
 
-        if not arrete[tour] and _malus_effectif(mes_cartes, template) >= template.malus_limite:
+        if not arrete[tour] and malus_effectif(mes_cartes, template) >= template.malus_limite:
             arrete[tour] = True
 
         autre = "j2" if tour == "j1" else "j1"
@@ -206,8 +166,7 @@ def calculer_matrice_matchups(templates, ids, n_duels):
         matrice[b][a] = 100 - taux_a
 
         fait += 1
-        if fait % max(1, total_paires // 20) == 0:
-            print(f"... duels isoles : {fait}/{total_paires} paires simulees", file=sys.stderr)
+        progression(fait, total_paires, "duels isoles", divisions=20)
 
     return matrice
 
@@ -243,7 +202,6 @@ def _jouer_partie_ia_vs_ia(templates):
 
 def calculer_taux_victoire_equipe(templates, ids, n_parties):
     stats = {cid: {"parties": 0, "victoires": 0} for cid in ids}
-    palier = max(1, n_parties // 10)
 
     for i in range(n_parties):
         equipe_a, equipe_b, vainqueur = _jouer_partie_ia_vs_ia(templates)
@@ -259,8 +217,7 @@ def calculer_taux_victoire_equipe(templates, ids, n_parties):
                 stats[cid]["victoires"] += 1
             elif vainqueur is None:
                 stats[cid]["victoires"] += 0.5
-        if (i + 1) % palier == 0:
-            print(f"... parties 4v4 : {i + 1}/{n_parties} simulees", file=sys.stderr)
+        progression(i + 1, n_parties, "parties 4v4")
 
     return {
         cid: (100 * s["victoires"] / s["parties"] if s["parties"] else 0.0)
@@ -271,31 +228,25 @@ def calculer_taux_victoire_equipe(templates, ids, n_parties):
 # --------------------------------------------------------------------- rapport
 def ecrire_csv_matrice(chemin, templates, ids, matrice):
     ids_tries = sorted(ids, key=lambda cid: templates[cid].nom)
-    with open(chemin, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow([""] + [templates[cid].nom for cid in ids_tries])
-        for a in ids_tries:
-            ligne = [templates[a].nom]
-            for b in ids_tries:
-                if a == b:
-                    ligne.append("")
-                else:
-                    ligne.append(f"{matrice[a][b]:.1f}")
-            writer.writerow(ligne)
+    header = [""] + [templates[cid].nom for cid in ids_tries]
+    rows = [
+        [templates[a].nom] + ["" if a == b else f"{matrice[a][b]:.1f}" for b in ids_tries]
+        for a in ids_tries
+    ]
+    ecrire_csv(chemin, header, rows)
 
 
 def ecrire_csv_resume(chemin, lignes_resume):
-    with open(chemin, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow([
-            "combattant", "niveau", "moyenne_matchups_pct", "ecart_type_matchups_pct",
-            "meilleur_matchup", "pire_matchup", "taux_victoire_equipe_pct",
-        ])
-        for r in lignes_resume:
-            writer.writerow([
-                r["nom"], r["niveau"], f"{r['moyenne']:.1f}", f"{r['ecart_type']:.1f}",
-                r["meilleur"], r["pire"], f"{r['taux_equipe']:.1f}",
-            ])
+    header = [
+        "combattant", "niveau", "moyenne_matchups_pct", "ecart_type_matchups_pct",
+        "meilleur_matchup", "pire_matchup", "taux_victoire_equipe_pct",
+    ]
+    rows = [
+        [r["nom"], r["niveau"], f"{r['moyenne']:.1f}", f"{r['ecart_type']:.1f}",
+         r["meilleur"], r["pire"], f"{r['taux_equipe']:.1f}"]
+        for r in lignes_resume
+    ]
+    ecrire_csv(chemin, header, rows)
 
 
 SEGMENTS_BORNES = [0, 20, 40, 60, 80, 100]

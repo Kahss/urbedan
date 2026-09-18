@@ -55,7 +55,7 @@ main {
   padding: 16px 20px 60px;
 }
 
-.ecran.cache { display: none; }
+.cache { display: none; }
 
 h2 { text-align: center; }
 .aide { text-align: center; color: var(--text-dim); margin-bottom: 20px; }
@@ -281,15 +281,22 @@ h2 { text-align: center; }
   font-size: 1rem;
 }
 
+/* Fond "panneau" partage par les blocs sticky/encadres du jeu (barre
+   d'action, tableau de bord PV, zone de pioche). */
+.barre-action,
+.tableau-bord,
+.zone-pioche {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
 /* ---------- Barre d'action / selection equipe ---------- */
 .barre-action {
   position: sticky;
   bottom: 0;
   margin-top: 20px;
   padding: 14px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -322,19 +329,25 @@ button:disabled {
   grid-template-columns: 1fr auto 1fr;
   gap: 16px;
   align-items: center;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
   padding: 14px 20px;
   margin-bottom: 20px;
+}
+
+/* Libelle en majuscules discret, repete par plusieurs blocs (PV, pioche,
+   duel) : les regles ci-dessous ne portent plus que leur taille/mise en page. */
+.joueur-info h3,
+.cote-duel h4,
+.pioche-tas-restant,
+.pioche-libelle,
+.carte-duel .libelle-stat {
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-dim);
 }
 
 .joueur-info h3 {
   margin: 0 0 6px;
   font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: var(--text-dim);
 }
 
 .joueur-ia { text-align: right; }
@@ -391,10 +404,7 @@ button:disabled {
 
 .cote-duel h4 {
   text-align: center;
-  color: var(--text-dim);
   font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
 }
 
 .centre-duel {
@@ -415,27 +425,18 @@ button:disabled {
   color: var(--text-dim);
   font-style: italic;
 }
-.message-attente.cache { display: none; }
 
 /* ---------- Pioche Cartes Puissance (stop ou encore) ---------- */
 .zone-pioche {
   width: 100%;
   max-width: 520px;
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
   padding: 16px 20px;
   text-align: center;
 }
 
-.zone-pioche.cache { display: none; }
-
 .pioche-tas-restant {
   margin: 0 0 12px;
   font-size: 0.78rem;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 1px;
 }
 
 .pioche-cote {
@@ -445,9 +446,6 @@ button:disabled {
 .pioche-libelle {
   display: block;
   font-size: 0.78rem;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 1px;
   margin-bottom: 6px;
 }
 
@@ -679,9 +677,6 @@ button.secondaire:hover:not(:disabled) {
   display: block;
   margin-top: 3px;
   font-size: 0.68rem;
-  color: var(--text-dim);
-  text-transform: uppercase;
-  letter-spacing: 1px;
 }
 
 .carte-duel .detail-liste {
@@ -712,7 +707,6 @@ button.secondaire:hover:not(:disabled) {
 
 /* ---------- Journal de resolution ---------- */
 .zone-resultat { width: 100%; max-width: 640px; }
-.zone-resultat.cache { display: none; }
 
 .journal {
   background: #0e0f13;
@@ -728,7 +722,6 @@ button.secondaire:hover:not(:disabled) {
 
 .journal p { margin: 4px 0; }
 .journal p.gain { color: var(--ok); }
-.journal p.perte { color: var(--danger); }
 
 #btn-duel-suivant { display: block; margin: 0 auto; }
 

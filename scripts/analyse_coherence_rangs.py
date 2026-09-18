@@ -29,20 +29,15 @@ Usage :
     python analyse_coherence_rangs.py [--n-parties 2000] [--sortie-dir out]
 """
 import argparse
-import csv
 import os
 import random
 import sys
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(BASE_DIR)
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "backend"))
+from _bootstrap import BASE_DIR, DATA_PATH, ecrire_csv, progression  # noqa: E402
 
 from engine.game import NB_DUELS_MAX, PV_DEPART, Partie, charger_combattants  # noqa: E402
 from engine.ia import choisir_combattant, decider_piocher_ou_arreter  # noqa: E402
 from engine.models import CombattantEnEquipe, Joueur  # noqa: E402
-
-DATA_PATH = os.path.join(PROJECT_ROOT, "data", "combattants.json")
 
 N_PARTIES_DEFAUT = 2000
 
@@ -70,18 +65,7 @@ def construire_partie_libre(templates_par_id, equipe_a_ids, equipe_b_ids):
     partie.duel_numero = 1
     partie.j1 = None
     partie.j2 = None
-    partie.combattant_j1 = None
-    partie.combattant_j2 = None
-    partie.deck_cartes = []
-    partie.cartes_j1 = []
-    partie.cartes_j2 = []
-    partie.arrete_j1 = False
-    partie.arrete_j2 = False
-    partie.force_j1 = False
-    partie.force_j2 = False
-    partie.tour_pioche = None
-    partie.phase = "choix_combattant"
-    partie.dernier_resultat = None
+    partie._reinitialiser_duel()
     partie.historique = []
     partie.masque_premiere_carte = {"j1": False, "j2": False}
     partie.revele_types = {"j1": set(), "j2": set()}
@@ -155,17 +139,16 @@ def tester_personnage(templates, cible_id, n_parties):
 
 
 def ecrire_csv_resume(chemin, lignes_resume):
-    with open(chemin, "w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerow([
-            "combattant", "niveau", "rang_reference", "parties", "victoires",
-            "taux_victoire_equipe_pct", "direction_attendue",
-        ])
-        for r in lignes_resume:
-            writer.writerow([
-                r["nom"], r["niveau"], r["rang_ref"], r["parties"], r["victoires"],
-                f"{r['taux']:.1f}", r["direction_attendue"],
-            ])
+    header = [
+        "combattant", "niveau", "rang_reference", "parties", "victoires",
+        "taux_victoire_equipe_pct", "direction_attendue",
+    ]
+    rows = [
+        [r["nom"], r["niveau"], r["rang_ref"], r["parties"], r["victoires"],
+         f"{r['taux']:.1f}", r["direction_attendue"]]
+        for r in lignes_resume
+    ]
+    ecrire_csv(chemin, header, rows)
 
 
 def main():
@@ -198,7 +181,6 @@ def main():
     print(f"Test de coherence des rangs ({args.n_parties} parties/personnage)", file=sys.stderr)
 
     lignes_resume = []
-    palier = max(1, len(ids) // 10)
     for i, cible_id in enumerate(ids):
         niveau = templates[cible_id].niveau
         rang_ref = RANG_REFERENCE[niveau]
@@ -213,8 +195,7 @@ def main():
             "taux": taux,
             "direction_attendue": DIRECTION_ATTENDUE[niveau],
         })
-        if (i + 1) % palier == 0:
-            print(f"... {i + 1}/{len(ids)} personnages testes", file=sys.stderr)
+        progression(i + 1, len(ids), "personnages testes")
 
     os.makedirs(args.sortie_dir, exist_ok=True)
     chemin_resume = os.path.join(args.sortie_dir, "coherence_rangs_resume.csv")

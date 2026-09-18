@@ -10,7 +10,7 @@
 - Si la somme des malus de ses cartes est supérieure ou égale à trois, il est obligé de passer
 - Un joueur qui passe ne peut plus piocher de nouvelle carte pour la suite du combat
 - Voici les cartes puissances et leurs nombre :
-  - 3 x Destin : 2 Puissance, 0 Malus
+  - 3 x Destin : 2 Puissance, 1 Malus
   - 7 x Chance : 1 Puissance, 1 Malus
   - 7 x Péripétie : 0 Puissance, 0 Malus
-  - 3 x Malheur : 0 Puissance, 2 Malus
+  - 3 x Malheur : 1 Puissance, 2 Malus

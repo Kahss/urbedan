@@ -5,13 +5,28 @@ import random
 # Repartition des Cartes Puissance definie dans versions/stop_ou_encore.md :
 # (nom, puissance, malus, quantite). Tas de 20 cartes, remelange a chaque duel.
 CARTE_PUISSANCE_DISTRIBUTION = [
-    ("Destin", 2, 0, 3),
+    ("Destin", 2, 1, 3),
     ("Épreuve", 1, 1, 7),
     ("Péripétie", 0, 0, 7),
-    ("Adversité", 0, 2, 3),
+    ("Adversité", 1, 2, 3),
 ]
 
 _carte_id_counter = itertools.count(1)
+
+# Valeurs par defaut partagees par powers.py (plafond des modificateurs par_carte*)
+# et ia.py/CombattantTemplate (seuil de surcharge), pour eviter que les deux
+# constantes soient redefinies independamment dans plusieurs modules.
+PLAFOND_CARTES_PAR_DEFAUT = 3
+MALUS_LIMITE_PAR_DEFAUT = 3
+
+
+def resoudre_puissance_cartes(cartes, malus_total, malus_limite):
+    """(busted, puissance) : la Puissance totale des Cartes Puissance piochees est
+    annulee (busted=True) si `malus_total` atteint `malus_limite` (surcharge de
+    Malus, cf. Jak Horner qui releve sa propre limite a 4)."""
+    busted = malus_total >= malus_limite
+    puissance = 0 if busted else sum(c.puissance for c in cartes)
+    return busted, puissance
 
 
 class CartePuissance:
@@ -49,7 +64,7 @@ class CombattantTemplate:
         self.degats = data["degats"]
         self.niveau = data["niveau"]  # 1 a 3, 3 = le plus puissant (somme d'equipe plafonnee)
         self.pouvoir = data["pouvoir"]  # dict unique (description, condition, modificateur, energie_min, effets)
-        self.malus_limite = data.get("malus_limite", 3)  # seuil de Malus total = surcharge (cf. Jak Horner)
+        self.malus_limite = data.get("malus_limite", MALUS_LIMITE_PAR_DEFAUT)  # seuil de surcharge (cf. Jak Horner)
         self.image = data.get("image")
 
     def to_dict(self):

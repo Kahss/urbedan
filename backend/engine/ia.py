@@ -31,8 +31,9 @@ simple, ajustable ulterieurement.
 """
 import random
 
+from .models import MALUS_LIMITE_PAR_DEFAUT, PLAFOND_CARTES_PAR_DEFAUT
+
 NB_CARTES_MOYEN_ESTIME = 2
-PLAFOND_CARTES_PAR_DEFAUT = 3
 
 
 def _condition_certaine(condition, role, pv_soi, pv_adv):
@@ -115,7 +116,7 @@ def choisir_combattant(joueur, role, duel_numero, duels_max, pv_soi, pv_adv):
     return instance
 
 
-def decider_piocher_ou_arreter(cartes_actuelles, malus_actuel, deck_restant, malus_limite=3):
+def decider_piocher_ou_arreter(cartes_actuelles, malus_actuel, deck_restant, malus_limite=MALUS_LIMITE_PAR_DEFAUT):
     """Decide, a partir des cartes deja piochees et de la composition exacte du tas
     restant, s'il faut piocher ("piocher") ou s'arreter ("arreter"). `malus_limite`
     est le seuil de surcharge du Combattant en train de piocher (3 par defaut, cf.

@@ -29,6 +29,9 @@ Hypotheses de resolution retenues pour ce POC (voir README.md) :
 """
 
 
+from .models import PLAFOND_CARTES_PAR_DEFAUT, resoudre_puissance_cartes
+
+
 def _formater_detail(total, detail):
     morceaux = []
     for i, (label, valeur) in enumerate(detail):
@@ -40,9 +43,6 @@ def _formater_detail(total, detail):
     return f"{total} = " + " ".join(morceaux)
 
 
-PLAFOND_CARTES_PAR_DEFAUT = 3
-
-
 class DuelCombattant:
     def __init__(self, joueur, instance, cartes, role, duel_numero, duels_max,
                  victoire_precedente=False, defaite_precedente=False):
@@ -52,8 +52,7 @@ class DuelCombattant:
         self.cartes = cartes
         self.nb_cartes = len(cartes)
         self.malus_total = sum(c.malus for c in cartes)
-        busted = self.malus_total >= self.template.malus_limite
-        puissance_cartes = 0 if busted else sum(c.puissance for c in cartes)
+        _, puissance_cartes = resoudre_puissance_cartes(cartes, self.malus_total, self.template.malus_limite)
         self.role = role  # "J1" ou "J2"
         self.duel_numero = duel_numero
         self.duels_max = duels_max
@@ -78,8 +77,7 @@ class DuelCombattant:
         les effets qui redefinissent la Puissance/le Malus de certaines Cartes Puissance
         piochees (annule_type_carte, annule_premiere_carte_type, transforme_carte_type)."""
         self.malus_total = sum(c.malus for c in self.cartes)
-        busted = self.malus_total >= self.template.malus_limite
-        puissance_cartes = 0 if busted else sum(c.puissance for c in self.cartes)
+        _, puissance_cartes = resoudre_puissance_cartes(self.cartes, self.malus_total, self.template.malus_limite)
         for i, (label, valeur) in enumerate(self.detail_puissance):
             if label == "cartes piochees":
                 delta = puissance_cartes - valeur
@@ -142,6 +140,49 @@ def _verifier_condition(condition, source):
     if condition.startswith("adversaire_niveau_") and condition.rsplit("_", 1)[-1].isdigit():
         return adv.template.niveau == int(condition.rsplit("_", 1)[-1])
     return True
+
+
+def effets_de_type(template, type_effet):
+    return [e for e in template.pouvoir.get("effets", []) if e.get("type") == type_effet]
+
+
+def a_effet(template, type_effet):
+    return bool(effets_de_type(template, type_effet))
+
+
+def malus_effectif(cartes, template):
+    """Malus total de `cartes` une fois applique le Pouvoir (toujours actif) de
+    `template`, quand celui-ci redefinit le Malus de ses propres Cartes Puissance
+    cible "soi" (transforme_carte_type, annule_type_carte, annule_premiere_carte_type
+    - ex. Shifu). Necessaire car ces effets ne sont normalement appliques aux objets
+    Carte qu'a la resolution du duel (cf. `_resoudre_effet`) : sans ce calcul, l'arret
+    automatique a la limite de Malus (et la decision de l'IA) se baserait sur le
+    Malus brut, non celui apres Pouvoir. `template` peut etre None (Combattant pas
+    encore choisi pour ce duel)."""
+    malus_list = [c.malus for c in cartes]
+    if template is None:
+        return sum(malus_list)
+    noms = [c.nom for c in cartes]
+    pouvoir = template.pouvoir
+    if pouvoir.get("condition") is None:
+        for effet in pouvoir.get("effets", []):
+            if effet.get("cible", "soi") != "soi":
+                continue
+            t = effet["type"]
+            if t == "transforme_carte_type":
+                for i, nom in enumerate(noms):
+                    if nom == effet["carte_type"]:
+                        malus_list[i] = effet.get("malus", 0)
+            elif t == "annule_type_carte":
+                for i, nom in enumerate(noms):
+                    if nom == effet["carte_type"]:
+                        malus_list[i] = 0
+            elif t == "annule_premiere_carte_type":
+                for i, nom in enumerate(noms):
+                    if nom == effet["carte_type"]:
+                        malus_list[i] = 0
+                        break
+    return sum(malus_list)
 
 
 def _est_differee(pouvoir):

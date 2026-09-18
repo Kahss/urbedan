@@ -11,17 +11,11 @@ Usage :
     python generate_metagame.py -n 10000
 """
 import argparse
-import os
-import sys
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(BASE_DIR)
-sys.path.insert(0, os.path.join(PROJECT_ROOT, "backend"))
+from _bootstrap import DATA_PATH, progression  # noqa: E402
 
 from engine.game import NB_DUELS_MAX, Partie, charger_combattants, tirer_equipe_equilibree  # noqa: E402
 from engine.ia import choisir_combattant, decider_piocher_ou_arreter  # noqa: E402
-
-DATA_PATH = os.path.join(PROJECT_ROOT, "data", "combattants.json")
 
 
 def jouer_choix_humain(partie):
@@ -47,7 +41,7 @@ def jouer_pioche_humain(partie):
     if partie.tour_pioche != role or partie._est_arrete(role):
         return
     action = decider_piocher_ou_arreter(
-        partie._cartes(role), partie._malus(role), list(partie.deck_cartes)
+        partie._cartes(role), partie._malus_effectif(role), list(partie.deck_cartes)
     )
     partie.decider_pioche(action)
 
@@ -86,7 +80,6 @@ def main():
 
     stats = {cid: {"parties": 0, "victoires": 0} for cid in tous_les_ids}
 
-    palier = max(1, args.nombre_parties // 10)
     for i in range(args.nombre_parties):
         equipe_a, equipe_b, vainqueur = jouer_partie(templates, tous_les_ids)
         for cid in equipe_a:
@@ -101,8 +94,7 @@ def main():
                 stats[cid]["victoires"] += 1
             elif vainqueur is None:
                 stats[cid]["victoires"] += 0.5
-        if (i + 1) % palier == 0:
-            print(f"... {i + 1}/{args.nombre_parties} parties simulees", file=sys.stderr)
+        progression(i + 1, args.nombre_parties, "parties simulees")
 
     lignes = []
     for cid in tous_les_ids:

@@ -6,6 +6,30 @@ const ecranSelection = document.getElementById("ecran-selection");
 const ecranPartie = document.getElementById("ecran-partie");
 const ecranFin = document.getElementById("ecran-fin");
 
+const elPvHumainTexte = document.getElementById("pv-humain-texte");
+const elPvIaTexte = document.getElementById("pv-ia-texte");
+const elPvHumainRonds = document.getElementById("pv-humain-ronds");
+const elPvIaRonds = document.getElementById("pv-ia-ronds");
+const elDuelNumeroTexte = document.getElementById("duel-numero-texte");
+
+const elEquipeHumain = document.getElementById("equipe-humain");
+const elEquipeIa = document.getElementById("equipe-ia");
+
+const elZonePioche = document.getElementById("zone-pioche");
+const elZoneResultat = document.getElementById("zone-resultat");
+const elMessageAttente = document.getElementById("message-attente");
+const elCombattantsEnDuel = document.getElementById("combattants-en-duel");
+const elJournalResolution = document.getElementById("journal-resolution");
+const elBtnDuelSuivant = document.getElementById("btn-duel-suivant");
+
+const elPiocheTasRestant = document.getElementById("pioche-tas-restant");
+const elMesCartesPiochees = document.getElementById("mes-cartes-piochees");
+const elMesTotauxPioche = document.getElementById("mes-totaux-pioche");
+const elIaCartesPiochees = document.getElementById("ia-cartes-piochees");
+const elStatutPiocheIa = document.getElementById("statut-pioche-ia");
+const elBtnPiocher = document.getElementById("btn-piocher");
+const elBtnArreter = document.getElementById("btn-arreter");
+
 let combattantsDisponibles = [];
 const equipeSelectionnee = new Set();
 let etatCourant = null;
@@ -206,16 +230,17 @@ async function initSelectionEcran() {
   renderGrilleSelection();
 }
 
-function peutAjouterAuBudget(c) {
-  return equipeSelectionnee.size < 4 && sommeNiveauxSelection() + c.niveau <= NIVEAU_TOTAL_MAX;
+function peutAjouterAuBudget(c, niveauTotal) {
+  return equipeSelectionnee.size < 4 && niveauTotal + c.niveau <= NIVEAU_TOTAL_MAX;
 }
 
 function renderGrilleSelection() {
   const grille = document.getElementById("grille-selection");
   vider(grille);
+  const niveauTotal = sommeNiveauxSelection();
   combattantsDisponibles.forEach((c) => {
     const estSelectionnee = equipeSelectionnee.has(c.id);
-    const estDisponible = estSelectionnee || peutAjouterAuBudget(c);
+    const estDisponible = estSelectionnee || peutAjouterAuBudget(c, niveauTotal);
     const carte = creerCarteCombattant(
       { ...c, utilise: false },
       {
@@ -228,7 +253,6 @@ function renderGrilleSelection() {
     grille.appendChild(carte);
   });
   const compteur = document.getElementById("compteur-selection");
-  const niveauTotal = sommeNiveauxSelection();
   compteur.textContent = `${equipeSelectionnee.size} / 4 selectionnes — Niveau ${niveauTotal} / ${NIVEAU_TOTAL_MAX}`;
   document.getElementById("btn-lancer-partie").disabled =
     equipeSelectionnee.size !== 4 || niveauTotal > NIVEAU_TOTAL_MAX;
@@ -239,7 +263,7 @@ function toggleSelection(id) {
     equipeSelectionnee.delete(id);
   } else {
     const c = combattantsDisponibles.find((c) => c.id === id);
-    if (c && peutAjouterAuBudget(c)) equipeSelectionnee.add(id);
+    if (c && peutAjouterAuBudget(c, sommeNiveauxSelection())) equipeSelectionnee.add(id);
   }
   renderGrilleSelection();
 }
@@ -325,49 +349,54 @@ function pvRonds(pv) {
 function renderTableauBord(etat) {
   const pvH = etat.joueur_humain.pv;
   const pvI = etat.joueur_ia.pv;
-  document.getElementById("pv-humain-texte").textContent = `${pvH} PV`;
-  document.getElementById("pv-ia-texte").textContent = `${pvI} PV`;
-  document.getElementById("pv-humain-ronds").innerHTML = pvRonds(pvH);
-  document.getElementById("pv-ia-ronds").innerHTML = pvRonds(pvI);
-  document.getElementById("duel-numero-texte").textContent = `Duel ${Math.min(etat.duel_numero, etat.duels_max)} / ${etat.duels_max}`;
+  elPvHumainTexte.textContent = `${pvH} PV`;
+  elPvIaTexte.textContent = `${pvI} PV`;
+  elPvHumainRonds.innerHTML = pvRonds(pvH);
+  elPvIaRonds.innerHTML = pvRonds(pvI);
+  elDuelNumeroTexte.textContent = `Duel ${Math.min(etat.duel_numero, etat.duels_max)} / ${etat.duels_max}`;
 }
 
 function humanRole(etat) {
   return etat.j1 === "humain" ? "j1" : "j2";
 }
 
+function renderEquipe(grille, equipe, { peutChoisir = false, role, pvSoi, pvAdv, combattantJ1, combattantJ2 } = {}) {
+  vider(grille);
+  equipe.forEach((c) => {
+    const active = c.id === combattantJ1 || c.id === combattantJ2;
+    const selectionnable = peutChoisir && !c.utilise;
+    grille.appendChild(
+      creerCarteCombattant(c, {
+        selectionnable,
+        active,
+        conditionValidee: conditionEstValidee(c.pouvoir, role, pvSoi, pvAdv),
+        onClick: selectionnable ? () => choisirCombattant(c.id) : null,
+      })
+    );
+  });
+}
+
 function renderEquipes(etat) {
   const peutChoisir = peutChoisirMaintenant(etat);
   const roleHumain = humanRole(etat);
   const roleIa = roleHumain === "j1" ? "j2" : "j1";
+  const { combattant_j1: combattantJ1, combattant_j2: combattantJ2 } = etat;
 
-  const grilleHumain = document.getElementById("equipe-humain");
-  vider(grilleHumain);
-  etat.joueur_humain.equipe.forEach((c) => {
-    const active = c.id === etat.combattant_j1 || c.id === etat.combattant_j2;
-    grilleHumain.appendChild(
-      creerCarteCombattant(c, {
-        selectionnable: peutChoisir && !c.utilise,
-        active,
-        conditionValidee: conditionEstValidee(c.pouvoir, roleHumain, etat.joueur_humain.pv, etat.joueur_ia.pv),
-        onClick:
-          peutChoisir && !c.utilise
-            ? () => choisirCombattant(c.id)
-            : null,
-      })
-    );
+  renderEquipe(elEquipeHumain, etat.joueur_humain.equipe, {
+    peutChoisir,
+    role: roleHumain,
+    pvSoi: etat.joueur_humain.pv,
+    pvAdv: etat.joueur_ia.pv,
+    combattantJ1,
+    combattantJ2,
   });
 
-  const grilleIa = document.getElementById("equipe-ia");
-  vider(grilleIa);
-  etat.joueur_ia.equipe.forEach((c) => {
-    const active = c.id === etat.combattant_j1 || c.id === etat.combattant_j2;
-    grilleIa.appendChild(
-      creerCarteCombattant(c, {
-        active,
-        conditionValidee: conditionEstValidee(c.pouvoir, roleIa, etat.joueur_ia.pv, etat.joueur_humain.pv),
-      })
-    );
+  renderEquipe(elEquipeIa, etat.joueur_ia.equipe, {
+    role: roleIa,
+    pvSoi: etat.joueur_ia.pv,
+    pvAdv: etat.joueur_humain.pv,
+    combattantJ1,
+    combattantJ2,
   });
 }
 
@@ -389,19 +418,14 @@ async function decisionPioche(action) {
   render(etat);
 }
 
-document.getElementById("btn-piocher").addEventListener("click", () => decisionPioche("piocher"));
-document.getElementById("btn-arreter").addEventListener("click", () => decisionPioche("arreter"));
+elBtnPiocher.addEventListener("click", () => decisionPioche("piocher"));
+elBtnArreter.addEventListener("click", () => decisionPioche("arreter"));
 
 function renderZoneCentrale(etat) {
-  const zonePioche = document.getElementById("zone-pioche");
-  const zoneResultat = document.getElementById("zone-resultat");
-  const messageAttente = document.getElementById("message-attente");
-  const conteneurDuel = document.getElementById("combattants-en-duel");
-
-  zonePioche.classList.add("cache");
-  zoneResultat.classList.add("cache");
-  messageAttente.classList.add("cache");
-  vider(conteneurDuel);
+  elZonePioche.classList.add("cache");
+  elZoneResultat.classList.add("cache");
+  elMessageAttente.classList.add("cache");
+  vider(elCombattantsEnDuel);
 
   const humainSlot = humanRole(etat);
   const iaSlot = humainSlot === "j1" ? "j2" : "j1";
@@ -419,7 +443,7 @@ function renderZoneCentrale(etat) {
       const placeholder = document.createElement("div");
       placeholder.className = "carte-duel";
       placeholder.innerHTML = `<div class="role">${labelRole}</div><h3>En attente...</h3>`;
-      conteneurDuel.appendChild(placeholder);
+      elCombattantsEnDuel.appendChild(placeholder);
       return;
     }
     const data = trouverCombattant(etat, id);
@@ -469,49 +493,46 @@ function renderZoneCentrale(etat) {
         }
       }
     }
-    conteneurDuel.appendChild(carte);
+    elCombattantsEnDuel.appendChild(carte);
   });
 
   if (etat.phase === "choix_combattant") {
-    messageAttente.textContent =
+    elMessageAttente.textContent =
       humainId === null ? "Choisis ton Combattant pour ce duel." : "En attente du choix de l'IA...";
-    messageAttente.classList.remove("cache");
+    elMessageAttente.classList.remove("cache");
   } else if (etat.phase === "pioche") {
-    renderZonePioche(etat, zonePioche, humainSlot, iaSlot);
+    renderZonePioche(etat, humainSlot, iaSlot);
   } else if (etat.phase === "duel_resolu") {
-    zoneResultat.classList.remove("cache");
-    const journal = document.getElementById("journal-resolution");
-    vider(journal);
+    elZoneResultat.classList.remove("cache");
+    vider(elJournalResolution);
     resultat.log.forEach((ligne) => {
       const p = document.createElement("p");
       if (ligne.includes("remporte le duel")) p.className = "gain";
       p.textContent = ligne;
-      journal.appendChild(p);
+      elJournalResolution.appendChild(p);
     });
-    const btn = document.getElementById("btn-duel-suivant");
-    btn.textContent = etat.terminee ? "Voir le resultat final" : "Duel suivant";
-    btn.onclick = etat.terminee ? () => renderFin(etat) : duelSuivant;
+    elBtnDuelSuivant.textContent = etat.terminee ? "Voir le resultat final" : "Duel suivant";
+    elBtnDuelSuivant.onclick = etat.terminee ? () => renderFin(etat) : duelSuivant;
   }
 }
 
-function renderZonePioche(etat, zonePioche, humainSlot, iaSlot) {
-  zonePioche.classList.remove("cache");
+function renderZonePioche(etat, humainSlot, iaSlot) {
+  elZonePioche.classList.remove("cache");
 
   const infoHumain = etat.pioche[humainSlot];
   const infoIa = etat.pioche[iaSlot];
 
-  document.getElementById("pioche-tas-restant").textContent = `Cartes restantes dans le tas : ${etat.pioche.cartes_restantes_deck}`;
+  elPiocheTasRestant.textContent = `Cartes restantes dans le tas : ${etat.pioche.cartes_restantes_deck}`;
 
-  const mesCartes = document.getElementById("mes-cartes-piochees");
-  vider(mesCartes);
+  vider(elMesCartesPiochees);
   if (infoHumain.cartes.length === 0) {
-    mesCartes.textContent = "Aucune carte piochee pour l'instant.";
+    elMesCartesPiochees.textContent = "Aucune carte piochee pour l'instant.";
   } else {
     infoHumain.cartes.forEach((c) =>
-      mesCartes.appendChild(c.cachee ? creerCartePuissanceDos() : creerCartePuissance(c))
+      elMesCartesPiochees.appendChild(c.cachee ? creerCartePuissanceDos() : creerCartePuissance(c))
     );
   }
-  document.getElementById("mes-totaux-pioche").textContent =
+  elMesTotauxPioche.textContent =
     `Puissance des cartes : +${infoHumain.puissance_cartes} — Malus total : ${infoHumain.malus_total} / ${infoHumain.malus_limite}` +
     (infoHumain.malus_total >= infoHumain.malus_limite ? " (BUST, puissance des cartes annulee)" : "");
 
@@ -519,24 +540,23 @@ function renderZonePioche(etat, zonePioche, humainSlot, iaSlot) {
   // n'est pas resolu, sauf celles explicitement revelees par un Pouvoir (cf.
   // Oogway/Seigneur skaven) : leur nombre est visible sous forme de dos de
   // cartes, les cartes revelees s'affichent face visible parmi ces dos.
-  const iaCartes = document.getElementById("ia-cartes-piochees");
-  vider(iaCartes);
+  vider(elIaCartesPiochees);
   const cartesRevelees = infoIa.cartes_revelees || [];
   const premiereRevelee = infoIa.premiere_carte_revelee || null;
   if (infoIa.nb_cartes === 0) {
-    iaCartes.textContent = "Aucune carte piochee pour l'instant.";
+    elIaCartesPiochees.textContent = "Aucune carte piochee pour l'instant.";
   } else {
-    if (premiereRevelee) iaCartes.appendChild(creerCartePuissance(premiereRevelee));
-    cartesRevelees.forEach((c) => iaCartes.appendChild(creerCartePuissance(c)));
+    if (premiereRevelee) elIaCartesPiochees.appendChild(creerCartePuissance(premiereRevelee));
+    cartesRevelees.forEach((c) => elIaCartesPiochees.appendChild(creerCartePuissance(c)));
     const nbDos = infoIa.nb_cartes - cartesRevelees.length - (premiereRevelee ? 1 : 0);
-    for (let i = 0; i < nbDos; i++) iaCartes.appendChild(creerCartePuissanceDos());
+    for (let i = 0; i < nbDos; i++) elIaCartesPiochees.appendChild(creerCartePuissanceDos());
   }
-  document.getElementById("statut-pioche-ia").textContent = infoIa.arrete ? "A passe" : "En train de decider...";
+  elStatutPiocheIa.textContent = infoIa.arrete ? "A passe" : "En train de decider...";
 
   const monTour = etat.pioche.tour === humainSlot;
   const jePeuxAgir = monTour && !infoHumain.arrete;
-  document.getElementById("btn-piocher").disabled = !jePeuxAgir || etat.pioche.cartes_restantes_deck === 0;
-  document.getElementById("btn-arreter").disabled = !jePeuxAgir;
+  elBtnPiocher.disabled = !jePeuxAgir || etat.pioche.cartes_restantes_deck === 0;
+  elBtnArreter.disabled = !jePeuxAgir;
 }
 
 async function duelSuivant() {

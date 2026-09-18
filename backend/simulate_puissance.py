@@ -10,7 +10,6 @@ Usage : python3 simulate_puissance.py [nb_parties]  (depuis le dossier backend/)
 """
 import os
 import sys
-from collections import defaultdict
 
 from engine.game import NB_DUELS_MAX, Partie, charger_combattants, tirer_equipe_equilibree
 from engine.ia import choisir_combattant, decider_piocher_ou_arreter
@@ -94,13 +93,12 @@ def generer_rapport(stats, nb_parties):
         lignes.append(f"\n## Rang {niveau}\n")
         lignes.append("| Combattant | Participations | Victoires | Defaites | Nuls | % Victoire |")
         lignes.append("|---|---|---|---|---|---|")
-        combattants_du_rang = [s for s in stats.values() if s["niveau"] == niveau]
-        combattants_du_rang.sort(
-            key=lambda s: (s["victoires"] / s["participations"] if s["participations"] else 0),
-            reverse=True,
-        )
-        for s in combattants_du_rang:
-            pct = 100 * s["victoires"] / s["participations"] if s["participations"] else 0.0
+        combattants_du_rang = [
+            (s, 100 * s["victoires"] / s["participations"] if s["participations"] else 0.0)
+            for s in stats.values() if s["niveau"] == niveau
+        ]
+        combattants_du_rang.sort(key=lambda item: item[1], reverse=True)
+        for s, pct in combattants_du_rang:
             lignes.append(
                 f"| {s['nom']} | {s['participations']} | {s['victoires']} | {s['defaites']} | {s['nuls']} | {pct:.1f}% |"
             )
