@@ -70,7 +70,7 @@
           <div id="actions-pioche" class="actions-pioche">
             <button id="btn-piocher">Piocher une carte</button>
             <button id="btn-arreter" class="secondaire">S'arreter</button>
-            <button id="btn-se-coucher" class="secondaire">Se coucher</button>
+            <button id="btn-se-coucher" class="secondaire danger">Se coucher</button>
           </div>
         </div>
         <div id="zone-resultat" class="zone-resultat cache">
@@ -89,9 +89,22 @@
 
   <!-- Ecran : fin de partie -->
   <section id="ecran-fin" class="ecran cache">
-    <h2 id="titre-fin"></h2>
-    <p id="detail-fin"></p>
-    <button id="btn-nouvelle-partie">Nouvelle partie</button>
+    <div class="panneau-fin">
+      <h2 id="titre-fin"></h2>
+      <div class="fin-recap">
+        <div class="fin-joueur">
+          <h3>Toi</h3>
+          <div id="fin-pv-humain-ronds" class="pv-ronds"></div>
+          <span id="fin-pv-humain-texte" class="pv-texte"></span>
+        </div>
+        <div class="fin-joueur">
+          <h3>IA</h3>
+          <div id="fin-pv-ia-ronds" class="pv-ronds"></div>
+          <span id="fin-pv-ia-texte" class="pv-texte"></span>
+        </div>
+      </div>
+      <button id="btn-nouvelle-partie">Nouvelle partie</button>
+    </div>
   </section>
 
 </main>

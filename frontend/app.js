@@ -154,7 +154,18 @@ function creerCarteCombattant(data, { selectionnable = false, selectionnee = fal
     carte.appendChild(badge);
   }
 
-  if (onClick) carte.addEventListener("click", onClick);
+  if (onClick) {
+    carte.addEventListener("click", onClick);
+    carte.tabIndex = 0;
+    carte.setAttribute("role", "button");
+    carte.setAttribute("aria-label", data.nom);
+    carte.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onClick();
+      }
+    });
+  }
   return carte;
 }
 
@@ -571,12 +582,24 @@ async function duelSuivant() {
 function renderFin(etat) {
   ecranPartie.classList.add("cache");
   ecranFin.classList.remove("cache");
+  ecranFin.classList.remove("victoire", "defaite", "egalite");
+
   const titre = document.getElementById("titre-fin");
-  const detail = document.getElementById("detail-fin");
-  if (etat.vainqueur === "humain") titre.textContent = "Victoire !";
-  else if (etat.vainqueur === "ia") titre.textContent = "Defaite...";
-  else titre.textContent = "Egalite";
-  detail.textContent = `Toi : ${etat.joueur_humain.pv} PV — IA : ${etat.joueur_ia.pv} PV`;
+  if (etat.vainqueur === "humain") {
+    titre.textContent = "Victoire !";
+    ecranFin.classList.add("victoire");
+  } else if (etat.vainqueur === "ia") {
+    titre.textContent = "Defaite...";
+    ecranFin.classList.add("defaite");
+  } else {
+    titre.textContent = "Egalite";
+    ecranFin.classList.add("egalite");
+  }
+
+  document.getElementById("fin-pv-humain-ronds").innerHTML = pvRonds(etat.joueur_humain.pv);
+  document.getElementById("fin-pv-humain-texte").textContent = `${etat.joueur_humain.pv} PV`;
+  document.getElementById("fin-pv-ia-ronds").innerHTML = pvRonds(etat.joueur_ia.pv);
+  document.getElementById("fin-pv-ia-texte").textContent = `${etat.joueur_ia.pv} PV`;
 }
 
 // ------------------------------------------------------------------- start

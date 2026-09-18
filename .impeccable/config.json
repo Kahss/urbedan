@@ -1,0 +1,62 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "organic-clip-path",
+        "value": "*",
+        "files": [
+          "frontend/style.css"
+        ],
+        "createdAt": "2026-09-18T13:31:09.063Z",
+        "reason": "Agent: literal geometric star/diamond/triangle icons for the four Carte Puissance suits (cp-icone), not a photographic silhouette approximation"
+      },
+      {
+        "rule": "repeating-stripes-gradient",
+        "value": "*",
+        "files": [
+          "frontend/style.css"
+        ],
+        "createdAt": "2026-09-18T13:31:09.073Z",
+        "reason": "Agent: deliberate card-back texture (carte-puissance--dos) signaling hidden opponent cards, a standard card-game convention"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "frontend/*.css"
+        ],
+        "createdAt": "2026-09-18T13:31:35.144Z",
+        "reason": "Agent: pre-existing header logo accent glow (URBAN ERE-DAN split-color title), shipped brand mark predating this session; user asked to refine not redesign the identity"
+      },
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "frontend/index.html"
+        ],
+        "createdAt": "2026-09-18T13:31:49.988Z",
+        "reason": "Agent: pre-existing header logo accent glow (URBAN ERE-DAN split-color title), shipped brand mark predating this session; user asked to refine not redesign the identity"
+      },
+      {
+        "rule": "organic-clip-path",
+        "value": "*",
+        "files": [
+          "frontend/index.html"
+        ],
+        "createdAt": "2026-09-18T13:38:43.998Z",
+        "reason": "Agent: literal geometric star/diamond/triangle icons for the four Carte Puissance suits (cp-icone), not a photographic silhouette approximation"
+      },
+      {
+        "rule": "repeating-stripes-gradient",
+        "value": "*",
+        "files": [
+          "frontend/index.html"
+        ],
+        "createdAt": "2026-09-18T13:38:44.005Z",
+        "reason": "Agent: deliberate card-back texture (carte-puissance--dos) signaling hidden opponent cards, a standard card-game convention"
+      }
+    ]
+  }
+}
