@@ -19,21 +19,28 @@ Combattant disponible, en ne comptant que ce qui est certain au moment du choix 
   adverse (inconnu) pour etre estimes utilement : ils ne modifient pas le score.
 
 Decision de pioche (`decider_piocher_ou_arreter`) :
-A chaque tour, l'IA calcule l'esperance de gain d'un tirage supplementaire a partir
-de la composition exacte du tas restant (connue, puisque le tas est un jeu fini de
-Cartes Puissance) :
-- p_bust = proportion des cartes restantes qui feraient passer son malus total a 3
-  ou plus (ce qui annulerait toute la puissance deja accumulee par ses cartes) ;
-- gain_moyen = puissance moyenne des cartes restantes qui ne feraient pas bust ;
-- EV(piocher) = p_bust * (-puissance_cartes_actuelle) + (1 - p_bust) * gain_moyen.
-Elle pioche si cette esperance est strictement positive, s'arrete sinon. Heuristique
-simple, ajustable ulterieurement.
+Version "pioche libre" : piocher n'est plus jamais interrompu par un seuil de Malus,
+mais chaque point de Malus accumule coutera autant de PV a la resolution (sauf si le
+Combattant se couche, ce qui annule l'entierete de ses cartes piochees). A chaque
+tour, l'IA calcule l'esperance d'un tirage supplementaire a partir de la composition
+exacte du tas restant (connue, puisque le tas est un jeu fini de Cartes Puissance) :
+- gain_moyen = Puissance moyenne des cartes restantes ;
+- cout_moyen = Malus moyen (donc perte de PV moyenne) des cartes restantes ;
+- EV(piocher) = gain_moyen - cout_moyen.
+Elle pioche si cette esperance est positive ou nulle (le tas complet de depart est
+exactement equilibre : 16 de Puissance pour 16 de Malus sur 20 cartes, l'esperance y est
+donc nulle - un test en stricte positivite empecherait toute pioche au premier tour de
+chaque duel). Sinon, elle se couche si le
+Malus deja accumule depasse la Puissance deja accumulee (l'annulation vaut mieux que
+la perte de PV a venir) et que l'adversaire ne s'est pas deja couche ; elle s'arrete
+sinon. Heuristique simple, ajustable ulterieurement.
 """
 import random
 
-from .models import MALUS_LIMITE_PAR_DEFAUT, PLAFOND_CARTES_PAR_DEFAUT
+from .models import PLAFOND_CARTES_PAR_DEFAUT
 
 NB_CARTES_MOYEN_ESTIME = 2
+MALUS_MAX_RISQUE_IA = 4  # PV max que l'IA accepte de risquer via le Malus accumule sur un seul duel
 
 
 def _condition_certaine(condition, role, pv_soi, pv_adv):
@@ -116,22 +123,26 @@ def choisir_combattant(joueur, role, duel_numero, duels_max, pv_soi, pv_adv):
     return instance
 
 
-def decider_piocher_ou_arreter(cartes_actuelles, malus_actuel, deck_restant, malus_limite=MALUS_LIMITE_PAR_DEFAUT):
+def decider_piocher_ou_arreter(cartes_actuelles, malus_actuel, deck_restant, peut_se_coucher, pv_actuel=None):
     """Decide, a partir des cartes deja piochees et de la composition exacte du tas
-    restant, s'il faut piocher ("piocher") ou s'arreter ("arreter"). `malus_limite`
-    est le seuil de surcharge du Combattant en train de piocher (3 par defaut, cf.
-    Jak Horner qui le porte a 4)."""
-    if not deck_restant:
-        return "arreter"
+    restant, s'il faut piocher ("piocher"), s'arreter ("arreter") ou se coucher
+    ("se_coucher"). `peut_se_coucher` est False si l'adversaire s'est deja couche
+    (dans ce cas, se coucher n'est plus une option). `pv_actuel` (PV courants du
+    joueur qui pioche) plafonne le Malus qu'il est pret a risquer a
+    MALUS_MAX_RISQUE_IA (jamais plus que pv_actuel - 1, pour ne pas s'exposer a
+    perdre la partie sur ce seul duel) : sans ce plafond, l'esperance nulle du tas
+    complet pousse l'IA a piocher indefiniment jusqu'a se suicider en debut de partie."""
+    plafond_malus = MALUS_MAX_RISQUE_IA
+    if pv_actuel is not None:
+        plafond_malus = min(plafond_malus, pv_actuel - 1)
 
-    puissance_cartes_actuelle = 0 if malus_actuel >= malus_limite else sum(c.puissance for c in cartes_actuelles)
+    if deck_restant and malus_actuel < plafond_malus:
+        gain_moyen = sum(c.puissance for c in deck_restant) / len(deck_restant)
+        cout_moyen = sum(c.malus for c in deck_restant) / len(deck_restant)
+        if gain_moyen - cout_moyen >= 0:
+            return "piocher"
 
-    nb_total = len(deck_restant)
-    nb_bust = sum(1 for c in deck_restant if malus_actuel + c.malus >= malus_limite)
-    p_bust = nb_bust / nb_total
-
-    cartes_sans_bust = [c for c in deck_restant if malus_actuel + c.malus < 3]
-    gain_moyen = (sum(c.puissance for c in cartes_sans_bust) / len(cartes_sans_bust)) if cartes_sans_bust else 0
-
-    esperance_piocher = p_bust * (-puissance_cartes_actuelle) + (1 - p_bust) * gain_moyen
-    return "piocher" if esperance_piocher > 0 else "arreter"
+    puissance_cartes_actuelle = sum(c.puissance for c in cartes_actuelles)
+    if peut_se_coucher and malus_actuel > puissance_cartes_actuelle:
+        return "se_coucher"
+    return "arreter"

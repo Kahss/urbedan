@@ -45,14 +45,15 @@ def _formater_detail(total, detail):
 
 class DuelCombattant:
     def __init__(self, joueur, instance, cartes, role, duel_numero, duels_max,
-                 victoire_precedente=False, defaite_precedente=False):
+                 victoire_precedente=False, defaite_precedente=False, couche=False):
         self.joueur = joueur
         self.instance = instance
         self.template = instance.template
         self.cartes = cartes
-        self.nb_cartes = len(cartes)
-        self.malus_total = sum(c.malus for c in cartes)
-        _, puissance_cartes = resoudre_puissance_cartes(cartes, self.malus_total, self.template.malus_limite)
+        self.couche = couche  # s'est couche : annule l'entierete de ses cartes piochees
+        self.nb_cartes = 0 if couche else len(cartes)
+        self.malus_total = 0 if couche else sum(c.malus for c in cartes)
+        puissance_cartes = resoudre_puissance_cartes(cartes, couche)
         self.role = role  # "J1" ou "J2"
         self.duel_numero = duel_numero
         self.duels_max = duels_max
@@ -75,9 +76,12 @@ class DuelCombattant:
         """Recalcule malus_total/puissance a partir de l'etat courant de `self.cartes`,
         et repercute la difference sur `self.puissance`/`detail_puissance`. Utilise par
         les effets qui redefinissent la Puissance/le Malus de certaines Cartes Puissance
-        piochees (annule_type_carte, annule_premiere_carte_type, transforme_carte_type)."""
+        piochees (annule_type_carte, annule_premiere_carte_type, transforme_carte_type).
+        Ne fait rien si le Combattant s'est couche : ses cartes sont deja neutralisees."""
+        if self.couche:
+            return
         self.malus_total = sum(c.malus for c in self.cartes)
-        _, puissance_cartes = resoudre_puissance_cartes(self.cartes, self.malus_total, self.template.malus_limite)
+        puissance_cartes = resoudre_puissance_cartes(self.cartes, self.couche)
         for i, (label, valeur) in enumerate(self.detail_puissance):
             if label == "cartes piochees":
                 delta = puissance_cartes - valeur
@@ -124,9 +128,9 @@ def _verifier_condition(condition, source):
     if condition == "defaite":
         return not source.gagnant
     if condition == "surcharge":
-        return source.malus_total >= source.template.malus_limite
+        return source.puissance >= 2 * adv.puissance
     if condition == "surcharge_adverse":
-        return adv.malus_total >= adv.template.malus_limite
+        return adv.puissance >= 2 * source.puissance
     if condition == "degats_adverse_3+":
         return adv.template.degats >= 3
     if condition == "plus_cartes_adverse":
@@ -516,14 +520,6 @@ class MoteurDuel:
         for combattant in (self.dc1, self.dc2):
             self._resoudre_pouvoir(combattant, differe=False)
 
-        for combattant in (self.dc1, self.dc2):
-            if combattant.malus_total >= combattant.template.malus_limite:
-                self.log.append(
-                    f"{combattant.template.nom} : Malus total {combattant.malus_total} >= "
-                    f"{combattant.template.malus_limite}, puissance des cartes piochees annulee "
-                    "(puissance de base conservee)"
-                )
-
         if self.dc1.puissance > self.dc2.puissance:
             self.dc1.gagnant = True
         elif self.dc2.puissance > self.dc1.puissance:
@@ -547,6 +543,17 @@ class MoteurDuel:
                     f"{combattant.template.nom} remporte le duel, Degats = "
                     f"{_formater_detail(combattant.degats, combattant.detail_degats)} : "
                     f"inflige {degats} a {adv.joueur.nom} (PV restants : {adv.joueur.pv})"
+                )
+
+        # Perte de PV liee au Malus accumule cette manche (version "pioche libre") :
+        # chaque joueur perd autant de PV que son Malus total, sauf s'il s'est couche
+        # (auquel cas malus_total est deja nul, cf. DuelCombattant.__init__).
+        for combattant in (self.dc1, self.dc2):
+            if combattant.malus_total > 0:
+                combattant.joueur.pv -= combattant.malus_total
+                self.log.append(
+                    f"{combattant.template.nom} perd {combattant.malus_total} PV (Malus des Cartes "
+                    f"Puissance) : PV restants de {combattant.joueur.nom} : {combattant.joueur.pv}"
                 )
 
         return {
@@ -576,10 +583,11 @@ class MoteurDuel:
 
 def resoudre_duel(joueur_j1, combattant_j1, cartes_j1, joueur_j2, combattant_j2, cartes_j2, duel_numero, duels_max=4,
                    victoire_precedente_j1=False, defaite_precedente_j1=False,
-                   victoire_precedente_j2=False, defaite_precedente_j2=False):
+                   victoire_precedente_j2=False, defaite_precedente_j2=False,
+                   couche_j1=False, couche_j2=False):
     dc1 = DuelCombattant(joueur_j1, combattant_j1, cartes_j1, "J1", duel_numero, duels_max,
-                          victoire_precedente_j1, defaite_precedente_j1)
+                          victoire_precedente_j1, defaite_precedente_j1, couche_j1)
     dc2 = DuelCombattant(joueur_j2, combattant_j2, cartes_j2, "J2", duel_numero, duels_max,
-                          victoire_precedente_j2, defaite_precedente_j2)
+                          victoire_precedente_j2, defaite_precedente_j2, couche_j2)
     moteur = MoteurDuel(dc1, dc2)
     return moteur.resoudre()

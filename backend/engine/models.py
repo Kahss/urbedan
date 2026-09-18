@@ -20,13 +20,11 @@ PLAFOND_CARTES_PAR_DEFAUT = 3
 MALUS_LIMITE_PAR_DEFAUT = 3
 
 
-def resoudre_puissance_cartes(cartes, malus_total, malus_limite):
-    """(busted, puissance) : la Puissance totale des Cartes Puissance piochees est
-    annulee (busted=True) si `malus_total` atteint `malus_limite` (surcharge de
-    Malus, cf. Jak Horner qui releve sa propre limite a 4)."""
-    busted = malus_total >= malus_limite
-    puissance = 0 if busted else sum(c.puissance for c in cartes)
-    return busted, puissance
+def resoudre_puissance_cartes(cartes, couche):
+    """Puissance totale des Cartes Puissance piochees, nulle si le joueur s'est
+    couche (`couche=True`) : il annule alors l'entierete de ses cartes piochees, il
+    n'y a donc plus de gain de Puissance a en tirer."""
+    return 0 if couche else sum(c.puissance for c in cartes)
 
 
 class CartePuissance:

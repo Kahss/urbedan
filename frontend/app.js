@@ -29,6 +29,7 @@ const elIaCartesPiochees = document.getElementById("ia-cartes-piochees");
 const elStatutPiocheIa = document.getElementById("statut-pioche-ia");
 const elBtnPiocher = document.getElementById("btn-piocher");
 const elBtnArreter = document.getElementById("btn-arreter");
+const elBtnSeCoucher = document.getElementById("btn-se-coucher");
 
 let combattantsDisponibles = [];
 const equipeSelectionnee = new Set();
@@ -420,6 +421,7 @@ async function decisionPioche(action) {
 
 elBtnPiocher.addEventListener("click", () => decisionPioche("piocher"));
 elBtnArreter.addEventListener("click", () => decisionPioche("arreter"));
+elBtnSeCoucher.addEventListener("click", () => decisionPioche("se_coucher"));
 
 function renderZoneCentrale(etat) {
   elZonePioche.classList.add("cache");
@@ -485,11 +487,11 @@ function renderZoneCentrale(etat) {
         zoneCartes.textContent = "Aucune carte piochee";
       } else {
         infoCote.cartes.forEach((c) => zoneCartes.appendChild(creerCartePuissance(c, { mini: true })));
-        if (infoCote.busted) {
-          const bust = document.createElement("span");
-          bust.className = "badge-bust";
-          bust.textContent = "BUST";
-          zoneCartes.appendChild(bust);
+        if (infoCote.couche) {
+          const couche = document.createElement("span");
+          couche.className = "badge-couche";
+          couche.textContent = "COUCHE";
+          zoneCartes.appendChild(couche);
         }
       }
     }
@@ -532,9 +534,10 @@ function renderZonePioche(etat, humainSlot, iaSlot) {
       elMesCartesPiochees.appendChild(c.cachee ? creerCartePuissanceDos() : creerCartePuissance(c))
     );
   }
-  elMesTotauxPioche.textContent =
-    `Puissance des cartes : +${infoHumain.puissance_cartes} — Malus total : ${infoHumain.malus_total} / ${infoHumain.malus_limite}` +
-    (infoHumain.malus_total >= infoHumain.malus_limite ? " (BUST, puissance des cartes annulee)" : "");
+  elMesTotauxPioche.textContent = infoHumain.couche
+    ? "Vous vous etes couche : cartes annulees, aucun gain de Puissance ni perte de PV."
+    : `Puissance des cartes : +${infoHumain.puissance_cartes} — Malus total : ${infoHumain.malus_total} ` +
+      `(coutera ${infoHumain.malus_total} PV a la resolution, sauf si vous vous couchez)`;
 
   // Les cartes de l'IA restent cachees (contenu inconnu) tant que le duel
   // n'est pas resolu, sauf celles explicitement revelees par un Pouvoir (cf.
@@ -551,12 +554,13 @@ function renderZonePioche(etat, humainSlot, iaSlot) {
     const nbDos = infoIa.nb_cartes - cartesRevelees.length - (premiereRevelee ? 1 : 0);
     for (let i = 0; i < nbDos; i++) elIaCartesPiochees.appendChild(creerCartePuissanceDos());
   }
-  elStatutPiocheIa.textContent = infoIa.arrete ? "A passe" : "En train de decider...";
+  elStatutPiocheIa.textContent = infoIa.couche ? "S'est couche" : infoIa.arrete ? "A passe" : "En train de decider...";
 
   const monTour = etat.pioche.tour === humainSlot;
   const jePeuxAgir = monTour && !infoHumain.arrete;
   elBtnPiocher.disabled = !jePeuxAgir || etat.pioche.cartes_restantes_deck === 0;
   elBtnArreter.disabled = !jePeuxAgir;
+  elBtnSeCoucher.disabled = !jePeuxAgir || infoIa.couche;
 }
 
 async function duelSuivant() {

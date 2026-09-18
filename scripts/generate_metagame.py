@@ -40,8 +40,10 @@ def jouer_pioche_humain(partie):
     role = "j1" if partie.j1 is partie.joueur_humain else "j2"
     if partie.tour_pioche != role or partie._est_arrete(role):
         return
+    adversaire = "j2" if role == "j1" else "j1"
     action = decider_piocher_ou_arreter(
-        partie._cartes(role), partie._malus_effectif(role), list(partie.deck_cartes)
+        partie._cartes(role), partie._malus_effectif(role), list(partie.deck_cartes),
+        not partie._est_couche(adversaire),
     )
     partie.decider_pioche(action)
 

@@ -37,9 +37,12 @@ def jouer_partie_auto(templates_par_id, equipe_a_ids):
             partie.soumettre_combattant(instance.template.id)
         elif partie.phase == "pioche":
             slot_humain = "j1" if partie.j1 is partie.joueur_humain else "j2"
+            slot_adverse = "j2" if slot_humain == "j1" else "j1"
             cartes = partie.cartes_j1 if slot_humain == "j1" else partie.cartes_j2
             malus = sum(c.malus for c in cartes)
-            action = decider_piocher_ou_arreter(cartes, malus, list(partie.deck_cartes))
+            action = decider_piocher_ou_arreter(
+                cartes, malus, list(partie.deck_cartes), not partie._est_couche(slot_adverse)
+            )
             partie.decider_pioche(action)
         elif partie.phase == "duel_resolu":
             partie.duel_suivant()

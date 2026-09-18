@@ -637,7 +637,7 @@ button.secondaire:hover:not(:disabled) {
   color: var(--text-dim);
 }
 
-.badge-bust {
+.badge-couche {
   background: var(--danger);
   color: #fff;
   font-size: 0.62rem;

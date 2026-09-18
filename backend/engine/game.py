@@ -94,8 +94,8 @@ class Partie:
         self.cartes_j2 = []
         self.arrete_j1 = False
         self.arrete_j2 = False
-        self.force_j1 = False
-        self.force_j2 = False
+        self.couche_j1 = False
+        self.couche_j2 = False
         self.tour_pioche = None
         self.dernier_resultat = None
         self.phase = "choix_combattant"
@@ -121,10 +121,10 @@ class Partie:
             joueur_du_tour = self.j1 if self.tour_pioche == "j1" else self.j2
             if not joueur_du_tour.est_ia:
                 return
-            combattant = self.combattant_j1 if self.tour_pioche == "j1" else self.combattant_j2
+            autre = "j2" if self.tour_pioche == "j1" else "j1"
             action = decider_piocher_ou_arreter(
                 self._cartes(self.tour_pioche), self._malus_effectif(self.tour_pioche), list(self.deck_cartes),
-                combattant.template.malus_limite,
+                not self._est_couche(autre), joueur_du_tour.pv,
             )
             self._appliquer_decision_pioche(self.tour_pioche, action)
 
@@ -142,14 +142,17 @@ class Partie:
     def _est_arrete(self, slot):
         return self.arrete_j1 if slot == "j1" else self.arrete_j2
 
+    def _est_couche(self, slot):
+        return self.couche_j1 if slot == "j1" else self.couche_j2
+
     def _demarrer_pioche(self):
         self.deck_cartes = construire_deck_cartes_puissance()
         self.cartes_j1 = []
         self.cartes_j2 = []
         self.arrete_j1 = False
         self.arrete_j2 = False
-        self.force_j1 = False
-        self.force_j2 = False
+        self.couche_j1 = False
+        self.couche_j2 = False
         self.tour_pioche = "j1"
         self.phase = "pioche"
         self.evenements_pioche = []
@@ -208,9 +211,13 @@ class Partie:
                     raise ErreurPartie("Le tas de Cartes Puissance est epuise")
                 carte = self.deck_cartes.pop()
                 self._cartes(slot).append(carte)
-            if self._malus_effectif(slot) >= combattant.template.malus_limite:
-                self._forcer_arret(slot)
         elif action == "arreter":
+            self._marquer_arrete(slot)
+        elif action == "se_coucher":
+            autre = "j2" if slot == "j1" else "j1"
+            if self._est_couche(autre):
+                raise ErreurPartie("L'adversaire s'est deja couche, vous ne pouvez plus vous coucher")
+            self._marquer_couche(slot)
             self._marquer_arrete(slot)
         else:
             raise ErreurPartie("Action de pioche inconnue")
@@ -230,12 +237,11 @@ class Partie:
         else:
             self.arrete_j2 = True
 
-    def _forcer_arret(self, slot):
-        self._marquer_arrete(slot)
+    def _marquer_couche(self, slot):
         if slot == "j1":
-            self.force_j1 = True
+            self.couche_j1 = True
         else:
-            self.force_j2 = True
+            self.couche_j2 = True
 
     # ------------------------------------------------------------ actions
     def soumettre_combattant(self, combattant_id):
@@ -300,28 +306,33 @@ class Partie:
             self.j2, self.combattant_j2, cartes_j2,
             self.duel_numero, NB_DUELS_MAX,
             victoire_prec_j1, defaite_prec_j1, victoire_prec_j2, defaite_prec_j2,
+            self.couche_j1, self.couche_j2,
         )
         self.combattant_j1.utilise = True
         self.combattant_j2.utilise = True
         resultat["log"] = self.evenements_pioche + resultat["log"]
         resultat["duel_numero"] = self.duel_numero
-        resultat["combattant_j1"] = self._info_combattant_resultat(cartes_j1, joueur_humain_est_j1, self.combattant_j1)
-        resultat["combattant_j2"] = self._info_combattant_resultat(cartes_j2, not joueur_humain_est_j1, self.combattant_j2)
+        resultat["combattant_j1"] = self._info_combattant_resultat(
+            cartes_j1, joueur_humain_est_j1, self.couche_j1
+        )
+        resultat["combattant_j2"] = self._info_combattant_resultat(
+            cartes_j2, not joueur_humain_est_j1, self.couche_j2
+        )
         self.dernier_resultat = resultat
         self.historique.append(resultat)
         self.phase = "duel_resolu"
 
         self._verifier_fin_partie(fin_de_manche=(self.duel_numero >= NB_DUELS_MAX))
 
-    def _info_combattant_resultat(self, cartes, est_humain, combattant):
+    def _info_combattant_resultat(self, cartes, est_humain, couche):
         malus_total = sum(c.malus for c in cartes)
-        busted, puissance_cartes = resoudre_puissance_cartes(cartes, malus_total, combattant.template.malus_limite)
+        puissance_cartes = resoudre_puissance_cartes(cartes, couche)
         return {
             "role": "humain" if est_humain else "ia",
             "cartes": [c.to_dict() for c in cartes],
             "puissance_cartes": puissance_cartes,
             "malus_total": malus_total,
-            "busted": busted,
+            "couche": couche,
         }
 
     def duel_suivant(self):
@@ -372,11 +383,12 @@ class Partie:
         est_humain = (self.j1 if slot == "j1" else self.j2) is self.joueur_humain
         cartes = self._cartes(slot)
         arrete = self._est_arrete(slot)
+        couche = self._est_couche(slot)
         combattant = self.combattant_j1 if slot == "j1" else self.combattant_j2
         malus_limite = combattant.template.malus_limite if combattant is not None else MALUS_LIMITE_PAR_DEFAUT
         if est_humain:
-            malus_total = self._malus_effectif(slot)
-            _, puissance_cartes = resoudre_puissance_cartes(cartes, malus_total, malus_limite)
+            malus_total = 0 if couche else self._malus_effectif(slot)
+            puissance_cartes = resoudre_puissance_cartes(cartes, couche)
             masque_premiere = self.masque_premiere_carte.get(slot)
             cartes_dict = [
                 {"id": c.id, "cachee": True} if i == 0 and masque_premiere else c.to_dict()
@@ -389,6 +401,7 @@ class Partie:
                 "malus_limite": malus_limite,
                 "nb_cartes": len(cartes),
                 "arrete": arrete,
+                "couche": couche,
             }
         premiere_carte_revelee = None
         if self.revele_premiere.get(slot) and cartes:
@@ -400,6 +413,7 @@ class Partie:
         return {
             "nb_cartes": nb_cartes,
             "arrete": arrete,
+            "couche": couche,
             "premiere_carte_revelee": premiere_carte_revelee,
             "cartes_revelees": cartes_revelees,
         }

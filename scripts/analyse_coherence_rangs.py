@@ -97,8 +97,12 @@ def jouer_partie_libre(partie):
                 jouer_choix("j2", partie.joueur_humain, partie.joueur_ia)
         elif partie.phase == "pioche":
             slot = "j1" if partie.j1 is partie.joueur_humain else "j2"
+            adversaire = "j2" if slot == "j1" else "j1"
             cartes = partie.cartes_j1 if slot == "j1" else partie.cartes_j2
-            action = decider_piocher_ou_arreter(cartes, sum(c.malus for c in cartes), list(partie.deck_cartes))
+            action = decider_piocher_ou_arreter(
+                cartes, sum(c.malus for c in cartes), list(partie.deck_cartes),
+                not partie._est_couche(adversaire),
+            )
             partie.decider_pioche(action)
         elif partie.phase == "duel_resolu":
             partie.duel_suivant()
